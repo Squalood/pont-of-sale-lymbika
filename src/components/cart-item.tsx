@@ -2,7 +2,7 @@
 
 import { CartItem as CartItemType } from "@/types/product";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, ShieldCheck, Trash2 } from "lucide-react";
 
 interface CartItemProps {
   item: CartItemType;
@@ -47,9 +47,17 @@ export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: Car
         </Button>
       </div>
 
+      {/* Prescription warning */}
+      {product.conReceta && (
+        <div className="mt-1 flex items-center gap-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+          <span>Requiere receta médica</span>
+        </div>
+      )}
+
       {/* Bottom row: price + quantity controls + total */}
       <div className="mt-1 flex items-center justify-between pl-12">
-        <span className="text-xs text-muted-foreground">
+        <span className={`text-xs ${isMember ? "text-emerald-400" : "text-muted-foreground"}`}>
           ${price.toFixed(2)}
         </span>
 
@@ -75,7 +83,7 @@ export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: Car
           </Button>
         </div>
 
-        <span className="text-sm font-semibold">
+        <span className={`text-sm font-semibold ${isMember ? "text-emerald-400" : ""}`}>
           ${(price * quantity).toFixed(2)}
         </span>
       </div>

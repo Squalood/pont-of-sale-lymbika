@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { SearchBar } from "@/components/search-bar";
 import { Navbar } from "@/components/navbar";
 import { CategoryFilter } from "@/components/category-filter";
@@ -96,7 +96,7 @@ export default function Home() {
           <div className="flex-1 overflow-y-auto">
             {loadingProducts ? (
               <div className="flex h-full items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Spinner className="size-8 text-primary" />
               </div>
             ) : errorProducts ? (
               <div className="flex h-full items-center justify-center text-destructive">

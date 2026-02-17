@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { useGetVentas } from "@/api/getVentas";
 import { SalesDashboard } from "@/components/admin/sales-dashboard";
 import { SalesTable } from "@/components/admin/sales-table";
@@ -14,7 +14,7 @@ export default function VentasPage() {
 
       {loading ? (
         <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Spinner className="size-8 text-primary" />
         </div>
       ) : error ? (
         <div className="flex h-64 items-center justify-center text-destructive">
