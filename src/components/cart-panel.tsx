@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { printReceipt } from "@/lib/print-receipt";
 import { postVenta } from "@/api/postVenta";
 
-interface CartSidebarProps {
+interface CartPanelProps {
   items: CartItemType[];
   products: ProductType[];
   onAddProduct: (product: ProductType) => void;
@@ -20,14 +20,14 @@ interface CartSidebarProps {
   onClear: () => void;
 }
 
-export function CartSidebar({
+export function CartPanel({
   items,
   products,
   onAddProduct,
   onUpdateQuantity,
   onRemoveItem,
   onClear,
-}: CartSidebarProps) {
+}: CartPanelProps) {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [isMember, setIsMember] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");

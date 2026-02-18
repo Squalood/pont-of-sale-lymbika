@@ -45,7 +45,7 @@ export function ProductSidebar({
   onSelectCategory,
   onProductClick,
 }: ProductSidebarProps) {
-  const { toggleSidebar, state } = useSidebar();
+  const { toggleSidebar } = useSidebar();
 
   return (
     <Sidebar
@@ -59,47 +59,45 @@ export function ProductSidebar({
         bottom: "auto",
       }}
     >
-      {state === "collapsed" ? (
-        <SidebarContent className="items-center py-4">
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                tooltip="Buscar productos"
-                onClick={toggleSidebar}
-              >
-                <Search className="h-5 w-5" />
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarContent>
-      ) : (
-        <>
-          <SidebarHeader className="gap-3 p-4">
-            <h2 className="text-lg font-semibold">Productos</h2>
-            <SearchBar
-              search={search}
-              onSearchChange={onSearchChange}
-              barcode={barcode}
-              onBarcodeChange={onBarcodeChange}
-            />
-            <CategoryFilter
-              categories={categories}
-              products={products}
-              selected={selectedCategory}
-              onSelect={onSelectCategory}
-            />
-          </SidebarHeader>
+      {/* Icon - only visible when collapsed */}
+      <SidebarContent className="hidden items-center py-4 group-data-[collapsible=icon]:flex">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip="Buscar productos"
+              onClick={toggleSidebar}
+            >
+              <Search className="ml-2" />
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarContent>
 
-          <SidebarContent className="px-4 pb-4">
-            <ProductGrid
-              products={filteredProducts}
-              loading={loading}
-              error={error}
-              onProductClick={onProductClick}
-            />
-          </SidebarContent>
-        </>
-      )}
+      {/* Full panel - hidden when collapsed */}
+      <SidebarHeader className="gap-3 p-4 group-data-[collapsible=icon]:hidden">
+        <h2 className="text-lg font-semibold">Productos</h2>
+        <SearchBar
+          search={search}
+          onSearchChange={onSearchChange}
+          barcode={barcode}
+          onBarcodeChange={onBarcodeChange}
+        />
+        <CategoryFilter
+          categories={categories}
+          products={products}
+          selected={selectedCategory}
+          onSelect={onSelectCategory}
+        />
+      </SidebarHeader>
+
+      <SidebarContent className="px-4 pb-4 group-data-[collapsible=icon]:hidden">
+        <ProductGrid
+          products={filteredProducts}
+          loading={loading}
+          error={error}
+          onProductClick={onProductClick}
+        />
+      </SidebarContent>
     </Sidebar>
   );
 }

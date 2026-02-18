@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { ProductSidebar } from "@/components/product-sidebar";
-import { CartSidebar } from "@/components/cart-sidebar";
+import { CartPanel } from "@/components/cart-panel";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { useGetProducts } from "@/api/getProducts";
 import { useGetCategories } from "@/api/getCategories";
@@ -91,7 +91,7 @@ export default function Home() {
           <div className="relative flex h-full overflow-hidden">
             <SidebarTrigger className="absolute left-2 top-2 z-10 rounded-full shadow-md" />
 
-            <CartSidebar
+            <CartPanel
               items={cartItems}
               products={products}
               onAddProduct={addToCart}
