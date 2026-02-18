@@ -1,12 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Spinner } from "@/components/ui/spinner";
-import { SearchBar } from "@/components/search-bar";
-import { Navbar } from "@/components/navbar";
-import { CategoryFilter } from "@/components/category-filter";
-import { ProductCard } from "@/components/product-card";
+import { ProductSidebar } from "@/components/product-sidebar";
 import { CartSidebar } from "@/components/cart-sidebar";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { useGetProducts } from "@/api/getProducts";
 import { useGetCategories } from "@/api/getCategories";
 import { ProductType, CartItem } from "@/types/product";
@@ -69,61 +66,42 @@ export default function Home() {
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      <Navbar />
+    <div className="flex h-full flex-col">
+      <SidebarProvider
+        defaultOpen={true}
+        style={{ "--sidebar-width": "75vw" } as React.CSSProperties}
+        className="min-h-0 flex-1 overflow-hidden"
+      >
+        <ProductSidebar
+          products={products}
+          filteredProducts={filteredProducts}
+          categories={categories}
+          loading={loadingProducts}
+          error={errorProducts}
+          search={search}
+          onSearchChange={setSearch}
+          barcode={barcode}
+          onBarcodeChange={setBarcode}
+          selectedCategory={selectedCategory}
+          onSelectCategory={setSelectedCategory}
+          onProductClick={addToCart}
+        />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Product area */}
-        <main className="flex flex-1 flex-col overflow-hidden bg-gray-50 p-4">
-          <SearchBar
-            search={search}
-            onSearchChange={setSearch}
-            barcode={barcode}
-            onBarcodeChange={setBarcode}
-          />
+        <SidebarInset>
+          <div className="relative flex h-full overflow-hidden">
+            <SidebarTrigger className="absolute left-2 top-2 z-10 rounded-full shadow-md" />
 
-          {/* Category filter */}
-          <div className="mb-4">
-            <CategoryFilter
-              categories={categories}
+            <CartSidebar
+              items={cartItems}
               products={products}
-              selected={selectedCategory}
-              onSelect={setSelectedCategory}
+              onAddProduct={addToCart}
+              onUpdateQuantity={updateQuantity}
+              onRemoveItem={removeItem}
+              onClear={clearCart}
             />
           </div>
-
-          {/* Product grid */}
-          <div className="flex-1 overflow-y-auto">
-            {loadingProducts ? (
-              <div className="flex h-full items-center justify-center">
-                <Spinner className="size-8 text-primary" />
-              </div>
-            ) : errorProducts ? (
-              <div className="flex h-full items-center justify-center text-destructive">
-                <p>{errorProducts}</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onClick={addToCart}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </main>
-
-        {/* Cart sidebar */}
-        <CartSidebar
-          items={cartItems}
-          onUpdateQuantity={updateQuantity}
-          onRemoveItem={removeItem}
-          onClear={clearCart}
-        />
-      </div>
+        </SidebarInset>
+      </SidebarProvider>
     </div>
   );
 }

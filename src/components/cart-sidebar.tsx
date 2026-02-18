@@ -1,18 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { CartItem as CartItemType } from "@/types/product";
+import { CartItem as CartItemType, ProductType } from "@/types/product";
 import { CartItem } from "@/components/cart-item";
 import { CheckoutDialog } from "@/components/checkout-dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ShoppingCart, BadgePercent } from "lucide-react";
+import { ShoppingCart, BadgePercent, ScanBarcode } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { printReceipt } from "@/lib/print-receipt";
 import { postVenta } from "@/api/postVenta";
 
 interface CartSidebarProps {
   items: CartItemType[];
+  products: ProductType[];
+  onAddProduct: (product: ProductType) => void;
   onUpdateQuantity: (productId: number, delta: number) => void;
   onRemoveItem: (productId: number) => void;
   onClear: () => void;
@@ -20,27 +22,42 @@ interface CartSidebarProps {
 
 export function CartSidebar({
   items,
+  products,
+  onAddProduct,
   onUpdateQuantity,
   onRemoveItem,
   onClear,
 }: CartSidebarProps) {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const [barcodeInput, setBarcodeInput] = useState("");
+
+  function handleBarcodeScan(code: string) {
+    const term = code.trim().toLowerCase();
+    const product = products.find(
+      (p) => p.barCode?.trim().toLowerCase() === term,
+    );
+    if (product) {
+      onAddProduct(product);
+      setBarcodeInput("");
+    }
+  }
 
   const getPrice = (item: CartItemType) =>
     isMember ? item.product.priceMember : item.product.price;
 
   const subtotal = items.reduce(
     (sum, item) => sum + getPrice(item) * item.quantity,
-    0
+    0,
   );
   const iva = subtotal * 0.8;
   const total = subtotal;
 
   return (
-    <aside className="flex h-full w-95 shrink-0 flex-col overflow-hidden border-l bg-white">
+    <aside className="flex h-full w-full flex-col overflow-hidden bg-white">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3">
+        <div className="w-9"></div>
         <div className="flex items-center gap-2">
           <ShoppingCart className="h-5 w-5" />
           <span className="font-semibold">Venta Actual</span>
@@ -58,6 +75,25 @@ export function CartSidebar({
             Limpiar
           </button>
         )}
+      </div>
+
+      {/* Barcode scanner input */}
+      <div className="border-b px-4 py-2">
+        <div className="relative">
+          <ScanBarcode className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Escanear código de barras..."
+            value={barcodeInput}
+            onChange={(e) => setBarcodeInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && barcodeInput.trim()) {
+                handleBarcodeScan(barcodeInput.trim());
+              }
+            }}
+            className="h-9 w-full rounded-md border bg-transparent pl-9 pr-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
       </div>
 
       {/* Cart items */}
