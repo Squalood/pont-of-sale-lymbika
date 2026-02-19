@@ -1,5 +1,6 @@
 import { CategoryType } from "@/types/category";
 import { useEffect, useState } from "react";
+import { authFetch } from "@/lib/auth";
 
 export function useGetCategories() {
   const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/categories?populate=*`;
@@ -10,7 +11,7 @@ export function useGetCategories() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(url);
+        const res = await authFetch(url);
         if (!res.ok) {
           throw new Error(`Error ${res.status}: ${res.statusText}`);
         }

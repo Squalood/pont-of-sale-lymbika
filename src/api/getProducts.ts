@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ProductType } from "@/types/product";
+import { authFetch } from "@/lib/auth";
 
 export function useGetProducts() {
   const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/products?populate=*&pagination[page]=1&pagination[pageSize]=5000`;
@@ -10,7 +11,7 @@ export function useGetProducts() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(url);
+        const res = await authFetch(url);
         if (!res.ok) {
           throw new Error(`Error ${res.status}: ${res.statusText}`);
         }

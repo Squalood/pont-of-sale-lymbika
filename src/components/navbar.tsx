@@ -1,10 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { clearAuth } from "@/lib/auth";
 
 export function Navbar() {
+  const router = useRouter();
+
+  function handleLogout() {
+    clearAuth();
+    router.push("/login");
+  }
+
   return (
     <header className="sticky top-0 z-50 flex h-14 items-center justify-between bg-primary px-4 text-primary-foreground">
       <div className="flex items-center gap-3">
@@ -30,6 +39,7 @@ export function Navbar() {
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-white hover:bg-primary-foreground/10"
+            onClick={handleLogout}
           >
             <LogOut className="h-4 w-4" />
           </Button>

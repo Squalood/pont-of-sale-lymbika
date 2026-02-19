@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, Receipt, Package, ArrowLeft, LogOut, Settings } from "lucide-react";
+import { clearAuth } from "@/lib/auth";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -12,6 +13,12 @@ const navItems = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  function handleLogout() {
+    clearAuth();
+    router.push("/login");
+  }
 
   return (
     <aside className="flex h-screen w-56 shrink-0 flex-col border-r bg-white">
@@ -51,7 +58,7 @@ export function AdminSidebar() {
           <ArrowLeft className="h-4 w-4" />
           Volver al POS
         </Link>
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50">
+        <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50">
           <LogOut className="h-4 w-4" />
           Cerrar Sesión
         </button>
