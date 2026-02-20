@@ -77,7 +77,7 @@ export default function LoginPage() {
             <label className="text-sm font-medium">Contraseña</label>
             <Input
               type="password"
-              placeholder="••••••••"
+              placeholder="••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
