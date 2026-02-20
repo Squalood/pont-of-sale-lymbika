@@ -1,9 +1,14 @@
-import { CartItem } from "@/types/product";
+export interface ReceiptItem {
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalLine: number;
+}
 
 interface ReceiptData {
   receiptId: number;
   operador: string;
-  items: CartItem[];
+  items: ReceiptItem[];
   subtotal: number;
   iva: number;
   total: number;
@@ -31,10 +36,10 @@ export function printReceipt(data: ReceiptData) {
     .map(
       (item) => `
       <tr>
-        <td style="text-align:left; padding:2px 0;">${item.product.productName}</td>
+        <td style="text-align:left; padding:2px 0;">${item.productName}</td>
         <td style="text-align:center;">${item.quantity}</td>
-        <td style="text-align:right;">$${item.product.price.toFixed(2)}</td>
-        <td style="text-align:right;">$${(item.product.price * item.quantity).toFixed(2)}</td>
+        <td style="text-align:right;">$${item.unitPrice.toFixed(2)}</td>
+        <td style="text-align:right;">$${item.totalLine.toFixed(2)}</td>
       </tr>`
     )
     .join("");

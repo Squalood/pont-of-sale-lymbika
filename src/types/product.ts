@@ -18,8 +18,8 @@ export type ProductType = {
   productName: string;
   slug: string;
   active: boolean;
-  price: number;
-  priceMember: number;
+  price: number | null;
+  priceMember: number | null;
   tipo: string;
   images: {
     id: number;

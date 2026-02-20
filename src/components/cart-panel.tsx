@@ -45,7 +45,7 @@ export function CartPanel({
   }
 
   const getPrice = (item: CartItemType) =>
-    isMember ? item.product.priceMember : item.product.price;
+    (isMember ? item.product.priceMember : item.product.price) ?? 0;
 
   const total = items.reduce(
     (sum, item) => sum + getPrice(item) * item.quantity,
@@ -188,7 +188,12 @@ export function CartPanel({
           printReceipt({
             receiptId,
             operador,
-            items,
+            items: items.map((item) => ({
+              productName: item.product.productName,
+              quantity: item.quantity,
+              unitPrice: getPrice(item),
+              totalLine: getPrice(item) * item.quantity,
+            })),
             subtotal,
             iva,
             total,
