@@ -13,7 +13,7 @@ interface CartItemProps {
 
 export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: CartItemProps) {
   const { product, quantity } = item;
-  const price = isMember ? product.priceMember : product.price;
+  const price = (isMember ? product.priceMember : product.price) ?? 0;
   const imageUrl = product.images?.[0]?.url;
 
   return (
