@@ -10,6 +10,7 @@ import { ShoppingCart, BadgePercent, ScanBarcode } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { printReceipt } from "@/lib/print-receipt";
 import { postVenta } from "@/api/postVenta";
+import { getUser } from "@/lib/auth";
 
 interface CartPanelProps {
   items: CartItemType[];
@@ -46,12 +47,12 @@ export function CartPanel({
   const getPrice = (item: CartItemType) =>
     isMember ? item.product.priceMember : item.product.price;
 
-  const subtotal = items.reduce(
+  const total = items.reduce(
     (sum, item) => sum + getPrice(item) * item.quantity,
     0,
   );
-  const iva = subtotal * 0.8;
-  const total = subtotal;
+  const subtotal = total / 1.08;
+  const iva = total - subtotal;
 
   return (
     <aside className="flex h-full w-full flex-col overflow-hidden bg-white">
@@ -158,9 +159,11 @@ export function CartPanel({
         total={total}
         onConfirm={async (method, received) => {
           const change = received - total;
+          const operador = getUser()?.username ?? "desconocido";
 
+          let receiptId = 0;
           try {
-            await postVenta({
+            receiptId = await postVenta({
               fecha: new Date().toISOString(),
               subtotal,
               iva,
@@ -169,6 +172,7 @@ export function CartPanel({
               recibido: received,
               cambio: change > 0 ? change : 0,
               estado: "completada",
+              operador,
               venta: items.map((item) => ({
                 product: item.product.id,
                 productName: item.product.productName,
@@ -182,6 +186,8 @@ export function CartPanel({
           }
 
           printReceipt({
+            receiptId,
+            operador,
             items,
             subtotal,
             iva,

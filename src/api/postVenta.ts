@@ -1,7 +1,7 @@
 import { VentaPayload } from "@/types/venta";
 import { authFetch } from "@/lib/auth";
 
-export async function postVenta(venta: VentaPayload): Promise<void> {
+export async function postVenta(venta: VentaPayload): Promise<number> {
   const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ventas-pos`;
 
   const res = await authFetch(url, {
@@ -15,4 +15,7 @@ export async function postVenta(venta: VentaPayload): Promise<void> {
       errorData?.error?.message || `Error al registrar la venta (${res.status})`
     );
   }
+
+  const json = await res.json();
+  return json.data.id as number;
 }

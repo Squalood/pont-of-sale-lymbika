@@ -27,12 +27,19 @@ export function SaleDetailDialog({ venta, open, onClose }: SaleDetailDialogProps
   if (!venta) return null;
 
   const fecha = new Date(venta.fecha);
+  const subtotal = venta.total / 1.08;
+  const iva = venta.total - subtotal;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Detalle de venta</DialogTitle>
+          <DialogTitle>
+            Detalle de venta{" "}
+            <span className="text-muted-foreground font-normal">
+              #{String(venta.id).padStart(5, "0")}
+            </span>
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -55,6 +62,10 @@ export function SaleDetailDialog({ venta, open, onClose }: SaleDetailDialogProps
                   {venta.estado}
                 </Badge>
               </p>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Operador</span>
+              <p className="font-medium">{venta.operador ?? "—"}</p>
             </div>
             {venta.metodoPago === "efectivo" && (
               <>
@@ -96,11 +107,11 @@ export function SaleDetailDialog({ venta, open, onClose }: SaleDetailDialogProps
           <div className="space-y-1 border-t pt-3 text-sm">
             <div className="flex justify-between text-muted-foreground">
               <span>Subtotal</span>
-              <span>${venta.subtotal.toFixed(2)}</span>
+              <span>${subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-muted-foreground">
-              <span>IVA</span>
-              <span>${venta.iva.toFixed(2)}</span>
+              <span>IVA (8%)</span>
+              <span>${iva.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-base font-bold">
               <span>Total</span>

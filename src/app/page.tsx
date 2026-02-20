@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { useGetProducts } from "@/api/getProducts";
 import { useGetCategories } from "@/api/getCategories";
 import { ProductType, CartItem } from "@/types/product";
+import { Unauthorized } from "@/components/unauthorized";
 
 export default function Home() {
   const { result: products, loading: loadingProducts, error: errorProducts } = useGetProducts();
@@ -63,6 +64,14 @@ export default function Home() {
 
   function clearCart() {
     setCartItems([]);
+  }
+
+  if (errorProducts === "403") {
+    return (
+      <div className="flex h-screen flex-col">
+        <Unauthorized />
+      </div>
+    );
   }
 
   return (

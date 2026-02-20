@@ -68,6 +68,7 @@ export function SalesTable({ ventas }: SalesTableProps) {
               <TableHead>Fecha / Hora</TableHead>
               <TableHead className="text-center"># Items</TableHead>
               <TableHead>Método</TableHead>
+              <TableHead>Operador</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-center">Estado</TableHead>
             </TableRow>
@@ -75,7 +76,7 @@ export function SalesTable({ ventas }: SalesTableProps) {
           <TableBody>
             {filteredVentas.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                   No hay ventas en este período
                 </TableCell>
               </TableRow>
@@ -103,6 +104,9 @@ export function SalesTable({ ventas }: SalesTableProps) {
                       <Badge variant="outline" className="capitalize">
                         {venta.metodoPago}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {venta.operador ?? "—"}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       ${venta.total.toFixed(2)}

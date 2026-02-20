@@ -1,6 +1,8 @@
 import { CartItem } from "@/types/product";
 
 interface ReceiptData {
+  receiptId: number;
+  operador: string;
   items: CartItem[];
   subtotal: number;
   iva: number;
@@ -11,7 +13,7 @@ interface ReceiptData {
 }
 
 export function printReceipt(data: ReceiptData) {
-  const { items, subtotal, iva, total, paymentMethod, received, change } = data;
+  const { receiptId, operador, items, subtotal, iva, total, paymentMethod, received, change } = data;
   const now = new Date();
   const date = now.toLocaleDateString("es-MX", {
     year: "numeric",
@@ -22,6 +24,8 @@ export function printReceipt(data: ReceiptData) {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  const receiptNo = `#${String(receiptId).padStart(5, "0")}`;
 
   const itemsHtml = items
     .map(
@@ -39,7 +43,7 @@ export function printReceipt(data: ReceiptData) {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Recibo</title>
+      <title>Recibo ${receiptNo}</title>
       <style>
         @page {
           margin: 5mm;
@@ -66,6 +70,11 @@ export function printReceipt(data: ReceiptData) {
         }
         .header p {
           font-size: 11px;
+        }
+        .header .receipt-no {
+          font-size: 13px;
+          font-weight: bold;
+          margin-top: 4px;
         }
         .divider {
           border-top: 1px dashed #000;
@@ -118,9 +127,10 @@ export function printReceipt(data: ReceiptData) {
     </head>
     <body>
       <div class="header">
-        <h1>Farmacia POS</h1>
+        <h1>Farmacia Lymbika</h1>
         <p>Punto de Venta</p>
-        <p>${date} - ${time}</p>
+        <p>${date} — ${time}</p>
+        <p class="receipt-no">Recibo ${receiptNo}</p>
       </div>
 
       <div class="divider"></div>
@@ -176,6 +186,10 @@ export function printReceipt(data: ReceiptData) {
         </div>`
             : ""
         }
+        <div class="row" style="margin-top:4px;">
+          <span>Operador</span>
+          <span>${operador}</span>
+        </div>
       </div>
 
       <div class="divider"></div>

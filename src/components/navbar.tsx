@@ -1,13 +1,19 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { clearAuth } from "@/lib/auth";
+import { clearAuth, getUser, AuthUser } from "@/lib/auth";
 
 export function Navbar() {
   const router = useRouter();
+  const [user, setUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    setUser(getUser());
+  }, []);
 
   function handleLogout() {
     clearAuth();
@@ -19,7 +25,12 @@ export function Navbar() {
       <div className="flex items-center gap-3">
         <img src="/logo.svg" alt="Logo" className="h-9 w-9 rounded-full" />
         <div>
-          <h1 className="text-sm font-bold leading-tight">Farmacia POS</h1>
+          <h1 className="text-sm font-bold leading-tight">
+            Farmacia Lymbika
+            {user && (
+              <span className="ml-2 font-normal opacity-70">— operador: {user.username}</span>
+            )}
+          </h1>
           <p className="text-xs text-primary-foreground/70">Punto de Venta</p>
         </div>
       </div>

@@ -36,9 +36,16 @@ export function isAuthenticated(): boolean {
   return !!getToken();
 }
 
-export function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+export class ForbiddenError extends Error {
+  constructor() {
+    super("403");
+    this.name = "ForbiddenError";
+  }
+}
+
+export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const token = getToken();
-  return fetch(url, {
+  const res = await fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -46,4 +53,8 @@ export function authFetch(url: string, options: RequestInit = {}): Promise<Respo
       ...(options.headers ?? {}),
     },
   });
+
+  if (res.status === 403) throw new ForbiddenError();
+
+  return res;
 }
