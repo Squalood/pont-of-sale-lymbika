@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ProductSidebar } from "@/components/product-sidebar";
 import { CartPanel } from "@/components/cart-panel";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -8,10 +8,16 @@ import { useGetProducts } from "@/api/getProducts";
 import { useGetCategories } from "@/api/getCategories";
 import { ProductType, CartItem } from "@/types/product";
 import { Unauthorized } from "@/components/unauthorized";
+import { useForbidden } from "@/lib/forbidden-context";
 
 export default function Home() {
   const { result: products, loading: loadingProducts, error: errorProducts } = useGetProducts();
   const { result: categories } = useGetCategories();
+  const { setForbidden } = useForbidden();
+
+  useEffect(() => {
+    if (errorProducts === "403") setForbidden(true);
+  }, [errorProducts, setForbidden]);
 
   const [search, setSearch] = useState("");
   const [barcode, setBarcode] = useState("");

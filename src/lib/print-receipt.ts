@@ -192,7 +192,7 @@ export function printReceipt(data: ReceiptData) {
             : ""
         }
         <div class="row" style="margin-top:4px;">
-          <span>Operador</span>
+          <span>Cajero</span>
           <span>${operador}</span>
         </div>
       </div>

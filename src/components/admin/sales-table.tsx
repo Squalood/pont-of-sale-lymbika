@@ -4,6 +4,13 @@ import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,6 +30,12 @@ type Period = "hoy" | "semana" | "mes" | "todo";
 export function SalesTable({ ventas }: SalesTableProps) {
   const [period, setPeriod] = useState<Period>("hoy");
   const [selectedVenta, setSelectedVenta] = useState<VentaType | null>(null);
+  const [operadorFilter, setOperadorFilter] = useState<string>("todos");
+
+  const operadores = useMemo(() => {
+    const unique = Array.from(new Set(ventas.map((v) => v.operador).filter(Boolean)));
+    return unique.sort();
+  }, [ventas]);
 
   const filteredVentas = useMemo(() => {
     const now = new Date();
@@ -30,35 +43,54 @@ export function SalesTable({ ventas }: SalesTableProps) {
 
     return ventas.filter((v) => {
       const fecha = new Date(v.fecha);
-      switch (period) {
-        case "hoy":
-          return fecha >= today;
-        case "semana": {
-          const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-          return fecha >= weekAgo;
+      const matchesPeriod = (() => {
+        switch (period) {
+          case "hoy":
+            return fecha >= today;
+          case "semana": {
+            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            return fecha >= weekAgo;
+          }
+          case "mes": {
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            return fecha >= monthStart;
+          }
+          default:
+            return true;
         }
-        case "mes": {
-          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-          return fecha >= monthStart;
-        }
-        default:
-          return true;
-      }
+      })();
+      const matchesOperador = operadorFilter === "todos" || v.operador === operadorFilter;
+      return matchesPeriod && matchesOperador;
     });
-  }, [ventas, period]);
+  }, [ventas, period, operadorFilter]);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Historial de ventas</h2>
-        <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
-          <TabsList>
-            <TabsTrigger value="hoy">Hoy</TabsTrigger>
-            <TabsTrigger value="semana">Semana</TabsTrigger>
-            <TabsTrigger value="mes">Mes</TabsTrigger>
-            <TabsTrigger value="todo">Todo</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-3">
+          <Select value={operadorFilter} onValueChange={setOperadorFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Operador" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {operadores.map((op) => (
+                <SelectItem key={op} value={op}>
+                  {op}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
+            <TabsList>
+              <TabsTrigger value="hoy">Hoy</TabsTrigger>
+              <TabsTrigger value="semana">Semana</TabsTrigger>
+              <TabsTrigger value="mes">Mes</TabsTrigger>
+              <TabsTrigger value="todo">Todo</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       <div className="rounded-lg border">

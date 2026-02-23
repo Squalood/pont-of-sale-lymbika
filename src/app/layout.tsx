@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Navbar } from "@/components/navbar";
+import { ForbiddenProvider } from "@/lib/forbidden-context";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,10 +29,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} flex h-screen flex-col overflow-hidden antialiased`}
       >
-        <Navbar />
-        <main className="flex-1 overflow-hidden">
-          {children}
-        </main>
+        <ForbiddenProvider>
+          <Navbar />
+          <main className="flex-1 overflow-hidden">
+            {children}
+          </main>
+        </ForbiddenProvider>
       </body>
     </html>
   );

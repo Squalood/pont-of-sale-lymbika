@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import { LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clearAuth, getUser, AuthUser } from "@/lib/auth";
+import { useForbidden } from "@/lib/forbidden-context";
 
 export function Navbar() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const { isForbidden } = useForbidden();
 
   useEffect(() => {
     setUser(getUser());
@@ -36,16 +38,18 @@ export function Navbar() {
       </div>
 
       <div className="flex items-center gap-2">
-          <Link href="/admin">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-2 text-xs text-white hover:bg-primary-foreground/10"
-            >
-              <Settings className="h-4 w-4" />
-              Admin
-            </Button>
-          </Link>
+          {!isForbidden && (
+            <Link href="/admin">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-2 text-xs text-white hover:bg-primary-foreground/10"
+              >
+                <Settings className="h-4 w-4" />
+                Admin
+              </Button>
+            </Link>
+          )}
           <Button
             variant="ghost"
             size="icon"
