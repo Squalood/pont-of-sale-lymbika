@@ -162,7 +162,8 @@ export function printReceipt(data: ReceiptData) {
           <span>Subtotal</span>
           <span>$${subtotal.toFixed(2)}</span>
         </div>
-<div class="row total">
+        ${data.iva > 0 ? `<div class="row"><span>IVA (8%)</span><span>$${data.iva.toFixed(2)}</span></div>` : ""}
+        <div class="row total">
           <span>TOTAL</span>
           <span>$${total.toFixed(2)}</span>
         </div>

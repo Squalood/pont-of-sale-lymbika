@@ -47,11 +47,22 @@ export function CartPanel({
   const getPrice = (item: CartItemType) =>
     (isMember ? item.product.priceMember : item.product.price) ?? 0;
 
-  const total = items.reduce(
-    (sum, item) => sum + getPrice(item) * item.quantity,
+  const IVA_RATE = 0.08;
+  const IVA_SLUGS = ["cuidado-belleza", "suplementos"];
+
+  const itemHasIva = (item: CartItemType) =>
+    IVA_SLUGS.includes(item.product.category?.slug ?? "");
+
+  const totalWithIva = items.reduce(
+    (sum, item) => (itemHasIva(item) ? sum + getPrice(item) * item.quantity : sum),
     0,
   );
-  const subtotal = total / 1.08;
+  const totalWithoutIva = items.reduce(
+    (sum, item) => (!itemHasIva(item) ? sum + getPrice(item) * item.quantity : sum),
+    0,
+  );
+  const total = totalWithIva + totalWithoutIva;
+  const subtotal = totalWithIva / (1 + IVA_RATE) + totalWithoutIva;
   const iva = total - subtotal;
 
   return (
@@ -135,10 +146,12 @@ export function CartPanel({
               <span>Subtotal</span>
               <span>${subtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm text-gray-500">
-              <span>IVA (8%)</span>
-              <span>${iva.toFixed(2)}</span>
-            </div>
+            {iva > 0 && (
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>IVA (8%)</span>
+                <span>${iva.toFixed(2)}</span>
+              </div>
+            )}
             <div className="mt-2 flex justify-between text-lg font-bold">
               <span>Total</span>
               <span>${total.toFixed(2)}</span>

@@ -138,10 +138,12 @@ export function SaleDetailDialog({ venta, open, onClose }: SaleDetailDialogProps
               <span>Subtotal</span>
               <span>${subtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>IVA (8%)</span>
-              <span>${iva.toFixed(2)}</span>
-            </div>
+            {iva > 0 && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>IVA (8%)</span>
+                <span>${iva.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-base font-bold">
               <span>Total</span>
               <span>${venta.total.toFixed(2)}</span>
