@@ -15,11 +15,12 @@ interface ReceiptData {
   paymentMethod: string;
   received: number;
   change: number;
+  fecha?: Date | string;
 }
 
 export function printReceipt(data: ReceiptData) {
-  const { receiptId, operador, items, subtotal, iva, total, paymentMethod, received, change } = data;
-  const now = new Date();
+  const { receiptId, operador, items, subtotal, total, paymentMethod, received, change } = data;
+  const now = data.fecha ? new Date(data.fecha) : new Date();
   const date = now.toLocaleDateString("es-MX", {
     year: "numeric",
     month: "2-digit",
@@ -161,11 +162,7 @@ export function printReceipt(data: ReceiptData) {
           <span>Subtotal</span>
           <span>$${subtotal.toFixed(2)}</span>
         </div>
-        <div class="row">
-          <span>IVA (16%)</span>
-          <span>$${iva.toFixed(2)}</span>
-        </div>
-        <div class="row total">
+<div class="row total">
           <span>TOTAL</span>
           <span>$${total.toFixed(2)}</span>
         </div>

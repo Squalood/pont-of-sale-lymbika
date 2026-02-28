@@ -15,7 +15,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Printer } from "lucide-react";
 import { VentaType } from "@/types/venta";
+import { printReceipt } from "@/lib/print-receipt";
 
 interface SaleDetailDialogProps {
   venta: VentaType | null;
@@ -27,19 +30,45 @@ export function SaleDetailDialog({ venta, open, onClose }: SaleDetailDialogProps
   if (!venta) return null;
 
   const fecha = new Date(venta.fecha);
-  const subtotal = venta.total / 1.08;
-  const iva = venta.total - subtotal;
+  const subtotal = venta.subtotal ?? venta.total / 1.08;
+  const iva = venta.iva ?? venta.total - subtotal;
+
+  function handleReprint() {
+    printReceipt({
+      receiptId: venta!.id,
+      operador: venta!.operador ?? "",
+      items: venta!.venta.map((item) => ({
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalLine: item.totalLine,
+      })),
+      subtotal,
+      iva,
+      total: venta!.total,
+      paymentMethod: venta!.metodoPago,
+      received: venta!.recibido,
+      change: venta!.cambio,
+      fecha: venta!.fecha,
+    });
+  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            Detalle de venta{" "}
-            <span className="text-muted-foreground font-normal">
-              #{String(venta.id).padStart(5, "0")}
-            </span>
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>
+              Detalle de venta{" "}
+              <span className="text-muted-foreground font-normal">
+                #{String(venta.id).padStart(5, "0")}
+              </span>
+            </DialogTitle>
+            <Button variant="outline" size="sm" onClick={handleReprint}>
+              <Printer className="mr-2 h-4 w-4" />
+              Reimprimir
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-4">
