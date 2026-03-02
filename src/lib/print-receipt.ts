@@ -16,10 +16,13 @@ interface ReceiptData {
   received: number;
   change: number;
   fecha?: Date | string;
+  isMember?: boolean;
+  cardSurcharge?: number;
 }
 
 export function printReceipt(data: ReceiptData) {
-  const { receiptId, operador, items, subtotal, total, paymentMethod, received, change } = data;
+  const { receiptId, operador, items, subtotal, total, paymentMethod, received, change, isMember, cardSurcharge = 0 } = data;
+  const effectiveTotal = total + cardSurcharge;
   const now = data.fecha ? new Date(data.fecha) : new Date();
   const date = now.toLocaleDateString("es-MX", {
     year: "numeric",
@@ -124,6 +127,11 @@ export function printReceipt(data: ReceiptData) {
           justify-content: space-between;
           padding: 1px 0;
         }
+        .totals .member-note {
+          font-style: italic;
+          font-size: 11px;
+          color: #444;
+        }
         .footer {
           text-align: center;
           margin-top: 12px;
@@ -163,9 +171,11 @@ export function printReceipt(data: ReceiptData) {
           <span>$${subtotal.toFixed(2)}</span>
         </div>
         ${data.iva > 0 ? `<div class="row"><span>IVA (8%)</span><span>$${data.iva.toFixed(2)}</span></div>` : ""}
+        ${isMember ? `<div class="row member-note"><span>&#9733; Precio MediClub</span></div>` : ""}
+        ${cardSurcharge > 0 ? `<div class="row"><span>Cargo tarjeta (3%)</span><span>+$${cardSurcharge.toFixed(2)}</span></div>` : ""}
         <div class="row total">
           <span>TOTAL</span>
-          <span>$${total.toFixed(2)}</span>
+          <span>$${effectiveTotal.toFixed(2)}</span>
         </div>
       </div>
 

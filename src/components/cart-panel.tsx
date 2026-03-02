@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CartItem as CartItemType, ProductType } from "@/types/product";
 import { CartItem } from "@/components/cart-item";
 import { CheckoutDialog } from "@/components/checkout-dialog";
+import { SaleCompleteDialog } from "@/components/sale-complete-dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShoppingCart, BadgePercent, ScanBarcode } from "lucide-react";
@@ -34,6 +35,7 @@ export function CartPanel({
 }: CartPanelProps) {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const [saleResult, setSaleResult] = useState<{ paymentMethod: "efectivo" | "tarjeta"; change: number } | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
 
   function handleBarcodeScan(code: string) {
@@ -138,7 +140,7 @@ export function CartPanel({
           <div className="flex items-center justify-between border-t px-4 py-3">
             <div className="flex items-center gap-2">
               <BadgePercent className="h-4 w-4 text-emerald-500" />
-              <span className="text-sm font-medium">Precio miembro</span>
+              <span className="text-sm font-medium">Precio MediClub</span>
             </div>
             <Switch checked={isMember} onCheckedChange={setIsMember} />
           </div>
@@ -169,10 +171,22 @@ export function CartPanel({
         </>
       )}
 
+      <SaleCompleteDialog
+        open={saleResult !== null}
+        paymentMethod={saleResult?.paymentMethod ?? "efectivo"}
+        change={saleResult?.change ?? 0}
+        onClose={() => {
+          setSaleResult(null);
+          setIsMember(false);
+          onClear();
+        }}
+      />
+
       <CheckoutDialog
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         total={total}
+        isMember={isMember}
         onConfirm={async (method, received) => {
           const change = received - total;
           const operador = getUser()?.username ?? "desconocido";
@@ -208,6 +222,8 @@ export function CartPanel({
           );
           onSaleComplete(items);
 
+          const cardSurcharge = isMember && method === "tarjeta" ? total * 0.03 : 0;
+
           printReceipt({
             receiptId,
             operador,
@@ -223,9 +239,11 @@ export function CartPanel({
             paymentMethod: method,
             received,
             change: change > 0 ? change : 0,
+            isMember,
+            cardSurcharge,
           });
           setCheckoutOpen(false);
-          onClear();
+          setSaleResult({ paymentMethod: method, change: change > 0 ? change : 0 });
         }}
       />
     </aside>
