@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
 } from "@/components/ui/dialog";
 
 type PaymentMethod = "efectivo" | "tarjeta";
@@ -22,7 +23,7 @@ export function SaleCompleteDialog({ open, onClose, paymentMethod, change }: Sal
       <DialogContent className="sm:max-w-sm text-center" showCloseButton={false}>
         <div className="flex flex-col items-center gap-4 py-4">
           <CheckCircle2 className="h-16 w-16 text-emerald-500" strokeWidth={1.5} />
-          <p className="text-xl font-semibold">Venta Completada</p>
+          <DialogTitle className="text-xl font-semibold">Venta Completada</DialogTitle>
 
           {paymentMethod === "efectivo" ? (
             <div className="w-full rounded-lg bg-gray-50 border px-6 py-5">
