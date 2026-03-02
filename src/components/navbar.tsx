@@ -11,11 +11,15 @@ import { useForbidden } from "@/lib/forbidden-context";
 export function Navbar() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [mounted, setMounted] = useState(false);
   const { isForbidden } = useForbidden();
 
   useEffect(() => {
     setUser(getUser());
+    setMounted(true);
   }, []);
+
+  if (!mounted || !user) return null;
 
   function handleLogout() {
     clearAuth();

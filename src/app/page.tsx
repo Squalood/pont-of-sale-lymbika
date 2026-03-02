@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { ProductSidebar } from "@/components/product-sidebar";
 import { CartPanel } from "@/components/cart-panel";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -9,11 +10,22 @@ import { useGetCategories } from "@/api/getCategories";
 import { ProductType, CartItem } from "@/types/product";
 import { Unauthorized } from "@/components/unauthorized";
 import { useForbidden } from "@/lib/forbidden-context";
+import { getUser } from "@/lib/auth";
 
 export default function Home() {
-  const { result: products, loading: loadingProducts, error: errorProducts } = useGetProducts();
+  const router = useRouter();
+  const { result: fetchedProducts, loading: loadingProducts, error: errorProducts } = useGetProducts();
   const { result: categories } = useGetCategories();
+  const [products, setProducts] = useState<ProductType[]>([]);
+
+  useEffect(() => {
+    setProducts(fetchedProducts);
+  }, [fetchedProducts]);
   const { setForbidden } = useForbidden();
+
+  useEffect(() => {
+    if (!getUser()) router.replace("/login");
+  }, [router]);
 
   useEffect(() => {
     if (errorProducts === "403") setForbidden(true);
@@ -72,6 +84,16 @@ export default function Home() {
     setCartItems([]);
   }
 
+  function handleSaleComplete(soldItems: CartItem[]) {
+    setProducts((prev) =>
+      prev.map((p) => {
+        const sold = soldItems.find((i) => i.product.id === p.id);
+        if (sold) return { ...p, stock: p.stock - sold.quantity };
+        return p;
+      })
+    );
+  }
+
   if (errorProducts === "403") {
     return (
       <div className="flex h-screen flex-col">
@@ -113,6 +135,7 @@ export default function Home() {
               onUpdateQuantity={updateQuantity}
               onRemoveItem={removeItem}
               onClear={clearCart}
+              onSaleComplete={handleSaleComplete}
             />
           </div>
         </SidebarInset>

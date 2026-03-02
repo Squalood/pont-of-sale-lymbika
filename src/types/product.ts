@@ -15,6 +15,7 @@ export interface CartItem {
 
 export type ProductType = {
   id: number;
+  documentId: string;
   productName: string;
   slug: string;
   active: boolean;
@@ -34,4 +35,5 @@ export type ProductType = {
   conReceta: boolean;
   sku: string;
   barCode: string;
+  stock: number;
 };

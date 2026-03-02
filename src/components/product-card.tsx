@@ -66,15 +66,18 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
           {product.sal}
         </p>
       </div>
-      <div className="mt-auto flex items-end justify-between pt-2">
+      <div className="mt-auto grid grid-cols-2 gap-x-2 pt-2">
         <span className="text-lg font-bold text-primary">
           ${(product.price ?? 0).toFixed(2)}
+        </span>
+        <span className="text-xs text-muted-foreground text-right">
+          {product.category?.categoryName}
         </span>
         <span className="text-lg font-bold text-emerald-400">
           ${(product.priceMember ?? 0).toFixed(2)}
         </span>
-        <span className="text-xs text-muted-foreground">
-          {product.category?.categoryName}
+        <span className="text-xs text-muted-foreground text-right">
+          Stock: {product.stock}
         </span>
       </div>
       <Button

@@ -10,6 +10,7 @@ import { ShoppingCart, BadgePercent, ScanBarcode } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { printReceipt } from "@/lib/print-receipt";
 import { postVenta } from "@/api/postVenta";
+import { patchProductStock } from "@/api/patchProductStock";
 import { getUser } from "@/lib/auth";
 
 interface CartPanelProps {
@@ -19,6 +20,7 @@ interface CartPanelProps {
   onUpdateQuantity: (productId: number, delta: number) => void;
   onRemoveItem: (productId: number) => void;
   onClear: () => void;
+  onSaleComplete: (items: CartItemType[]) => void;
 }
 
 export function CartPanel({
@@ -28,6 +30,7 @@ export function CartPanel({
   onUpdateQuantity,
   onRemoveItem,
   onClear,
+  onSaleComplete,
 }: CartPanelProps) {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [isMember, setIsMember] = useState(false);
@@ -197,6 +200,13 @@ export function CartPanel({
           } catch (err) {
             console.error("Error al registrar venta:", err);
           }
+
+          await Promise.allSettled(
+            items.map((item) =>
+              patchProductStock(item.product.documentId, item.product.stock - item.quantity)
+            )
+          );
+          onSaleComplete(items);
 
           printReceipt({
             receiptId,
