@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clearAuth, getUser, AuthUser } from "@/lib/auth";
@@ -10,6 +10,7 @@ import { useForbidden } from "@/lib/forbidden-context";
 
 export function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [mounted, setMounted] = useState(false);
   const { isForbidden } = useForbidden();
@@ -17,12 +18,13 @@ export function Navbar() {
   useEffect(() => {
     setUser(getUser());
     setMounted(true);
-  }, []);
+  }, [pathname]);
 
   if (!mounted || !user) return null;
 
   function handleLogout() {
     clearAuth();
+    setUser(null);
     router.push("/login");
   }
 

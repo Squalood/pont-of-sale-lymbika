@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -20,17 +21,21 @@ import {
 } from "@/components/ui/table";
 import { SaleDetailDialog } from "@/components/admin/sale-detail-dialog";
 import { VentaType } from "@/types/venta";
+import { ProductType } from "@/types/product";
 
 interface SalesTableProps {
   ventas: VentaType[];
+  products: ProductType[];
+  onReturnComplete: (returnedItems: { productId: number; quantity: number }[]) => void;
 }
 
 type Period = "hoy" | "semana" | "mes" | "todo";
 
-export function SalesTable({ ventas }: SalesTableProps) {
+export function SalesTable({ ventas, products, onReturnComplete }: SalesTableProps) {
   const [period, setPeriod] = useState<Period>("hoy");
   const [selectedVenta, setSelectedVenta] = useState<VentaType | null>(null);
   const [operadorFilter, setOperadorFilter] = useState<string>("todos");
+  const [search, setSearch] = useState("");
 
   const operadores = useMemo(() => {
     const unique = Array.from(new Set(ventas.map((v) => v.operador).filter(Boolean)));
@@ -60,15 +65,22 @@ export function SalesTable({ ventas }: SalesTableProps) {
         }
       })();
       const matchesOperador = operadorFilter === "todos" || v.operador === operadorFilter;
-      return matchesPeriod && matchesOperador;
+      const matchesSearch = search === "" || String(v.id).padStart(5, "0").includes(search.replace(/^#/, ""));
+      return matchesPeriod && matchesOperador && matchesSearch;
     });
-  }, [ventas, period, operadorFilter]);
+  }, [ventas, period, operadorFilter, search]);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <h2 className="text-lg font-semibold">Historial de ventas</h2>
         <div className="flex items-center gap-3">
+          <Input
+            placeholder="Buscar por # recibo"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-44 h-8 text-sm"
+          />
           <Select value={operadorFilter} onValueChange={setOperadorFilter}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Operador" />
@@ -162,6 +174,8 @@ export function SalesTable({ ventas }: SalesTableProps) {
         venta={selectedVenta}
         open={!!selectedVenta}
         onClose={() => setSelectedVenta(null)}
+        products={products}
+        onReturnComplete={onReturnComplete}
       />
     </div>
   );

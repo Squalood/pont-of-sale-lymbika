@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,17 +17,23 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Printer } from "lucide-react";
+import { Printer, RotateCcw } from "lucide-react";
 import { VentaType } from "@/types/venta";
+import { ProductType } from "@/types/product";
 import { printReceipt } from "@/lib/print-receipt";
+import { ReturnDialog } from "@/components/admin/return-dialog";
 
 interface SaleDetailDialogProps {
   venta: VentaType | null;
   open: boolean;
   onClose: () => void;
+  products: ProductType[];
+  onReturnComplete: (returnedItems: { productId: number; quantity: number }[]) => void;
 }
 
-export function SaleDetailDialog({ venta, open, onClose }: SaleDetailDialogProps) {
+export function SaleDetailDialog({ venta, open, onClose, products, onReturnComplete }: SaleDetailDialogProps) {
+  const [returnOpen, setReturnOpen] = useState(false);
+
   if (!venta) return null;
 
   const fecha = new Date(venta.fecha);
@@ -54,103 +61,124 @@ export function SaleDetailDialog({ venta, open, onClose }: SaleDetailDialogProps
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>
-              Detalle de venta{" "}
-              <span className="text-muted-foreground font-normal">
-                #{String(venta.id).padStart(5, "0")}
-              </span>
-            </DialogTitle>
-            <Button variant="outline" size="sm" onClick={handleReprint}>
-              <Printer className="mr-2 h-4 w-4" />
-              Reimprimir
-            </Button>
-          </div>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {/* Info */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <span className="text-muted-foreground">Fecha</span>
-              <p className="font-medium">
-                {fecha.toLocaleDateString("es-MX")} - {fecha.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
-              </p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Método de pago</span>
-              <p className="font-medium capitalize">{venta.metodoPago}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Estado</span>
-              <p>
-                <Badge variant={venta.estado === "completada" ? "default" : "destructive"}>
-                  {venta.estado}
-                </Badge>
-              </p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Operador</span>
-              <p className="font-medium">{venta.operador ?? "—"}</p>
-            </div>
-            {venta.metodoPago === "efectivo" && (
-              <>
-                <div>
-                  <span className="text-muted-foreground">Recibido</span>
-                  <p className="font-medium">${venta.recibido.toFixed(2)}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Cambio</span>
-                  <p className="font-medium">${venta.cambio.toFixed(2)}</p>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Items table */}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Producto</TableHead>
-                <TableHead className="text-center">Cant</TableHead>
-                <TableHead className="text-right">P.U.</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {venta.venta?.map((item, i) => (
-                <TableRow key={i}>
-                  <TableCell className="max-w-48 truncate">{item.productName}</TableCell>
-                  <TableCell className="text-center">{item.quantity}</TableCell>
-                  <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${item.totalLine.toFixed(2)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          {/* Totals */}
-          <div className="space-y-1 border-t pt-3 text-sm">
-            <div className="flex justify-between text-muted-foreground">
-              <span>Subtotal</span>
-              <span>${subtotal.toFixed(2)}</span>
-            </div>
-            {iva > 0 && (
-              <div className="flex justify-between text-muted-foreground">
-                <span>IVA (8%)</span>
-                <span>${iva.toFixed(2)}</span>
+    <>
+      <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle>
+                Detalle de venta{" "}
+                <span className="text-muted-foreground font-normal">
+                  #{String(venta.id).padStart(5, "0")}
+                </span>
+              </DialogTitle>
+              <div className="flex gap-2">
+                {venta.estado === "completada" && (
+                  <Button variant="outline" size="sm" onClick={() => setReturnOpen(true)}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Devolver
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={handleReprint}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Reimprimir
+                </Button>
               </div>
-            )}
-            <div className="flex justify-between text-base font-bold">
-              <span>Total</span>
-              <span>${venta.total.toFixed(2)}</span>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Info */}
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span className="text-muted-foreground">Fecha</span>
+                <p className="font-medium">
+                  {fecha.toLocaleDateString("es-MX")} - {fecha.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Método de pago</span>
+                <p className="font-medium capitalize">{venta.metodoPago}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Estado</span>
+                <p>
+                  <Badge variant={venta.estado === "completada" ? "default" : "destructive"}>
+                    {venta.estado}
+                  </Badge>
+                </p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Operador</span>
+                <p className="font-medium">{venta.operador ?? "—"}</p>
+              </div>
+              {venta.metodoPago === "efectivo" && (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Recibido</span>
+                    <p className="font-medium">${venta.recibido.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Cambio</span>
+                    <p className="font-medium">${venta.cambio.toFixed(2)}</p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Items table */}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Producto</TableHead>
+                  <TableHead className="text-center">Cant</TableHead>
+                  <TableHead className="text-right">P.U.</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {venta.venta?.map((item, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="max-w-48 truncate">{item.productName}</TableCell>
+                    <TableCell className="text-center">{item.quantity}</TableCell>
+                    <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">${item.totalLine.toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            {/* Totals */}
+            <div className="space-y-1 border-t pt-3 text-sm">
+              <div className="flex justify-between text-muted-foreground">
+                <span>Subtotal</span>
+                <span>${subtotal.toFixed(2)}</span>
+              </div>
+              {iva > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>IVA (8%)</span>
+                  <span>${iva.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-base font-bold">
+                <span>Total</span>
+                <span>${venta.total.toFixed(2)}</span>
+              </div>
             </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <ReturnDialog
+        venta={venta}
+        products={products}
+        open={returnOpen}
+        onClose={() => setReturnOpen(false)}
+        onReturnComplete={(items) => {
+          onReturnComplete(items);
+          setReturnOpen(false);
+        }}
+      />
+    </>
   );
 }
