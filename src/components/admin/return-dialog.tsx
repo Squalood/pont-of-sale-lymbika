@@ -25,6 +25,7 @@ import { ProductType } from "@/types/product";
 import { getDevolucionesByVenta } from "@/api/getDevolucionesByVenta";
 import { postDevolucion } from "@/api/postDevolucion";
 import { patchProductStock } from "@/api/patchProductStock";
+import { patchVentaEstado } from "@/api/patchVentaEstado";
 import { printReturnReceipt } from "@/lib/print-return-receipt";
 import { getUser } from "@/lib/auth";
 
@@ -130,10 +131,13 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
             totalLine: r.unitPrice * r.returnQty,
           };
         }),
-        venta: venta.id,
+        venta: venta.documentId,
       });
 
-      // 2. Update stock locally and in Strapi for each returned item
+      // 2. Mark venta as cancelada
+      await patchVentaEstado(venta.documentId, "cancelada");
+
+      // 3. Update stock locally and in Strapi for each returned item
       const returnedItems: { productId: number; quantity: number }[] = [];
       for (const row of selectedRows) {
         if (!row.product) continue;
@@ -143,10 +147,10 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
         returnedItems.push({ productId: row.product.id, quantity: row.returnQty });
       }
 
-      // 3. Update local state
+      // 4. Update local state
       onReturnComplete(returnedItems);
 
-      // 4. Print receipt
+      // 5. Print receipt
       printReturnReceipt({
         devolucionId,
         ventaId: venta.id,
@@ -190,14 +194,14 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="min-w-0 space-y-3">
                 <p className="text-sm text-muted-foreground">
                   Selecciona los artículos y la cantidad a devolver.
                 </p>
-                <div className="divide-y rounded-lg border">
+                <div className="divide-y rounded-lg border overflow-hidden max-h-72 overflow-y-auto">
                   {rows.map((row, i) => (
-                    <div key={i} className="flex items-center justify-between gap-3 px-3 py-2">
-                      <div className="flex-1 min-w-0">
+                    <div key={i} className="flex items-center gap-3 px-3 py-2">
+                      <div className="flex-1 min-w-0 overflow-hidden">
                         <p className="truncate text-sm font-medium">{row.productName}</p>
                         <p className="text-xs text-muted-foreground">
                           Comprado: {row.quantity}

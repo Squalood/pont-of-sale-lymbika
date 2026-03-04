@@ -32,5 +32,5 @@ export interface DevolucionPayload {
   estado: "Completada" | "Cancelada";
   operador: string;
   items: DevolucionItem[];
-  venta: number; // venta ID
+  venta: string; // venta documentId
 }
