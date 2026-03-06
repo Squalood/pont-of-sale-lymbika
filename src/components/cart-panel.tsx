@@ -13,6 +13,7 @@ import { printReceipt } from "@/lib/print-receipt";
 import { postVenta } from "@/api/postVenta";
 import { patchProductStock } from "@/api/patchProductStock";
 import { getUser } from "@/lib/auth";
+import { useCaja } from "@/lib/caja-context";
 
 interface CartPanelProps {
   items: CartItemType[];
@@ -33,6 +34,9 @@ export function CartPanel({
   onClear,
   onSaleComplete,
 }: CartPanelProps) {
+  const { caja } = useCaja();
+  const tipoCambio = caja?.tipoCambio ?? 1;
+
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [isMember, setIsMember] = useState(false);
   const [saleResult, setSaleResult] = useState<{ paymentMethod: "efectivo" | "tarjeta"; change: number } | null>(null);
@@ -69,6 +73,12 @@ export function CartPanel({
   const total = totalWithIva + totalWithoutIva;
   const subtotal = totalWithIva / (1 + IVA_RATE) + totalWithoutIva;
   const iva = total - subtotal;
+
+  const totalRegular = items.reduce(
+    (sum, item) => sum + (item.product.price ?? 0) * item.quantity,
+    0,
+  );
+  const ahorro = isMember ? totalRegular - total : 0;
 
   return (
     <aside className="flex h-full w-full flex-col overflow-hidden bg-white">
@@ -147,20 +157,47 @@ export function CartPanel({
 
           {/* Totals */}
           <div className="border-t px-4 py-3">
-            <div className="flex justify-between text-sm text-gray-500">
-              <span>Subtotal</span>
-              <span>${subtotal.toFixed(2)}</span>
+            <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 gap-y-1 text-sm">
+              {/* Column headers */}
+              <div />
+              <span className="text-right text-xs font-semibold text-muted-foreground">MXN</span>
+              <span className="text-right text-xs font-semibold text-green-600">USD</span>
+
+              {/* Subtotal */}
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="text-right tabular-nums">${subtotal.toFixed(2)}</span>
+              <span className="text-right tabular-nums text-green-600">${(subtotal / tipoCambio).toFixed(2)}</span>
+
+              {/* IVA */}
+              {iva > 0 && (
+                <>
+                  <span className="text-muted-foreground">IVA (8%)</span>
+                  <span className="text-right tabular-nums">${iva.toFixed(2)}</span>
+                  <span className="text-right tabular-nums text-green-600">${(iva / tipoCambio).toFixed(2)}</span>
+                </>
+              )}
+
+              {/* Ahorro */}
+              {isMember && ahorro > 0 && (
+                <>
+                  <span className="flex items-center gap-1 text-emerald-600">
+                    <BadgePercent className="h-3 w-3" />
+                    Ahorro MediClub
+                  </span>
+                  <span className="text-right tabular-nums text-emerald-600">-${ahorro.toFixed(2)}</span>
+                  <span className="text-right tabular-nums text-emerald-600">-${(ahorro / tipoCambio).toFixed(2)}</span>
+                </>
+              )}
+
+              {/* Divider */}
+              <div className="col-span-3 my-0.5 border-t" />
+
+              {/* Total */}
+              <span className="text-base font-bold">Total</span>
+              <span className="text-right text-base font-bold tabular-nums">${total.toFixed(2)}</span>
+              <span className="text-right text-base font-bold tabular-nums text-green-600">${(total / tipoCambio).toFixed(2)}</span>
             </div>
-            {iva > 0 && (
-              <div className="flex justify-between text-sm text-gray-500">
-                <span>IVA (8%)</span>
-                <span>${iva.toFixed(2)}</span>
-              </div>
-            )}
-            <div className="mt-2 flex justify-between text-lg font-bold">
-              <span>Total</span>
-              <span>${total.toFixed(2)}</span>
-            </div>
+
             <Button
               className="mt-3 h-12 w-full bg-primary text-primary-foreground text-base font-semibold hover:bg-primary/90"
               onClick={() => setCheckoutOpen(true)}
@@ -186,8 +223,9 @@ export function CartPanel({
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         total={total}
+        tipoCambio={tipoCambio}
         isMember={isMember}
-        onConfirm={async (method, received) => {
+        onConfirm={async (method, received, recibidoUSD, tipoCambioUsado) => {
           const change = received - total;
           const operador = getUser()?.username ?? "desconocido";
 
@@ -201,6 +239,8 @@ export function CartPanel({
               metodoPago: method,
               recibido: received,
               cambio: change > 0 ? change : 0,
+              recibidoUSD,
+              tipoCambioUsado,
               estado: "completada",
               operador,
               venta: items.map((item) => ({
@@ -241,6 +281,8 @@ export function CartPanel({
             change: change > 0 ? change : 0,
             isMember,
             cardSurcharge,
+            recibidoUSD,
+            tipoCambioUsado,
           });
           setCheckoutOpen(false);
           setSaleResult({ paymentMethod: method, change: change > 0 ? change : 0 });

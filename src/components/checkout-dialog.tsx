@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Banknote, CreditCard, BadgePercent } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CashInput } from "@/components/cash-input";
+import { CashInput, CashEntry } from "@/components/cash-input";
 import {
   Dialog,
   DialogContent,
@@ -18,37 +18,51 @@ interface CheckoutDialogProps {
   open: boolean;
   onClose: () => void;
   total: number;
+  tipoCambio: number;
   isMember?: boolean;
-  onConfirm: (method: PaymentMethod, received: number) => Promise<void>;
+  onConfirm: (
+    method: PaymentMethod,
+    received: number,
+    recibidoUSD: number,
+    tipoCambioUsado: number
+  ) => Promise<void>;
 }
 
-export function CheckoutDialog({ open, onClose, total, isMember, onConfirm }: CheckoutDialogProps) {
+export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onConfirm }: CheckoutDialogProps) {
   const [method, setMethod] = useState<PaymentMethod>("efectivo");
-  const [amounts, setAmounts] = useState<number[]>([]);
+  const [entries, setEntries] = useState<CashEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const CARD_SURCHARGE_RATE = 0.03;
   const cardSurcharge = isMember && method === "tarjeta" ? total * CARD_SURCHARGE_RATE : 0;
   const effectiveTotal = total + cardSurcharge;
 
-  const receivedTotal = amounts.reduce((sum, a) => sum + a, 0);
+  const receivedTotal = entries.reduce(
+    (sum, e) => sum + (e.currency === "MXN" ? e.amount : e.amount * tipoCambio),
+    0
+  );
   const canConfirm = method === "tarjeta" || receivedTotal >= effectiveTotal;
 
   async function handleConfirm() {
     setIsLoading(true);
     try {
-      await onConfirm(method, method === "tarjeta" ? effectiveTotal : receivedTotal);
+      const recibidoUSD = entries.reduce(
+        (sum, e) => sum + (e.currency === "USD" ? e.amount : 0),
+        0
+      );
+      const received = method === "tarjeta" ? effectiveTotal : receivedTotal;
+      await onConfirm(method, received, recibidoUSD, tipoCambio);
     } finally {
       setIsLoading(false);
       setMethod("efectivo");
-      setAmounts([]);
+      setEntries([]);
     }
   }
 
   function handleClose() {
     onClose();
     setMethod("efectivo");
-    setAmounts([]);
+    setEntries([]);
   }
 
   return (
@@ -95,7 +109,7 @@ export function CheckoutDialog({ open, onClose, total, isMember, onConfirm }: Ch
                 ? "h-12 bg-primary text-primary-foreground hover:bg-primary/90"
                 : "h-12"
             }
-            onClick={() => setMethod("efectivo")}
+            onClick={() => { setMethod("efectivo"); setEntries([]); }}
           >
             <Banknote className="mr-2 h-4 w-4" />
             Efectivo
@@ -107,7 +121,7 @@ export function CheckoutDialog({ open, onClose, total, isMember, onConfirm }: Ch
                 ? "h-12 bg-primary text-primary-foreground hover:bg-primary/90"
                 : "h-12"
             }
-            onClick={() => setMethod("tarjeta")}
+            onClick={() => { setMethod("tarjeta"); setEntries([]); }}
           >
             <CreditCard className="mr-2 h-4 w-4" />
             Tarjeta
@@ -118,8 +132,9 @@ export function CheckoutDialog({ open, onClose, total, isMember, onConfirm }: Ch
         {method === "efectivo" && (
           <CashInput
             total={effectiveTotal}
-            amounts={amounts}
-            onAmountsChange={setAmounts}
+            tipoCambio={tipoCambio}
+            entries={entries}
+            onEntriesChange={setEntries}
           />
         )}
 
@@ -133,9 +148,7 @@ export function CheckoutDialog({ open, onClose, total, isMember, onConfirm }: Ch
             disabled={!canConfirm || isLoading}
             onClick={handleConfirm}
           >
-            {isLoading ? (
-              <Spinner data-icon="inline-start" />
-            ) : null}
+            {isLoading ? <Spinner data-icon="inline-start" /> : null}
             {isLoading ? "Procesando..." : "Confirmar Pago"}
           </Button>
         </div>

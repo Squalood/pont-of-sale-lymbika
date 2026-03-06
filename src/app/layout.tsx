@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Navbar } from "@/components/navbar";
 import { ForbiddenProvider } from "@/lib/forbidden-context";
+import { CajaProvider } from "@/lib/caja-context";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,10 +31,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} flex h-screen flex-col overflow-hidden antialiased`}
       >
         <ForbiddenProvider>
-          <Navbar />
-          <main className="flex-1 overflow-hidden">
-            {children}
-          </main>
+          <CajaProvider>
+            <Navbar />
+            <main className="flex-1 overflow-hidden">
+              {children}
+            </main>
+          </CajaProvider>
         </ForbiddenProvider>
       </body>
     </html>

@@ -5,8 +5,11 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { clearAuth, getUser, AuthUser } from "@/lib/auth";
 import { useForbidden } from "@/lib/forbidden-context";
+import { useCaja } from "@/lib/caja-context";
 
 export function Navbar() {
   const router = useRouter();
@@ -14,6 +17,7 @@ export function Navbar() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [mounted, setMounted] = useState(false);
   const { isForbidden } = useForbidden();
+  const { caja } = useCaja();
 
   useEffect(() => {
     setUser(getUser());
@@ -41,6 +45,22 @@ export function Navbar() {
           </h1>
           <p className="text-xs text-primary-foreground/70">Punto de Venta</p>
         </div>
+        {caja && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge className="cursor-default bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30">
+                  USD ${caja.tipoCambio.toFixed(2)}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="space-y-1 text-xs">
+                <p><span className="font-semibold">Apertura:</span> {new Date(caja.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</p>
+                <p><span className="font-semibold">Fondo inicial:</span> ${caja.fondoInicial.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
+                <p><span className="font-semibold">Operador:</span> {caja.operador}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
 
       <div className="flex items-center gap-2">

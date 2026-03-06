@@ -28,6 +28,8 @@ export interface VentaType {
   metodoPago: "efectivo" | "tarjeta";
   recibido: number;
   cambio: number;
+  recibidoUSD: number;
+  tipoCambioUsado: number;
   estado: "completada" | "cancelada";
   operador: string;
   venta: VentaItemType[];
@@ -41,6 +43,8 @@ export interface VentaPayload {
   metodoPago: "efectivo" | "tarjeta";
   recibido: number;
   cambio: number;
+  recibidoUSD: number;
+  tipoCambioUsado: number;
   estado: "completada" | "cancelada";
   operador: string;
   venta: VentaItem[];

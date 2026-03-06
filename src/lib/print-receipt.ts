@@ -18,10 +18,12 @@ interface ReceiptData {
   fecha?: Date | string;
   isMember?: boolean;
   cardSurcharge?: number;
+  recibidoUSD?: number;
+  tipoCambioUsado?: number;
 }
 
 export function printReceipt(data: ReceiptData) {
-  const { receiptId, operador, items, subtotal, total, paymentMethod, received, change, isMember, cardSurcharge = 0 } = data;
+  const { receiptId, operador, items, subtotal, total, paymentMethod, received, change, isMember, cardSurcharge = 0, recibidoUSD = 0, tipoCambioUsado = 0 } = data;
   const effectiveTotal = total + cardSurcharge;
   const now = data.fecha ? new Date(data.fecha) : new Date();
   const date = now.toLocaleDateString("es-MX", {
@@ -191,8 +193,21 @@ export function printReceipt(data: ReceiptData) {
             ? `
         <div class="row">
           <span>Recibido</span>
-          <span>$${received.toFixed(2)}</span>
+          <span>$${received.toFixed(2)} MXN</span>
         </div>
+        ${recibidoUSD > 0 ? `
+        <div class="row" style="font-size:10px;color:#555;padding-left:8px;">
+          <span>&#x2514; en pesos</span>
+          <span>$${(received - recibidoUSD * tipoCambioUsado).toFixed(2)} MXN</span>
+        </div>
+        <div class="row" style="font-size:10px;color:#555;padding-left:8px;">
+          <span>&#x2514; en dólares</span>
+          <span>$${recibidoUSD.toFixed(2)} USD</span>
+        </div>
+        <div class="row" style="font-size:10px;color:#555;padding-left:8px;">
+          <span>&#x2514; tipo de cambio</span>
+          <span>$${tipoCambioUsado.toFixed(2)}</span>
+        </div>` : ""}
         <div class="row">
           <span>Cambio</span>
           <span>$${change.toFixed(2)}</span>

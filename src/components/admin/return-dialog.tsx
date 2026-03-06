@@ -134,8 +134,11 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
         venta: venta.documentId,
       });
 
-      // 2. Mark venta as cancelada
-      await patchVentaEstado(venta.documentId, "cancelada");
+      // 2. Mark venta as cancelada only if all items are fully returned
+      const isFullReturn = rows.every((r) => r.alreadyReturned + r.returnQty === r.quantity);
+      if (isFullReturn) {
+        await patchVentaEstado(venta.documentId, "cancelada");
+      }
 
       // 3. Update stock locally and in Strapi for each returned item
       const returnedItems: { productId: number; quantity: number }[] = [];

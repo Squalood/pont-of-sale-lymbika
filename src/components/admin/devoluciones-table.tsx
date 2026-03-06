@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DevolucionType } from "@/types/devolucion";
+import { DevolucionDetailDialog } from "@/components/admin/devolucion-detail-dialog";
 
 interface DevolucionesTableProps {
   devoluciones: DevolucionType[];
@@ -23,6 +24,7 @@ type Period = "hoy" | "semana" | "mes" | "todo";
 export function DevolucionesTable({ devoluciones }: DevolucionesTableProps) {
   const [period, setPeriod] = useState<Period>("hoy");
   const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<DevolucionType | null>(null);
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -101,7 +103,7 @@ export function DevolucionesTable({ devoluciones }: DevolucionesTableProps) {
               filtered.map((dev) => {
                 const fecha = new Date(dev.fecha);
                 return (
-                  <TableRow key={dev.id}>
+                  <TableRow key={dev.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelected(dev)}>
                     <TableCell className="font-medium text-muted-foreground">
                       #{String(dev.id).padStart(5, "0")}
                     </TableCell>
@@ -149,6 +151,12 @@ export function DevolucionesTable({ devoluciones }: DevolucionesTableProps) {
           </span>
         </div>
       )}
+
+      <DevolucionDetailDialog
+        devolucion={selected}
+        open={!!selected}
+        onClose={() => setSelected(null)}
+      />
     </div>
   );
 }

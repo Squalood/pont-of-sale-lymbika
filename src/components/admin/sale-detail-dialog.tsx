@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -57,6 +58,8 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
       received: venta!.recibido,
       change: venta!.cambio,
       fecha: venta!.fecha,
+      recibidoUSD: venta!.recibidoUSD,
+      tipoCambioUsado: venta!.tipoCambioUsado,
     });
   }
 
@@ -65,26 +68,12 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle>
-                Detalle de venta{" "}
-                <span className="text-muted-foreground font-normal">
-                  #{String(venta.id).padStart(5, "0")}
-                </span>
-              </DialogTitle>
-              <div className="flex gap-2">
-                {venta.estado === "completada" && (
-                  <Button variant="outline" size="sm" onClick={() => setReturnOpen(true)}>
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Devolver
-                  </Button>
-                )}
-                <Button variant="outline" size="sm" onClick={handleReprint}>
-                  <Printer className="mr-2 h-4 w-4" />
-                  Reimprimir
-                </Button>
-              </div>
-            </div>
+            <DialogTitle>
+              Detalle de venta{" "}
+              <span className="text-muted-foreground font-normal">
+                #{String(venta.id).padStart(5, "0")}
+              </span>
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -116,12 +105,29 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
                 <>
                   <div>
                     <span className="text-muted-foreground">Recibido</span>
-                    <p className="font-medium">${venta.recibido.toFixed(2)}</p>
+                    <p className="font-medium">${venta.recibido.toFixed(2)} MXN</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Cambio</span>
                     <p className="font-medium">${venta.cambio.toFixed(2)}</p>
                   </div>
+                  {(venta.recibidoUSD ?? 0) > 0 && (
+                    <div className="col-span-2 rounded-md bg-muted px-3 py-2 text-sm">
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">Desglose del pago</p>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">En pesos</span>
+                        <span>${(venta.recibido - venta.recibidoUSD * (venta.tipoCambioUsado ?? 1)).toFixed(2)} MXN</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">En dólares</span>
+                        <span className="text-green-700">${venta.recibidoUSD.toFixed(2)} USD</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tipo de cambio</span>
+                        <span>${venta.tipoCambioUsado?.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -166,6 +172,19 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
               </div>
             </div>
           </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleReprint}>
+              <Printer className="h-4 w-4" />
+              Reimprimir
+            </Button>
+            {venta.estado === "completada" && (
+              <Button variant="destructive" onClick={() => setReturnOpen(true)}>
+                <RotateCcw className="h-4 w-4" />
+                Devolver
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

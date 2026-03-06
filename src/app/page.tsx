@@ -11,9 +11,14 @@ import { ProductType, CartItem } from "@/types/product";
 import { Unauthorized } from "@/components/unauthorized";
 import { useForbidden } from "@/lib/forbidden-context";
 import { getUser } from "@/lib/auth";
+import { useCaja } from "@/lib/caja-context";
+import { AperturaCajaDialog } from "@/components/apertura-caja-dialog";
+import { Loader2 } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
+  const { caja, loading: loadingCaja, refetch: refetchCaja } = useCaja();
+
   const { result: fetchedProducts, loading: loadingProducts, error: errorProducts } = useGetProducts();
   const { result: categories } = useGetCategories();
   const [products, setProducts] = useState<ProductType[]>([]);
@@ -94,6 +99,18 @@ export default function Home() {
     );
   }
 
+  if (loadingCaja) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!caja) {
+    return <AperturaCajaDialog open={true} onSuccess={refetchCaja} />;
+  }
+
   if (errorProducts === "403") {
     return (
       <div className="flex h-screen flex-col">
@@ -105,7 +122,7 @@ export default function Home() {
   return (
     <div className="flex h-full flex-col">
       <SidebarProvider
-        defaultOpen={true}
+        defaultOpen={false}
         style={{ "--sidebar-width": "75vw" } as React.CSSProperties}
         className="min-h-0 flex-1 overflow-hidden"
       >

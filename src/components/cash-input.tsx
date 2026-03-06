@@ -5,34 +5,44 @@ import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-interface CashInputProps {
-  total: number;
-  amounts: number[];
-  onAmountsChange: (amounts: number[]) => void;
+export interface CashEntry {
+  amount: number;
+  currency: "MXN" | "USD";
 }
 
-export function CashInput({ total, amounts, onAmountsChange }: CashInputProps) {
-  const [currentAmount, setCurrentAmount] = useState("");
+interface CashInputProps {
+  total: number;
+  tipoCambio: number;
+  entries: CashEntry[];
+  onEntriesChange: (entries: CashEntry[]) => void;
+}
 
-  const receivedTotal = amounts.reduce((sum, a) => sum + a, 0);
+export function CashInput({ total, tipoCambio, entries, onEntriesChange }: CashInputProps) {
+  const [currentAmount, setCurrentAmount] = useState("");
+  const [currency, setCurrency] = useState<"MXN" | "USD">("MXN");
+
+  const receivedTotal = entries.reduce(
+    (sum, e) => sum + (e.currency === "MXN" ? e.amount : e.amount * tipoCambio),
+    0
+  );
   const remaining = total - receivedTotal;
   const change = receivedTotal - total;
 
-  function addAmount() {
+  function addEntry() {
     const value = parseFloat(currentAmount);
     if (!value || value <= 0) return;
-    onAmountsChange([...amounts, value]);
+    onEntriesChange([...entries, { amount: value, currency }]);
     setCurrentAmount("");
   }
 
-  function removeAmount(index: number) {
-    onAmountsChange(amounts.filter((_, i) => i !== index));
+  function removeEntry(index: number) {
+    onEntriesChange(entries.filter((_, i) => i !== index));
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter") {
       e.preventDefault();
-      addAmount();
+      addEntry();
     }
   }
 
@@ -40,8 +50,32 @@ export function CashInput({ total, amounts, onAmountsChange }: CashInputProps) {
     <div className="space-y-3">
       <label className="text-sm font-medium">Recibido</label>
 
-      {/* Input + add button */}
+      {/* Input + currency toggle + add */}
       <div className="flex gap-2">
+        <div className="flex shrink-0 overflow-hidden rounded-md border">
+          <button
+            type="button"
+            onClick={() => setCurrency("MXN")}
+            className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              currency === "MXN"
+                ? "bg-primary text-primary-foreground"
+                : "bg-background text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            MXN
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrency("USD")}
+            className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
+              currency === "USD"
+                ? "bg-green-600 text-white"
+                : "bg-background text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            USD
+          </button>
+        </div>
         <div className="relative flex-1">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
             $
@@ -62,50 +96,80 @@ export function CashInput({ total, amounts, onAmountsChange }: CashInputProps) {
           variant="outline"
           size="icon"
           className="h-10 w-10 shrink-0"
-          onClick={addAmount}
+          onClick={addEntry}
           disabled={!currentAmount || parseFloat(currentAmount) <= 0}
         >
           <Plus className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Quick amounts */}
-      <div className="flex flex-wrap gap-2">
-        {[20, 50, 100, 200, 500, 1000].map((amount) => (
-          <Button
-            key={amount}
-            variant="outline"
-            size="sm"
-            className="h-8"
-            onClick={() => onAmountsChange([...amounts, amount])}
-          >
-            ${amount}
-          </Button>
-        ))}
+      {/* Quick amounts — MXN */}
+      <div>
+        <p className="mb-1.5 text-xs text-muted-foreground">Pesos MXN</p>
+        <div className="flex flex-wrap gap-1.5">
+          {[20, 50, 100, 200, 500, 1000].map((amount) => (
+            <Button
+              key={amount}
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => onEntriesChange([...entries, { amount, currency: "MXN" }])}
+            >
+              ${amount}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      {/* Amounts list */}
-      {amounts.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="max-h-48 space-y-1.5 overflow-y-auto">
-          {amounts.map((amount, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between rounded-md bg-muted px-3 py-1.5"
+      {/* Quick amounts — USD */}
+      <div>
+        <p className="mb-1.5 text-xs text-muted-foreground">Dólares USD</p>
+        <div className="flex flex-wrap gap-1.5">
+          {[1, 5, 10, 20, 50, 100].map((amount) => (
+            <Button
+              key={amount}
+              variant="outline"
+              size="sm"
+              className="h-8 border-green-300 text-green-700 hover:bg-green-50"
+              onClick={() => onEntriesChange([...entries, { amount, currency: "USD" }])}
             >
-              <span className="text-sm">${amount.toFixed(2)}</span>
-              <button
-                onClick={() => removeAmount(index)}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+              ${amount}
+            </Button>
           ))}
+        </div>
+      </div>
+
+      {/* Entries list */}
+      {entries.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="max-h-36 space-y-1.5 overflow-y-auto">
+            {entries.map((entry, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between rounded-md bg-muted px-3 py-1.5"
+              >
+                {entry.currency === "MXN" ? (
+                  <span className="text-sm">${entry.amount.toFixed(2)} MXN</span>
+                ) : (
+                  <span className="text-sm">
+                    <span className="text-green-700">${entry.amount.toFixed(2)} USD</span>
+                    <span className="ml-1.5 text-xs text-muted-foreground">
+                      → ${(entry.amount * tipoCambio).toFixed(2)} MXN
+                    </span>
+                  </span>
+                )}
+                <button
+                  onClick={() => removeEntry(index)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
           <div className="flex justify-between border-t pt-1.5 text-sm font-medium">
             <span>Total recibido</span>
-            <span>${receivedTotal.toFixed(2)}</span>
+            <span>${receivedTotal.toFixed(2)} MXN</span>
           </div>
         </div>
       )}
