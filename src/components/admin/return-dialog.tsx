@@ -146,7 +146,7 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
         if (!row.product) continue;
         const product = products.find((p) => p.id === row.product!.id);
         if (!product) continue;
-        await patchProductStock(product.documentId, product.stock + row.returnQty);
+        await patchProductStock(product.documentId, product.stock_central + row.returnQty);
         returnedItems.push({ productId: row.product.id, quantity: row.returnQty });
       }
 

@@ -257,7 +257,7 @@ export function CartPanel({
 
           await Promise.allSettled(
             items.map((item) =>
-              patchProductStock(item.product.documentId, item.product.stock - item.quantity)
+              patchProductStock(item.product.documentId, item.product.stock_central - item.quantity)
             )
           );
           onSaleComplete(items);

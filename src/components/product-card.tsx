@@ -77,7 +77,7 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
           ${(product.priceMember ?? 0).toFixed(2)}
         </span>
         <span className="text-xs text-muted-foreground text-right">
-          Stock: {product.stock}
+          Stock: {product.stock_central}
         </span>
       </div>
       <Button

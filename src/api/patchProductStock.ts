@@ -4,7 +4,7 @@ export async function patchProductStock(documentId: string, newStock: number): P
   const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/products/${documentId}`;
   const res = await authFetch(url, {
     method: "PUT",
-    body: JSON.stringify({ data: { stock: newStock } }),
+    body: JSON.stringify({ data: { stock_central: newStock } }),
   });
   if (!res.ok) {
     throw new Error(`Error al actualizar stock (producto ${documentId})`);

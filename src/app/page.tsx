@@ -93,7 +93,7 @@ export default function Home() {
     setProducts((prev) =>
       prev.map((p) => {
         const sold = soldItems.find((i) => i.product.id === p.id);
-        if (sold) return { ...p, stock: p.stock - sold.quantity };
+        if (sold) return { ...p, stock_central: p.stock_central - sold.quantity };
         return p;
       })
     );

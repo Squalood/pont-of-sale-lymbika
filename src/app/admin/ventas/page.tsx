@@ -21,7 +21,7 @@ export default function VentasPage() {
     setProducts((prev) =>
       prev.map((p) => {
         const returned = returnedItems.find((r) => r.productId === p.id);
-        if (returned) return { ...p, stock: p.stock + returned.quantity };
+        if (returned) return { ...p, stock_central: p.stock_central + returned.quantity };
         return p;
       })
     );

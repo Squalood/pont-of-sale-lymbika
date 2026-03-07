@@ -35,5 +35,5 @@ export type ProductType = {
   conReceta: boolean;
   sku: string;
   barCode: string;
-  stock: number;
+  stock_central: number;
 };
