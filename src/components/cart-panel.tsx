@@ -34,7 +34,7 @@ export function CartPanel({
   onClear,
   onSaleComplete,
 }: CartPanelProps) {
-  const { caja } = useCaja();
+  const { caja, refetchEfectivo } = useCaja();
   const tipoCambio = caja?.tipoCambio ?? 1;
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -284,6 +284,7 @@ export function CartPanel({
             recibidoUSD,
             tipoCambioUsado,
           });
+          if (method === "efectivo") refetchEfectivo();
           setCheckoutOpen(false);
           setSaleResult({ paymentMethod: method, change: change > 0 ? change : 0 });
         }}

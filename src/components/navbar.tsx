@@ -17,7 +17,7 @@ export function Navbar() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [mounted, setMounted] = useState(false);
   const { isForbidden } = useForbidden();
-  const { caja } = useCaja();
+  const { caja, efectivo } = useCaja();
 
   useEffect(() => {
     setUser(getUser());
@@ -57,6 +57,27 @@ export function Navbar() {
                 <p><span className="font-semibold">Apertura:</span> {new Date(caja.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</p>
                 <p><span className="font-semibold">Fondo inicial:</span> ${caja.fondoInicial.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
                 <p><span className="font-semibold">Operador:</span> {caja.operador}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        {efectivo && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge className="cursor-default bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30">
+                  Caja ${efectivo.efectivoMXN.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="space-y-1 text-xs">
+                <p><span className="font-semibold">Fondo inicial:</span> ${efectivo.fondoInicial.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
+                <p><span className="font-semibold">Ventas efectivo:</span> ${efectivo.ventasNetoMXN.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
+                {efectivo.devolucionesMXN > 0 && (
+                  <p><span className="font-semibold">Devoluciones:</span> -${efectivo.devolucionesMXN.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
+                )}
+                {efectivo.efectivoUSD > 0 && (
+                  <p><span className="font-semibold">Dólares:</span> ${efectivo.efectivoUSD.toFixed(2)} USD</p>
+                )}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

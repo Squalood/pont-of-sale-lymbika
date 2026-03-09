@@ -28,6 +28,7 @@ import { patchProductStock } from "@/api/patchProductStock";
 import { patchVentaEstado } from "@/api/patchVentaEstado";
 import { printReturnReceipt } from "@/lib/print-return-receipt";
 import { getUser } from "@/lib/auth";
+import { useCaja } from "@/lib/caja-context";
 
 interface ReturnDialogProps {
   venta: VentaType;
@@ -46,6 +47,7 @@ interface ReturnRow extends VentaItemType {
 }
 
 export function ReturnDialog({ venta, products, open, onClose, onReturnComplete }: ReturnDialogProps) {
+  const { refetchEfectivo } = useCaja();
   const [step, setStep] = useState<Step>("items");
   const [rows, setRows] = useState<ReturnRow[]>([]);
   const [motivo, setMotivo] = useState("");
@@ -152,6 +154,7 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
 
       // 4. Update local state
       onReturnComplete(returnedItems);
+      if (metodo === "Efectivo") refetchEfectivo();
 
       // 5. Print receipt
       printReturnReceipt({
