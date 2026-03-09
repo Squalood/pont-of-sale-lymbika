@@ -99,16 +99,12 @@ export default function Home() {
     );
   }
 
-  if (loadingCaja) {
+  if (loadingCaja || loadingProducts) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
-  }
-
-  if (!caja) {
-    return <AperturaCajaDialog open={true} onSuccess={refetchCaja} />;
   }
 
   if (errorProducts === "403") {
@@ -117,6 +113,10 @@ export default function Home() {
         <Unauthorized />
       </div>
     );
+  }
+
+  if (!caja) {
+    return <AperturaCajaDialog open={true} onSuccess={refetchCaja} />;
   }
 
   return (
