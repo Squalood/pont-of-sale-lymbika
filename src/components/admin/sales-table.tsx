@@ -1,6 +1,15 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -29,6 +38,18 @@ interface SalesTableProps {
   onReturnComplete: (returnedItems: { productId: number; quantity: number }[]) => void;
 }
 
+const PAGE_SIZE = 20;
+
+function getPageNumbers(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | "…")[] = [1];
+  if (current > 3) pages.push("…");
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i);
+  if (current < total - 2) pages.push("…");
+  pages.push(total);
+  return pages;
+}
+
 type Period = "hoy" | "semana" | "mes" | "todo";
 
 export function SalesTable({ ventas, products, onReturnComplete }: SalesTableProps) {
@@ -36,6 +57,11 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
   const [selectedVenta, setSelectedVenta] = useState<VentaType | null>(null);
   const [operadorFilter, setOperadorFilter] = useState<string>("todos");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+
+  function handlePeriod(v: string) { setPeriod(v as Period); setPage(1); }
+  function handleOperador(v: string) { setOperadorFilter(v); setPage(1); }
+  function handleSearch(v: string) { setSearch(v); setPage(1); }
 
   const operadores = useMemo(() => {
     const unique = Array.from(new Set(ventas.map((v) => v.operador).filter(Boolean)));
@@ -70,6 +96,9 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
     });
   }, [ventas, period, operadorFilter, search]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredVentas.length / PAGE_SIZE));
+  const paginatedVentas = filteredVentas.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
@@ -78,10 +107,10 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
           <Input
             placeholder="Buscar por # recibo"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="w-44 h-8 text-sm"
           />
-          <Select value={operadorFilter} onValueChange={setOperadorFilter}>
+          <Select value={operadorFilter} onValueChange={handleOperador}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Operador" />
             </SelectTrigger>
@@ -94,7 +123,7 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
               ))}
             </SelectContent>
           </Select>
-          <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
+          <Tabs value={period} onValueChange={handlePeriod}>
             <TabsList>
               <TabsTrigger value="hoy">Hoy</TabsTrigger>
               <TabsTrigger value="semana">Semana</TabsTrigger>
@@ -125,7 +154,7 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
                 </TableCell>
               </TableRow>
             ) : (
-              filteredVentas.map((venta) => {
+              paginatedVentas.map((venta) => {
                 const fecha = new Date(venta.fecha);
                 const itemCount = venta.venta?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
 
@@ -169,6 +198,49 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
           </TableBody>
         </Table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            Pág. {page} / {totalPages} · {filteredVentas.length} ventas
+          </span>
+          <Pagination className="w-auto mx-0">
+            <PaginationContent className="gap-0">
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)); }}
+                  aria-disabled={page === 1}
+                  className={page === 1 ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+              {getPageNumbers(page, totalPages).map((n, i) =>
+                n === "…" ? (
+                  <PaginationItem key={`e-${i}`}><PaginationEllipsis /></PaginationItem>
+                ) : (
+                  <PaginationItem key={n}>
+                    <PaginationLink
+                      href="#"
+                      isActive={n === page}
+                      onClick={(e) => { e.preventDefault(); setPage(n); }}
+                    >
+                      {n}
+                    </PaginationLink>
+                  </PaginationItem>
+                )
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)); }}
+                  aria-disabled={page === totalPages}
+                  className={page === totalPages ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
 
       <SaleDetailDialog
         venta={selectedVenta}

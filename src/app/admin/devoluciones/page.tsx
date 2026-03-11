@@ -8,7 +8,7 @@ export default function DevolucionesPage() {
   const { result: devoluciones, loading, error } = useGetDevoluciones();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 flex-1 min-h-0 overflow-y-auto">
       <h1 className="text-2xl font-bold">Devoluciones</h1>
 
       {loading ? (

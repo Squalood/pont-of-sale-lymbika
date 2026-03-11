@@ -28,7 +28,7 @@ export default function VentasPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 flex-1 min-h-0 overflow-y-auto">
       <h1 className="text-2xl font-bold">Historial de Ventas</h1>
 
       {loading ? (
