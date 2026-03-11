@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { ProductType } from "@/types/product";
 import { patchProduct } from "@/api/patchProduct";
 import {
@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -21,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, SquarePen, Save, CircleX } from "lucide-react";
 import {
   Pagination,
   PaginationContent,
@@ -52,81 +53,12 @@ function resolveImageUrl(url: string): string {
   return `${BACKEND_URL}${url}`;
 }
 
-type SavingKey = string; // `${documentId}-${field}`
-
-interface EditableNumberCellProps {
-  documentId: string;
-  field: "price" | "priceMember" | "stock_central";
-  value: number | null;
-  isSaving: boolean;
-  onSave: (val: number) => Promise<void>;
-  format?: "currency" | "integer";
-}
-
-function EditableNumberCell({
-  value,
-  isSaving,
-  onSave,
-  format = "currency",
-}: EditableNumberCellProps) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<string>("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  function startEdit() {
-    setDraft(value !== null ? String(value) : "");
-    setEditing(true);
-    setTimeout(() => inputRef.current?.select(), 0);
-  }
-
-  async function commit() {
-    setEditing(false);
-    const num = parseFloat(draft);
-    if (isNaN(num) || num === value) return;
-    await onSave(num);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") commit();
-    if (e.key === "Escape") setEditing(false);
-  }
-
-  const displayValue =
-    value === null
-      ? "—"
-      : format === "currency"
-      ? `$${value.toLocaleString("es-AR")}`
-      : value.toLocaleString("es-AR");
-
-  if (editing) {
-    return (
-      <Input
-        ref={inputRef}
-        type="number"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={handleKeyDown}
-        className="h-7 w-24 text-right text-sm"
-      />
-    );
-  }
-
-  return (
-    <button
-      onClick={startEdit}
-      disabled={isSaving}
-      className="group flex items-center gap-1.5 rounded px-1 py-0.5 text-right text-sm hover:bg-muted disabled:opacity-50"
-    >
-      {isSaving ? (
-        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-      ) : null}
-      <span className="group-hover:underline group-hover:underline-offset-2">
-        {displayValue}
-      </span>
-    </button>
-  );
-}
+type RowDraft = {
+  price: string;
+  priceMember: string;
+  stock_central: string;
+  active: boolean;
+};
 
 interface ProductsTableProps {
   initialProducts: ProductType[];
@@ -138,8 +70,10 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [activeFilter, setActiveFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const [savings, setSavings] = useState<Record<SavingKey, boolean>>({});
-  const [errors, setErrors] = useState<Record<SavingKey, string>>({});
+  const [editingRow, setEditingRow] = useState<string | null>(null);
+  const [draft, setDraft] = useState<RowDraft | null>(null);
+  const [rowSaving, setRowSaving] = useState(false);
+  const [rowError, setRowError] = useState<string | null>(null);
 
   const categories = useMemo(() => {
     const seen = new Map<string, string>();
@@ -175,51 +109,53 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
   function handleCategoryFilter(val: string) { setCategoryFilter(val); setPage(1); }
   function handleActiveFilter(val: string) { setActiveFilter(val); setPage(1); }
 
-  function setSaving(key: SavingKey, val: boolean) {
-    setSavings((prev) => ({ ...prev, [key]: val }));
-  }
-
-  function setError(key: SavingKey, msg: string) {
-    setErrors((prev) => ({ ...prev, [key]: msg }));
-    setTimeout(() => setErrors((prev) => ({ ...prev, [key]: "" })), 3000);
-  }
-
   function updateLocal(documentId: string, fields: Partial<ProductType>) {
     setProducts((prev) =>
       prev.map((p) => (p.documentId === documentId ? { ...p, ...fields } : p))
     );
   }
 
-  async function handleSaveField(
-    documentId: string,
-    field: "price" | "priceMember" | "stock_central",
-    newValue: number,
-    previousValue: number | null
-  ) {
-    const key: SavingKey = `${documentId}-${field}`;
-    setSaving(key, true);
-    updateLocal(documentId, { [field]: newValue });
-    try {
-      await patchProduct(documentId, { [field]: newValue });
-    } catch {
-      updateLocal(documentId, { [field]: previousValue ?? undefined });
-      setError(key, "Error al guardar");
-    } finally {
-      setSaving(key, false);
-    }
+  function startEdit(product: ProductType) {
+    setEditingRow(product.documentId);
+    setDraft({
+      price: product.price != null ? String(product.price) : "",
+      priceMember: product.priceMember != null ? String(product.priceMember) : "",
+      stock_central: product.stock_central != null ? String(product.stock_central) : "",
+      active: product.active,
+    });
+    setRowError(null);
   }
 
-  async function handleToggleActive(documentId: string, currentActive: boolean) {
-    const key: SavingKey = `${documentId}-active`;
-    setSaving(key, true);
-    updateLocal(documentId, { active: !currentActive });
+  function cancelEdit() {
+    setEditingRow(null);
+    setDraft(null);
+    setRowError(null);
+  }
+
+  async function saveEdit(product: ProductType) {
+    if (!draft) return;
+    setRowSaving(true);
+    setRowError(null);
+
+    const fields: { price?: number; priceMember?: number; stock_central?: number; active?: boolean } = {};
+    const newPrice = parseFloat(draft.price);
+    const newPriceMember = parseFloat(draft.priceMember);
+    const newStock = parseFloat(draft.stock_central);
+
+    if (!isNaN(newPrice)) fields.price = newPrice;
+    if (!isNaN(newPriceMember)) fields.priceMember = newPriceMember;
+    if (!isNaN(newStock)) fields.stock_central = newStock;
+    fields.active = draft.active;
+
     try {
-      await patchProduct(documentId, { active: !currentActive });
+      await patchProduct(product.documentId, fields);
+      updateLocal(product.documentId, fields);
+      setEditingRow(null);
+      setDraft(null);
     } catch {
-      updateLocal(documentId, { active: currentActive });
-      setError(key, "Error al guardar");
+      setRowError("Error al guardar");
     } finally {
-      setSaving(key, false);
+      setRowSaving(false);
     }
   }
 
@@ -308,23 +244,24 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
 
       {/* Tabla */}
       <div className="flex-1 min-h-0 overflow-auto rounded-md border">
-        <Table>
+        <Table className="[&_td]:py-2">
           <TableHeader>
             <TableRow>
               <TableHead className="w-12"></TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead className="hidden md:table-cell">Sustancia</TableHead>
-              <TableHead className="hidden lg:table-cell">Categoría</TableHead>
+              <TableHead className="hidden lg:table-cell text-center">Categoría</TableHead>
               <TableHead className="text-right">Precio</TableHead>
               <TableHead className="text-right">MediClub</TableHead>
               <TableHead className="text-right">Stock</TableHead>
               <TableHead className="text-center">Activo</TableHead>
+              <TableHead className="w-16"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
                   Sin resultados
                 </TableCell>
               </TableRow>
@@ -333,8 +270,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               const imgUrl = product.images?.[0]?.url
                 ? resolveImageUrl(product.images[0].url)
                 : null;
-              const activeSaving = savings[`${product.documentId}-active`];
-              const activeError = errors[`${product.documentId}-active`];
+              const isEditing = editingRow === product.documentId;
 
               return (
                 <TableRow key={product.documentId} className={!product.active ? "opacity-50" : undefined}>
@@ -359,9 +295,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                     <div className="flex flex-col gap-0.5 min-w-0">
                       <span className="truncate" title={product.productName}>{product.productName}</span>
                       {product.sku && (
-                        <span className="text-xs text-muted-foreground">
-                          {product.sku}
-                        </span>
+                        <span className="text-xs text-muted-foreground">{product.sku}</span>
                       )}
                     </div>
                   </TableCell>
@@ -372,7 +306,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                   </TableCell>
 
                   {/* Categoría */}
-                  <TableCell className="hidden lg:table-cell">
+                  <TableCell className="hidden lg:table-cell text-center">
                     {product.category?.categoryName ? (
                       <Badge variant="secondary">{product.category.categoryName}</Badge>
                     ) : (
@@ -382,78 +316,108 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
 
                   {/* Precio */}
                   <TableCell className="text-right">
-                    <div className="flex justify-end">
-                      <EditableNumberCell
-                        documentId={product.documentId}
-                        field="price"
-                        value={product.price}
-                        isSaving={!!savings[`${product.documentId}-price`]}
-                        onSave={(val) =>
-                          handleSaveField(product.documentId, "price", val, product.price)
-                        }
-                        format="currency"
+                    {isEditing && draft ? (
+                      <Input
+                        type="number"
+                        value={draft.price}
+                        onChange={(e) => setDraft((d) => d ? { ...d, price: e.target.value } : d)}
+                        className="h-7 w-24 text-right text-sm ml-auto"
                       />
-                    </div>
-                    {errors[`${product.documentId}-price`] && (
-                      <p className="text-xs text-destructive">{errors[`${product.documentId}-price`]}</p>
+                    ) : (
+                      <span className="text-sm">
+                        {product.price != null ? `$${product.price.toLocaleString("es-AR")}` : "—"}
+                      </span>
                     )}
                   </TableCell>
 
                   {/* Precio MediClub */}
                   <TableCell className="text-right">
-                    <div className="flex justify-end">
-                      <EditableNumberCell
-                        documentId={product.documentId}
-                        field="priceMember"
-                        value={product.priceMember}
-                        isSaving={!!savings[`${product.documentId}-priceMember`]}
-                        onSave={(val) =>
-                          handleSaveField(product.documentId, "priceMember", val, product.priceMember)
-                        }
-                        format="currency"
+                    {isEditing && draft ? (
+                      <Input
+                        type="number"
+                        value={draft.priceMember}
+                        onChange={(e) => setDraft((d) => d ? { ...d, priceMember: e.target.value } : d)}
+                        className="h-7 w-24 text-right text-sm ml-auto"
                       />
-                    </div>
-                    {errors[`${product.documentId}-priceMember`] && (
-                      <p className="text-xs text-destructive">{errors[`${product.documentId}-priceMember`]}</p>
+                    ) : (
+                      <span className="text-sm">
+                        {product.priceMember != null ? `$${product.priceMember.toLocaleString("es-AR")}` : "—"}
+                      </span>
                     )}
                   </TableCell>
 
                   {/* Stock */}
                   <TableCell className="text-right">
-                    <div className="flex justify-end">
-                      <EditableNumberCell
-                        documentId={product.documentId}
-                        field="stock_central"
-                        value={product.stock_central}
-                        isSaving={!!savings[`${product.documentId}-stock_central`]}
-                        onSave={(val) =>
-                          handleSaveField(product.documentId, "stock_central", val, product.stock_central)
-                        }
-                        format="integer"
+                    {isEditing && draft ? (
+                      <Input
+                        type="number"
+                        value={draft.stock_central}
+                        onChange={(e) => setDraft((d) => d ? { ...d, stock_central: e.target.value } : d)}
+                        className="h-7 w-20 text-right text-sm ml-auto"
                       />
-                    </div>
-                    {errors[`${product.documentId}-stock_central`] && (
-                      <p className="text-xs text-destructive">{errors[`${product.documentId}-stock_central`]}</p>
+                    ) : (
+                      <span className="text-sm">
+                        {product.stock_central != null ? product.stock_central.toLocaleString("es-AR") : "—"}
+                      </span>
                     )}
                   </TableCell>
 
                   {/* Activo */}
                   <TableCell className="text-center">
-                    <div className="flex flex-col items-center gap-1">
+                    {isEditing && draft ? (
                       <Switch
-                        checked={product.active}
-                        disabled={activeSaving}
-                        onCheckedChange={() =>
-                          handleToggleActive(product.documentId, product.active)
-                        }
+                        checked={draft.active}
+                        onCheckedChange={(val) => setDraft((d) => d ? { ...d, active: val } : d)}
                       />
-                      {activeSaving && (
-                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                      )}
-                      {activeError && (
-                        <p className="text-xs text-destructive">{activeError}</p>
+                    ) : (
+                      <Badge variant={product.active ? "default" : "secondary"}>
+                        {product.active ? "Activo" : "Inactivo"}
+                      </Badge>
+                    )}
+                  </TableCell>
+
+                  {/* Acciones */}
+                  <TableCell>
+                    <div className="flex items-center justify-baseline gap-1">
+                      {isEditing ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={rowSaving}
+                            onClick={() => saveEdit(product)}
+                            className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          >
+                            {rowSaving ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Save className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={rowSaving}
+                            onClick={cancelEdit}
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <CircleX className="h-4 w-4" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => startEdit(product)}
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        >
+                          <SquarePen className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
+                    {isEditing && rowError && (
+                      <p className="text-xs text-destructive text-right mt-1">{rowError}</p>
+                    )}
                   </TableCell>
                 </TableRow>
               );
@@ -461,7 +425,6 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
           </TableBody>
         </Table>
       </div>
-
     </div>
   );
 }

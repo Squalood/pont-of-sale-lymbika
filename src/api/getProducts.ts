@@ -3,7 +3,7 @@ import { ProductType } from "@/types/product";
 import { authFetch } from "@/lib/auth";
 
 export function useGetProducts() {
-  const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/products?populate=*&pagination[page]=1&pagination[pageSize]=5000`;
+  const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/products?populate=*&pagination[page]=1&pagination[pageSize]=5000&sort=createdAt:desc`;
   const [result, setResult] = useState<ProductType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
