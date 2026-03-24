@@ -39,6 +39,7 @@ export interface VentaType {
   tipoCambioUsado: number;
   estado: "completada" | "cancelada";
   operador: string;
+  nota?: string;
   venta: VentaItemType[];
 }
 
@@ -54,5 +55,6 @@ export interface VentaPayload {
   tipoCambioUsado: number;
   estado: "completada" | "cancelada";
   operador: string;
+  nota?: string;
   venta: VentaItem[];
 }

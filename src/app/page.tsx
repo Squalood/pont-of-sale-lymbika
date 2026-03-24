@@ -44,15 +44,17 @@ export default function Home() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   const filteredItems = useMemo((): GridItem[] => {
-    const term = search.toLowerCase();
+    const normalize = (s: string) =>
+      s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const term = normalize(search);
 
     const productItems: GridItem[] = selectedCategory === "consultas"
       ? []
       : products
           .filter((p) => {
             const matchesSearch =
-              p.productName.toLowerCase().includes(term) ||
-              p.sal?.toLowerCase().includes(term);
+              normalize(p.productName).includes(term) ||
+              (p.sal ? normalize(p.sal).includes(term) : false);
             const matchesBarcode =
               !barcode || p.barCode?.toLowerCase().includes(barcode.toLowerCase());
             const matchesCategory =
@@ -63,7 +65,7 @@ export default function Home() {
 
     const serviceItems: GridItem[] = selectedCategory === "todos" || selectedCategory === "consultas"
       ? serviceRates
-          .filter((sr) => !term || sr.medical_service.name.toLowerCase().includes(term))
+          .filter((sr) => !term || normalize(sr.medical_service.name).includes(term) || normalize(sr.doctor.doctorName).includes(term))
           .map((sr) => ({ type: "service" as const, data: sr }))
       : [];
 

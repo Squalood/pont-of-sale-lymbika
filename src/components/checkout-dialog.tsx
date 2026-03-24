@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Banknote, CreditCard, BadgePercent } from "lucide-react";
+import { Banknote, CreditCard, BadgePercent, NotebookPen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CashInput, CashEntry } from "@/components/cash-input";
 import {
@@ -24,13 +24,15 @@ interface CheckoutDialogProps {
     method: PaymentMethod,
     received: number,
     recibidoUSD: number,
-    tipoCambioUsado: number
+    tipoCambioUsado: number,
+    nota: string
   ) => Promise<void>;
 }
 
 export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onConfirm }: CheckoutDialogProps) {
   const [method, setMethod] = useState<PaymentMethod>("efectivo");
   const [entries, setEntries] = useState<CashEntry[]>([]);
+  const [nota, setNota] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const CARD_SURCHARGE_RATE = 0.03;
@@ -51,11 +53,12 @@ export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onC
         0
       );
       const received = method === "tarjeta" ? effectiveTotal : receivedTotal;
-      await onConfirm(method, received, recibidoUSD, tipoCambio);
+      await onConfirm(method, received, recibidoUSD, tipoCambio, nota);
     } finally {
       setIsLoading(false);
       setMethod("efectivo");
       setEntries([]);
+      setNota("");
     }
   }
 
@@ -63,6 +66,7 @@ export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onC
     onClose();
     setMethod("efectivo");
     setEntries([]);
+    setNota("");
   }
 
   return (
@@ -137,6 +141,21 @@ export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onC
             onEntriesChange={setEntries}
           />
         )}
+
+        {/* Nota */}
+        <div className="space-y-1.5">
+          <label className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <NotebookPen className="h-3.5 w-3.5" />
+            Nota (opcional)
+          </label>
+          <textarea
+            value={nota}
+            onChange={(e) => setNota(e.target.value)}
+            placeholder="Ej. nombre del paciente, indicaciones..."
+            rows={2}
+            className="w-full resize-none rounded-md border bg-transparent px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
 
         {/* Actions */}
         <div className="grid grid-cols-2 gap-3 pt-2">

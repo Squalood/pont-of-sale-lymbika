@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Printer, RotateCcw } from "lucide-react";
+import { Printer, RotateCcw, NotebookPen } from "lucide-react";
 import { VentaType } from "@/types/venta";
 import { ProductType } from "@/types/product";
 import { printReceipt } from "@/lib/print-receipt";
@@ -131,6 +131,14 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
                 </>
               )}
             </div>
+
+            {/* Nota */}
+            {venta.nota && (
+              <div className="flex gap-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                <NotebookPen className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <p className="text-muted-foreground">{venta.nota}</p>
+              </div>
+            )}
 
             {/* Items table */}
             <Table>

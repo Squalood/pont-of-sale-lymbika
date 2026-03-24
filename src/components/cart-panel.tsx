@@ -227,7 +227,7 @@ export function CartPanel({
         total={total}
         tipoCambio={tipoCambio}
         isMember={isMember}
-        onConfirm={async (method, received, recibidoUSD, tipoCambioUsado) => {
+        onConfirm={async (method, received, recibidoUSD, tipoCambioUsado, nota) => {
           const change = received - total;
           const operador = getUser()?.username ?? "desconocido";
 
@@ -245,6 +245,7 @@ export function CartPanel({
               tipoCambioUsado,
               estado: "completada",
               operador,
+              nota: nota || undefined,
               venta: items.map((item) => {
                 if (item.type === "product") {
                   return {
