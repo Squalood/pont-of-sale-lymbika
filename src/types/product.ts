@@ -1,3 +1,5 @@
+import { ServiceRateType } from "@/types/service";
+
 export interface Product {
   id: string;
   name: string;
@@ -8,10 +10,17 @@ export interface Product {
   requiresPrescription?: boolean;
 }
 
-export interface CartItem {
-  product: ProductType;
-  quantity: number;
+export type CartItem =
+  | { type: "product"; product: ProductType; quantity: number }
+  | { type: "service"; serviceRate: ServiceRateType; quantity: number };
+
+export function cartItemKey(item: CartItem): string {
+  return item.type === "product" ? `p-${item.product.id}` : `s-${item.serviceRate.id}`;
 }
+
+export type GridItem =
+  | { type: "product"; data: ProductType }
+  | { type: "service"; data: ServiceRateType };
 
 export type ProductType = {
   id: number;

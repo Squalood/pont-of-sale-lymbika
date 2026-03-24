@@ -7,7 +7,8 @@ import { CartPanel } from "@/components/cart-panel";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { useGetProducts } from "@/api/getProducts";
 import { useGetCategories } from "@/api/getCategories";
-import { ProductType, CartItem } from "@/types/product";
+import { useGetServiceRates } from "@/api/getServiceRates";
+import { ProductType, CartItem, cartItemKey, GridItem } from "@/types/product";
 import { Unauthorized } from "@/components/unauthorized";
 import { useForbidden } from "@/lib/forbidden-context";
 import { getUser } from "@/lib/auth";
@@ -21,6 +22,7 @@ export default function Home() {
 
   const { result: fetchedProducts, loading: loadingProducts, error: errorProducts } = useGetProducts();
   const { result: categories } = useGetCategories();
+  const { result: serviceRates } = useGetServiceRates();
   const [products, setProducts] = useState<ProductType[]>([]);
 
   useEffect(() => {
@@ -41,48 +43,70 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("todos");
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const term = search.toLowerCase();
-      const matchesSearch =
-        p.productName.toLowerCase().includes(term) ||
-        p.sal?.toLowerCase().includes(term);
-      const matchesBarcode =
-        !barcode || p.barCode?.toLowerCase().includes(barcode.toLowerCase());
-      const matchesCategory =
-        selectedCategory === "todos" || p.category?.slug === selectedCategory;
-      return matchesSearch && matchesBarcode && matchesCategory;
-    });
-  }, [products, search, barcode, selectedCategory]);
+  const filteredItems = useMemo((): GridItem[] => {
+    const term = search.toLowerCase();
 
-  function addToCart(product: ProductType) {
+    const productItems: GridItem[] = selectedCategory === "consultas"
+      ? []
+      : products
+          .filter((p) => {
+            const matchesSearch =
+              p.productName.toLowerCase().includes(term) ||
+              p.sal?.toLowerCase().includes(term);
+            const matchesBarcode =
+              !barcode || p.barCode?.toLowerCase().includes(barcode.toLowerCase());
+            const matchesCategory =
+              selectedCategory === "todos" || p.category?.slug === selectedCategory;
+            return matchesSearch && matchesBarcode && matchesCategory;
+          })
+          .map((p) => ({ type: "product" as const, data: p }));
+
+    const serviceItems: GridItem[] = selectedCategory === "todos" || selectedCategory === "consultas"
+      ? serviceRates
+          .filter((sr) => !term || sr.medical_service.name.toLowerCase().includes(term))
+          .map((sr) => ({ type: "service" as const, data: sr }))
+      : [];
+
+    return [...productItems, ...serviceItems];
+  }, [products, serviceRates, search, barcode, selectedCategory]);
+
+  function addToCart(item: CartItem) {
     setCartItems((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
+      const key = cartItemKey(item);
+      const existing = prev.find((i) => cartItemKey(i) === key);
       if (existing) {
-        return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+        return prev.map((i) =>
+          cartItemKey(i) === key ? { ...i, quantity: i.quantity + 1 } : i
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, item];
     });
   }
 
-  function updateQuantity(productId: number, delta: number) {
+  function addProductToCart(product: ProductType) {
+    addToCart({ type: "product", product, quantity: 1 });
+  }
+
+  function handleItemClick(gridItem: GridItem) {
+    if (gridItem.type === "product") {
+      addToCart({ type: "product", product: gridItem.data, quantity: 1 });
+    } else {
+      addToCart({ type: "service", serviceRate: gridItem.data, quantity: 1 });
+    }
+  }
+
+  function updateQuantity(itemKey: string, delta: number) {
     setCartItems((prev) =>
       prev
         .map((item) =>
-          item.product.id === productId
-            ? { ...item, quantity: item.quantity + delta }
-            : item
+          cartItemKey(item) === itemKey ? { ...item, quantity: item.quantity + delta } : item
         )
         .filter((item) => item.quantity > 0)
     );
   }
 
-  function removeItem(productId: number) {
-    setCartItems((prev) => prev.filter((item) => item.product.id !== productId));
+  function removeItem(itemKey: string) {
+    setCartItems((prev) => prev.filter((item) => cartItemKey(item) !== itemKey));
   }
 
   function clearCart() {
@@ -92,8 +116,12 @@ export default function Home() {
   function handleSaleComplete(soldItems: CartItem[]) {
     setProducts((prev) =>
       prev.map((p) => {
-        const sold = soldItems.find((i) => i.product.id === p.id);
-        if (sold) return { ...p, stock_central: p.stock_central - sold.quantity };
+        const sold = soldItems.find(
+          (i) => i.type === "product" && i.product.id === p.id
+        );
+        if (sold && sold.type === "product") {
+          return { ...p, stock_central: p.stock_central - sold.quantity };
+        }
         return p;
       })
     );
@@ -122,13 +150,14 @@ export default function Home() {
   return (
     <div className="flex h-full flex-col">
       <SidebarProvider
-        defaultOpen={false}
+        defaultOpen={true}
         style={{ "--sidebar-width": "75vw" } as React.CSSProperties}
         className="min-h-0 flex-1 overflow-hidden"
       >
         <ProductSidebar
           products={products}
-          filteredProducts={filteredProducts}
+          filteredItems={filteredItems}
+          serviceRateCount={serviceRates.length}
           categories={categories}
           loading={loadingProducts}
           error={errorProducts}
@@ -138,7 +167,7 @@ export default function Home() {
           onBarcodeChange={setBarcode}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
-          onProductClick={addToCart}
+          onItemClick={handleItemClick}
         />
 
         <SidebarInset>
@@ -148,7 +177,7 @@ export default function Home() {
             <CartPanel
               items={cartItems}
               products={products}
-              onAddProduct={addToCart}
+              onAddProduct={addProductToCart}
               onUpdateQuantity={updateQuantity}
               onRemoveItem={removeItem}
               onClear={clearCart}

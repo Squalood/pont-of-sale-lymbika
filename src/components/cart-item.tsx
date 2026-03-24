@@ -1,17 +1,54 @@
 "use client";
 
-import { CartItem as CartItemType } from "@/types/product";
+import { CartItem as CartItemType, cartItemKey } from "@/types/product";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { Minus, Plus, ShieldCheck, Stethoscope, Trash2 } from "lucide-react";
 
 interface CartItemProps {
   item: CartItemType;
   isMember: boolean;
-  onUpdateQuantity: (productId: number, delta: number) => void;
-  onRemoveItem: (productId: number) => void;
+  onUpdateQuantity: (itemKey: string, delta: number) => void;
+  onRemoveItem: (itemKey: string) => void;
 }
 
 export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: CartItemProps) {
+  const key = cartItemKey(item);
+
+  if (item.type === "service") {
+    const { serviceRate, quantity } = item;
+    return (
+      <div className="rounded-lg border p-2">
+        <div className="flex items-center gap-2">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-blue-50 text-blue-500">
+            <Stethoscope className="h-5 w-5" />
+          </div>
+          <span
+            className="block w-0 flex-1 truncate text-sm font-medium"
+            title={serviceRate.medical_service.name}
+          >
+            {serviceRate.medical_service.name}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+            onClick={() => onRemoveItem(key)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        {serviceRate.doctor?.doctorName && (
+          <p className="mt-1 pl-12 text-xs text-muted-foreground">{serviceRate.doctor.doctorName}</p>
+        )}
+        <div className="mt-1 flex items-center justify-between pl-12">
+          <span className="text-sm font-semibold">
+            ${serviceRate.price.toFixed(2)}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   const { product, quantity } = item;
   const price = (isMember ? product.priceMember : product.price) ?? 0;
   const imageUrl = product.images?.[0]?.url;
@@ -41,7 +78,7 @@ export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: Car
           variant="ghost"
           size="icon"
           className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
-          onClick={() => onRemoveItem(product.id)}
+          onClick={() => onRemoveItem(key)}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
@@ -66,7 +103,7 @@ export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: Car
             variant="outline"
             size="icon"
             className="h-6 w-6"
-            onClick={() => onUpdateQuantity(product.id, -1)}
+            onClick={() => onUpdateQuantity(key, -1)}
           >
             <Minus className="h-3 w-3" />
           </Button>
@@ -77,7 +114,7 @@ export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: Car
             variant="outline"
             size="icon"
             className="h-6 w-6"
-            onClick={() => onUpdateQuantity(product.id, 1)}
+            onClick={() => onUpdateQuantity(key, 1)}
           >
             <Plus className="h-3 w-3" />
           </Button>

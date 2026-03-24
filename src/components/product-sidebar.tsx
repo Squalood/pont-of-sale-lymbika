@@ -13,12 +13,13 @@ import {
   SidebarMenuButton,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { ProductType } from "@/types/product";
+import { ProductType, GridItem } from "@/types/product";
 import { CategoryType } from "@/types/category";
 
 interface ProductSidebarProps {
   products: ProductType[];
-  filteredProducts: ProductType[];
+  filteredItems: GridItem[];
+  serviceRateCount: number;
   categories: CategoryType[];
   loading: boolean;
   error: string | null;
@@ -28,12 +29,13 @@ interface ProductSidebarProps {
   onBarcodeChange: (value: string) => void;
   selectedCategory: string;
   onSelectCategory: (value: string) => void;
-  onProductClick: (product: ProductType) => void;
+  onItemClick: (item: GridItem) => void;
 }
 
 export function ProductSidebar({
   products,
-  filteredProducts,
+  filteredItems,
+  serviceRateCount,
   categories,
   loading,
   error,
@@ -43,7 +45,7 @@ export function ProductSidebar({
   onBarcodeChange,
   selectedCategory,
   onSelectCategory,
-  onProductClick,
+  onItemClick,
 }: ProductSidebarProps) {
   const { toggleSidebar } = useSidebar();
 
@@ -85,6 +87,7 @@ export function ProductSidebar({
         <CategoryFilter
           categories={categories}
           products={products}
+          serviceRateCount={serviceRateCount}
           selected={selectedCategory}
           onSelect={onSelectCategory}
         />
@@ -92,10 +95,10 @@ export function ProductSidebar({
 
       <SidebarContent className="px-4 pb-4 group-data-[collapsible=icon]:hidden">
         <ProductGrid
-          products={filteredProducts}
+          items={filteredItems}
           loading={loading}
           error={error}
-          onProductClick={onProductClick}
+          onItemClick={onItemClick}
         />
       </SidebarContent>
     </Sidebar>

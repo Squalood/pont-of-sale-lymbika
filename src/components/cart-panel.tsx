@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CartItem as CartItemType, ProductType } from "@/types/product";
+import { CartItem as CartItemType, cartItemKey, ProductType } from "@/types/product";
 import { CartItem } from "@/components/cart-item";
 import { CheckoutDialog } from "@/components/checkout-dialog";
 import { SaleCompleteDialog } from "@/components/sale-complete-dialog";
@@ -19,8 +19,8 @@ interface CartPanelProps {
   items: CartItemType[];
   products: ProductType[];
   onAddProduct: (product: ProductType) => void;
-  onUpdateQuantity: (productId: number, delta: number) => void;
-  onRemoveItem: (productId: number) => void;
+  onUpdateQuantity: (itemKey: string, delta: number) => void;
+  onRemoveItem: (itemKey: string) => void;
   onClear: () => void;
   onSaleComplete: (items: CartItemType[]) => void;
 }
@@ -53,14 +53,16 @@ export function CartPanel({
     }
   }
 
-  const getPrice = (item: CartItemType) =>
-    (isMember ? item.product.priceMember : item.product.price) ?? 0;
+  const getPrice = (item: CartItemType) => {
+    if (item.type === "service") return item.serviceRate.price;
+    return (isMember ? item.product.priceMember : item.product.price) ?? 0;
+  };
 
   const IVA_RATE = 0.08;
   const IVA_SLUGS = ["cuidado-belleza", "suplementos"];
 
   const itemHasIva = (item: CartItemType) =>
-    IVA_SLUGS.includes(item.product.category?.slug ?? "");
+    item.type === "product" && IVA_SLUGS.includes(item.product.category?.slug ?? "");
 
   const totalWithIva = items.reduce(
     (sum, item) => (itemHasIva(item) ? sum + getPrice(item) * item.quantity : sum),
@@ -74,10 +76,10 @@ export function CartPanel({
   const subtotal = totalWithIva / (1 + IVA_RATE) + totalWithoutIva;
   const iva = total - subtotal;
 
-  const totalRegular = items.reduce(
-    (sum, item) => sum + (item.product.price ?? 0) * item.quantity,
-    0,
-  );
+  const totalRegular = items.reduce((sum, item) => {
+    if (item.type === "product") return sum + (item.product.price ?? 0) * item.quantity;
+    return sum + item.serviceRate.price * item.quantity;
+  }, 0);
   const ahorro = isMember ? totalRegular - total : 0;
 
   return (
@@ -136,7 +138,7 @@ export function CartPanel({
             <div className="space-y-2">
               {items.map((item) => (
                 <CartItem
-                  key={item.product.id}
+                  key={cartItemKey(item)}
                   item={item}
                   isMember={isMember}
                   onUpdateQuantity={onUpdateQuantity}
@@ -243,22 +245,39 @@ export function CartPanel({
               tipoCambioUsado,
               estado: "completada",
               operador,
-              venta: items.map((item) => ({
-                product: item.product.id,
-                productName: item.product.productName,
-                quantity: item.quantity,
-                unitPrice: getPrice(item),
-                totalLine: getPrice(item) * item.quantity,
-              })),
+              venta: items.map((item) => {
+                if (item.type === "product") {
+                  return {
+                    type: "product" as const,
+                    product: item.product.documentId,
+                    service_rate: null,
+                    productName: item.product.productName,
+                    quantity: item.quantity,
+                    unitPrice: getPrice(item),
+                    totalLine: getPrice(item) * item.quantity,
+                  };
+                } else {
+                  return {
+                    type: "service" as const,
+                    product: null,
+                    service_rate: item.serviceRate.documentId,
+                    productName: item.serviceRate.medical_service.name,
+                    quantity: 1,
+                    unitPrice: item.serviceRate.price,
+                    totalLine: item.serviceRate.price,
+                  };
+                }
+              }),
             });
           } catch (err) {
             console.error("Error al registrar venta:", err);
           }
 
+          // Only patch stock for product items
           await Promise.allSettled(
-            items.map((item) =>
-              patchProductStock(item.product.documentId, item.product.stock_central - item.quantity)
-            )
+            items
+              .filter((i): i is Extract<CartItemType, { type: "product" }> => i.type === "product")
+              .map((i) => patchProductStock(i.product.documentId, i.product.stock_central - i.quantity))
           );
           onSaleComplete(items);
 
@@ -268,7 +287,7 @@ export function CartPanel({
             receiptId,
             operador,
             items: items.map((item) => ({
-              productName: item.product.productName,
+              productName: item.type === "product" ? item.product.productName : item.serviceRate.medical_service.name,
               quantity: item.quantity,
               unitPrice: getPrice(item),
               totalLine: getPrice(item) * item.quantity,

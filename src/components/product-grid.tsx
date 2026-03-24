@@ -1,15 +1,16 @@
 import { Spinner } from "@/components/ui/spinner";
 import { ProductCard } from "@/components/product-card";
-import { ProductType } from "@/types/product";
+import { ServiceCard } from "@/components/service-card";
+import { GridItem } from "@/types/product";
 
 interface ProductGridProps {
-  products: ProductType[];
+  items: GridItem[];
   loading: boolean;
   error: string | null;
-  onProductClick: (product: ProductType) => void;
+  onItemClick: (item: GridItem) => void;
 }
 
-export function ProductGrid({ products, loading, error, onProductClick }: ProductGridProps) {
+export function ProductGrid({ items, loading, error, onItemClick }: ProductGridProps) {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -28,13 +29,21 @@ export function ProductGrid({ products, loading, error, onProductClick }: Produc
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-      {products.map((product) => (
-        <ProductCard
-          key={product.id}
-          product={product}
-          onClick={onProductClick}
-        />
-      ))}
+      {items.map((item) =>
+        item.type === "product" ? (
+          <ProductCard
+            key={`p-${item.data.id}`}
+            product={item.data}
+            onClick={(p) => onItemClick({ type: "product", data: p })}
+          />
+        ) : (
+          <ServiceCard
+            key={`s-${item.data.id}`}
+            service={item.data}
+            onClick={(s) => onItemClick({ type: "service", data: s })}
+          />
+        )
+      )}
     </div>
   );
 }

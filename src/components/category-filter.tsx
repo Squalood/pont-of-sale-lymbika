@@ -7,11 +7,14 @@ import { ProductType } from "@/types/product";
 interface CategoryFilterProps {
   categories: CategoryType[];
   products: ProductType[];
+  serviceRateCount?: number;
   selected: string;
   onSelect: (category: string) => void;
 }
 
-export function CategoryFilter({ categories, products, selected, onSelect }: CategoryFilterProps) {
+export function CategoryFilter({ categories, products, serviceRateCount, selected, onSelect }: CategoryFilterProps) {
+  const totalCount = products.length + (serviceRateCount ?? 0);
+
   return (
     <div className="flex flex-wrap gap-2">
       <Button
@@ -25,7 +28,7 @@ export function CategoryFilter({ categories, products, selected, onSelect }: Cat
         }
       >
         🏪 Todos
-        <span className="ml-1 rounded-full bg-black/10 px-1.5 text-xs">{products.length}</span>
+        <span className="ml-1 rounded-full bg-black/10 px-1.5 text-xs">{totalCount}</span>
       </Button>
       {categories.map((cat) => (
         <Button
@@ -45,6 +48,21 @@ export function CategoryFilter({ categories, products, selected, onSelect }: Cat
           </span>
         </Button>
       ))}
+      {serviceRateCount !== undefined && (
+        <Button
+          variant={selected === "consultas" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => onSelect("consultas")}
+          className={
+            selected === "consultas"
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "text-muted-foreground hover:bg-secondary"
+          }
+        >
+          🩺 Consultas
+          <span className="ml-1 rounded-full bg-black/10 px-1.5 text-xs">{serviceRateCount}</span>
+        </Button>
+      )}
     </div>
   );
 }

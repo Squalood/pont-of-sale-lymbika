@@ -1,5 +1,7 @@
 export interface VentaItem {
-  product: number; // product ID
+  type: "product" | "service";
+  product?: string | null; // product documentId
+  service_rate?: string | null; // service-rate documentId
   productName: string;
   quantity: number;
   unitPrice: number;
@@ -8,6 +10,7 @@ export interface VentaItem {
 
 export interface VentaItemType {
   id: number;
+  type: "product" | "service";
   productName: string;
   quantity: number;
   unitPrice: number;
@@ -15,6 +18,10 @@ export interface VentaItemType {
   product: {
     id: number;
     productName: string;
+  } | null;
+  service_rate: {
+    id: number;
+    documentId: string;
   } | null;
 }
 
