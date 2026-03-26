@@ -152,7 +152,7 @@ export function CartPanel({
           <div className="flex items-center justify-between border-t px-4 py-3">
             <div className="flex items-center gap-2">
               <BadgePercent className="h-4 w-4 text-emerald-500" />
-              <span className="text-sm font-medium">Precio MediClub</span>
+              <span className="text-sm font-medium">Precio Health Pass</span>
             </div>
             <Switch checked={isMember} onCheckedChange={setIsMember} />
           </div>
@@ -184,7 +184,7 @@ export function CartPanel({
                 <>
                   <span className="flex items-center gap-1 text-emerald-600">
                     <BadgePercent className="h-3 w-3" />
-                    Ahorro MediClub
+                    Ahorro Health Pass
                   </span>
                   <span className="text-right tabular-nums text-emerald-600">-${ahorro.toFixed(2)}</span>
                   <span className="text-right tabular-nums text-emerald-600">-${(ahorro / tipoCambio).toFixed(2)}</span>
@@ -246,6 +246,7 @@ export function CartPanel({
               estado: "completada",
               operador,
               nota: nota || undefined,
+              esMembresia: isMember,
               venta: items.map((item) => {
                 if (item.type === "product") {
                   return {

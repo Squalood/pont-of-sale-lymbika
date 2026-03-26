@@ -40,6 +40,7 @@ export interface VentaType {
   estado: "completada" | "cancelada";
   operador: string;
   nota?: string;
+  esMembresia?: boolean;
   venta: VentaItemType[];
 }
 
@@ -56,5 +57,6 @@ export interface VentaPayload {
   estado: "completada" | "cancelada";
   operador: string;
   nota?: string;
+  esMembresia?: boolean;
   venta: VentaItem[];
 }

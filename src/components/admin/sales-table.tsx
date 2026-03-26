@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { BadgePercent } from "lucide-react";
 import { SaleDetailDialog } from "@/components/admin/sale-detail-dialog";
 import { VentaType } from "@/types/venta";
 import { ProductType } from "@/types/product";
@@ -174,9 +175,17 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
                     </TableCell>
                     <TableCell className="text-center">{itemCount}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {venta.metodoPago}
-                      </Badge>
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge variant="outline" className="capitalize">
+                          {venta.metodoPago}
+                        </Badge>
+                        {venta.esMembresia && (
+                          <Badge className="gap-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200 font-normal text-xs px-1.5 py-0">
+                            <BadgePercent className="h-3 w-3" />
+                            Health Pass
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {venta.operador ?? "—"}

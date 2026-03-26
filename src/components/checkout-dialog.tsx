@@ -86,7 +86,7 @@ export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onC
         {isMember && (
           <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
             <BadgePercent className="h-4 w-4 shrink-0" />
-            <span className="text-sm font-medium">Precio de MediClub aplicado</span>
+            <span className="text-sm font-medium">Precio de Health Pass aplicado</span>
           </div>
         )}
 
@@ -94,7 +94,7 @@ export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onC
         {isMember && method === "tarjeta" && (
           <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700">
             <div className="flex items-center justify-between text-sm">
-              <span>Subtotal MediClub</span>
+              <span>Subtotal Health Pass</span>
               <span>${total.toFixed(2)}</span>
             </div>
             <div className="flex items-center justify-between text-sm">

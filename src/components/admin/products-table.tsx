@@ -252,7 +252,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               <TableHead className="hidden md:table-cell">Sustancia</TableHead>
               <TableHead className="hidden lg:table-cell text-center">Categoría</TableHead>
               <TableHead className="text-right">Precio</TableHead>
-              <TableHead className="text-right">MediClub</TableHead>
+              <TableHead className="text-right">Health Pass</TableHead>
               <TableHead className="text-right">Stock</TableHead>
               <TableHead className="text-center">Activo</TableHead>
               <TableHead className="w-16"></TableHead>
@@ -330,7 +330,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                     )}
                   </TableCell>
 
-                  {/* Precio MediClub */}
+                  {/* Precio Health Pass */}
                   <TableCell className="text-right">
                     {isEditing && draft ? (
                       <Input

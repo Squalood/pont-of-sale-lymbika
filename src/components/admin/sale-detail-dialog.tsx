@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Printer, RotateCcw, NotebookPen } from "lucide-react";
+import { Printer, RotateCcw, NotebookPen, BadgePercent } from "lucide-react";
 import { VentaType } from "@/types/venta";
 import { ProductType } from "@/types/product";
 import { printReceipt } from "@/lib/print-receipt";
@@ -58,6 +58,7 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
       received: venta!.recibido,
       change: venta!.cambio,
       fecha: venta!.fecha,
+      isMember: venta!.esMembresia ?? false,
       recibidoUSD: venta!.recibidoUSD,
       tipoCambioUsado: venta!.tipoCambioUsado,
     });
@@ -101,6 +102,12 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
                 <span className="text-muted-foreground">Operador</span>
                 <p className="font-medium">{venta.operador ?? "—"}</p>
               </div>
+              {venta.esMembresia && (
+                <div className="col-span-2 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
+                  <BadgePercent className="h-4 w-4 shrink-0" />
+                  <span className="text-sm font-medium">Venta con Health Pass</span>
+                </div>
+              )}
               {venta.metodoPago === "efectivo" && (
                 <>
                   <div>

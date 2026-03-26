@@ -173,7 +173,7 @@ export function printReceipt(data: ReceiptData) {
           <span>$${subtotal.toFixed(2)}</span>
         </div>
         ${data.iva > 0 ? `<div class="row"><span>IVA (8%)</span><span>$${data.iva.toFixed(2)}</span></div>` : ""}
-        ${isMember ? `<div class="row member-note"><span>&#9733; Precio MediClub</span></div>` : ""}
+        ${isMember ? `<div class="row member-note"><span>&#9733; Precio Health Pass</span></div>` : ""}
         ${cardSurcharge > 0 ? `<div class="row"><span>Cargo tarjeta (3%)</span><span>+$${cardSurcharge.toFixed(2)}</span></div>` : ""}
         <div class="row total">
           <span>TOTAL</span>
