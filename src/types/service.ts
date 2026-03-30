@@ -13,9 +13,9 @@ export type ServiceRateType = {
     image: { id: number; url: string } | null;
     type: "consultation" | "procedure";
   };
-  doctor: { 
-    id: number; 
-    documentId: string; 
-    doctorName: string 
-  };
+  doctor: {
+    id: number;
+    documentId: string;
+    doctorName: string
+  } | null;
 };
