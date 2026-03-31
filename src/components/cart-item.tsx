@@ -1,23 +1,47 @@
 "use client";
 
+import { useState } from "react";
 import { CartItem as CartItemType, cartItemKey } from "@/types/product";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus, ShieldCheck, Stethoscope, Trash2 } from "lucide-react";
+import { Minus, Pencil, Plus, ShieldCheck, Stethoscope, Trash2, X } from "lucide-react";
 
 interface CartItemProps {
   item: CartItemType;
   isMember: boolean;
   onUpdateQuantity: (itemKey: string, delta: number) => void;
   onRemoveItem: (itemKey: string) => void;
+  onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
 }
 
-export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: CartItemProps) {
+export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem, onUpdatePrice }: CartItemProps) {
   const key = cartItemKey(item);
+  const [isEditingPrice, setIsEditingPrice] = useState(false);
+  const [draftPrice, setDraftPrice] = useState("");
+
+  function startEditing(displayPrice: number) {
+    setDraftPrice(displayPrice.toFixed(2));
+    setIsEditingPrice(true);
+  }
+
+  function confirmEdit() {
+    const parsed = parseFloat(draftPrice);
+    if (!isNaN(parsed) && parsed >= 0) {
+      onUpdatePrice(key, parsed);
+    }
+    setIsEditingPrice(false);
+  }
+
+  function cancelEdit() {
+    setIsEditingPrice(false);
+  }
 
   if (item.type === "service") {
-    const { serviceRate, quantity } = item;
+    const { serviceRate } = item;
+    const displayPrice = item.overridePrice ?? serviceRate.price;
+    const hasOverride = item.overridePrice !== undefined;
+
     return (
-      <div className="rounded-lg border p-2">
+      <div className="group rounded-lg border p-2">
         <div className="flex items-center gap-2">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-blue-50 text-blue-500">
             <Stethoscope className="h-5 w-5" />
@@ -40,10 +64,46 @@ export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: Car
         {serviceRate.doctor?.doctorName && (
           <p className="mt-1 pl-12 text-xs text-muted-foreground">{serviceRate.doctor.doctorName}</p>
         )}
-        <div className="mt-1 flex items-center justify-between pl-12">
-          <span className="text-sm font-semibold">
-            ${serviceRate.price.toFixed(2)}
-          </span>
+        <div className="mt-1 pl-12">
+          {isEditingPrice ? (
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={draftPrice}
+              onChange={(e) => setDraftPrice(e.target.value)}
+              onBlur={confirmEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { e.preventDefault(); confirmEdit(); }
+                if (e.key === "Escape") cancelEdit();
+              }}
+              onFocus={(e) => e.target.select()}
+              autoFocus
+              className="w-20 rounded border px-1.5 py-0.5 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          ) : (
+            <div className="flex items-center gap-1">
+              <span className={`text-sm font-semibold ${hasOverride ? "text-amber-600" : ""}`}>
+                ${displayPrice.toFixed(2)}
+              </span>
+              {hasOverride && (
+                <button
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => onUpdatePrice(key, undefined)}
+                  title="Restaurar precio original"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+              <button
+                className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
+                onClick={() => startEditing(displayPrice)}
+                title="Editar precio"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -51,10 +111,12 @@ export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: Car
 
   const { product, quantity } = item;
   const price = (isMember ? product.priceMember : product.price) ?? 0;
+  const displayPrice = item.overridePrice ?? price;
+  const hasOverride = item.overridePrice !== undefined;
   const imageUrl = product.images?.[0]?.url;
 
   return (
-    <div className="rounded-lg border p-2">
+    <div className="group rounded-lg border p-2">
       {/* Top row: image + name + delete */}
       <div className="flex items-center gap-2">
         {imageUrl ? (
@@ -94,9 +156,45 @@ export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: Car
 
       {/* Bottom row: price + quantity controls + total */}
       <div className="mt-1 flex items-center justify-between pl-12">
-        <span className={`text-xs ${isMember ? "text-emerald-400" : "text-muted-foreground"}`}>
-          ${price.toFixed(2)}
-        </span>
+        {isEditingPrice ? (
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={draftPrice}
+            onChange={(e) => setDraftPrice(e.target.value)}
+            onBlur={confirmEdit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); confirmEdit(); }
+              if (e.key === "Escape") cancelEdit();
+            }}
+            onFocus={(e) => e.target.select()}
+            autoFocus
+            className="w-20 rounded border px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        ) : (
+          <div className="flex items-center gap-1">
+            <span className={`text-xs ${hasOverride ? "text-amber-600" : isMember ? "text-emerald-400" : "text-muted-foreground"}`}>
+              ${displayPrice.toFixed(2)}
+            </span>
+            {hasOverride && (
+              <button
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => onUpdatePrice(key, undefined)}
+                title="Restaurar precio original"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+            <button
+              className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
+              onClick={() => startEditing(displayPrice)}
+              title="Editar precio"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center gap-1">
           <Button
@@ -120,8 +218,8 @@ export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem }: Car
           </Button>
         </div>
 
-        <span className={`text-sm font-semibold ${isMember ? "text-emerald-400" : ""}`}>
-          ${(price * quantity).toFixed(2)}
+        <span className={`text-sm font-semibold ${hasOverride ? "text-amber-600" : isMember ? "text-emerald-400" : ""}`}>
+          ${(displayPrice * quantity).toFixed(2)}
         </span>
       </div>
     </div>

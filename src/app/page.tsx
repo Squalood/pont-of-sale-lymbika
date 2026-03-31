@@ -111,6 +111,14 @@ export default function Home() {
     setCartItems((prev) => prev.filter((item) => cartItemKey(item) !== itemKey));
   }
 
+  function updateItemPrice(itemKey: string, newPrice: number | undefined) {
+    setCartItems((prev) =>
+      prev.map((item) =>
+        cartItemKey(item) === itemKey ? { ...item, overridePrice: newPrice } : item
+      )
+    );
+  }
+
   function clearCart() {
     setCartItems([]);
   }
@@ -182,6 +190,7 @@ export default function Home() {
               onAddProduct={addProductToCart}
               onUpdateQuantity={updateQuantity}
               onRemoveItem={removeItem}
+              onUpdatePrice={updateItemPrice}
               onClear={clearCart}
               onSaleComplete={handleSaleComplete}
             />

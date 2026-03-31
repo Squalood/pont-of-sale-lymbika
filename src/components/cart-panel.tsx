@@ -21,6 +21,7 @@ interface CartPanelProps {
   onAddProduct: (product: ProductType) => void;
   onUpdateQuantity: (itemKey: string, delta: number) => void;
   onRemoveItem: (itemKey: string) => void;
+  onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
   onClear: () => void;
   onSaleComplete: (items: CartItemType[]) => void;
 }
@@ -31,6 +32,7 @@ export function CartPanel({
   onAddProduct,
   onUpdateQuantity,
   onRemoveItem,
+  onUpdatePrice,
   onClear,
   onSaleComplete,
 }: CartPanelProps) {
@@ -54,6 +56,7 @@ export function CartPanel({
   }
 
   const getPrice = (item: CartItemType) => {
+    if (item.overridePrice !== undefined) return item.overridePrice;
     if (item.type === "service") return item.serviceRate.price;
     return (isMember ? item.product.priceMember : item.product.price) ?? 0;
   };
@@ -143,6 +146,7 @@ export function CartPanel({
                   isMember={isMember}
                   onUpdateQuantity={onUpdateQuantity}
                   onRemoveItem={onRemoveItem}
+                  onUpdatePrice={onUpdatePrice}
                 />
               ))}
             </div>

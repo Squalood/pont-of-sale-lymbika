@@ -11,8 +11,8 @@ export interface Product {
 }
 
 export type CartItem =
-  | { type: "product"; product: ProductType; quantity: number }
-  | { type: "service"; serviceRate: ServiceRateType; quantity: number };
+  | { type: "product"; product: ProductType; quantity: number; overridePrice?: number }
+  | { type: "service"; serviceRate: ServiceRateType; quantity: number; overridePrice?: number };
 
 export function cartItemKey(item: CartItem): string {
   return item.type === "product" ? `p-${item.product.id}` : `s-${item.serviceRate.id}`;
