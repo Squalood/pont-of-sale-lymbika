@@ -22,6 +22,12 @@ export type GridItem =
   | { type: "product"; data: ProductType }
   | { type: "service"; data: ServiceRateType };
 
+export type Cart = {
+  id: number;
+  items: CartItem[];
+  isMember: boolean;
+};
+
 export type ProductType = {
   id: number;
   documentId: string;

@@ -28,7 +28,7 @@ export function ProductGrid({ items, loading, error, onItemClick }: ProductGridP
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+    <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
       {items.map((item) =>
         item.type === "product" ? (
           <ProductCard

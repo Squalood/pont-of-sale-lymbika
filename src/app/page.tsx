@@ -8,13 +8,14 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { useGetProducts } from "@/api/getProducts";
 import { useGetCategories } from "@/api/getCategories";
 import { useGetServiceRates } from "@/api/getServiceRates";
-import { ProductType, CartItem, cartItemKey, GridItem } from "@/types/product";
+import { ProductType, GridItem } from "@/types/product";
 import { Unauthorized } from "@/components/unauthorized";
 import { useForbidden } from "@/lib/forbidden-context";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
 import { AperturaCajaDialog } from "@/components/apertura-caja-dialog";
 import { Loader2 } from "lucide-react";
+import { useMultiCart, MAX_CARTS } from "@/hooks/useMultiCart";
 
 export default function Home() {
   const router = useRouter();
@@ -25,23 +26,23 @@ export default function Home() {
   const { result: serviceRates } = useGetServiceRates();
   const [products, setProducts] = useState<ProductType[]>([]);
 
-  useEffect(() => {
-    setProducts(fetchedProducts);
-  }, [fetchedProducts]);
+  useEffect(() => { setProducts(fetchedProducts); }, [fetchedProducts]);
+
   const { setForbidden } = useForbidden();
-
-  useEffect(() => {
-    if (!getUser()) router.replace("/login");
-  }, [router]);
-
-  useEffect(() => {
-    if (errorProducts === "403") setForbidden(true);
-  }, [errorProducts, setForbidden]);
+  useEffect(() => { if (!getUser()) router.replace("/login"); }, [router]);
+  useEffect(() => { if (errorProducts === "403") setForbidden(true); }, [errorProducts, setForbidden]);
 
   const [search, setSearch] = useState("");
   const [barcode, setBarcode] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("todos");
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
+  const {
+    carts, activeCartId, setActiveCartId,
+    sidebarOpen, setSidebarOpen, sidebarWidth,
+    addToCartOf, updateQuantityOf, removeItemOf,
+    updateItemPriceOf, clearCartOf, setMemberOf,
+    addCart, removeCart, handleSaleComplete,
+  } = useMultiCart(setProducts);
 
   const filteredItems = useMemo((): GridItem[] => {
     const normalize = (s: string) =>
@@ -72,69 +73,12 @@ export default function Home() {
     return [...productItems, ...serviceItems];
   }, [products, serviceRates, search, barcode, selectedCategory]);
 
-  function addToCart(item: CartItem) {
-    setCartItems((prev) => {
-      const key = cartItemKey(item);
-      const existing = prev.find((i) => cartItemKey(i) === key);
-      if (existing) {
-        return prev.map((i) =>
-          cartItemKey(i) === key ? { ...i, quantity: i.quantity + 1 } : i
-        );
-      }
-      return [...prev, item];
-    });
-  }
-
-  function addProductToCart(product: ProductType) {
-    addToCart({ type: "product", product, quantity: 1 });
-  }
-
   function handleItemClick(gridItem: GridItem) {
     if (gridItem.type === "product") {
-      addToCart({ type: "product", product: gridItem.data, quantity: 1 });
+      addToCartOf(activeCartId, { type: "product", product: gridItem.data, quantity: 1 });
     } else {
-      addToCart({ type: "service", serviceRate: gridItem.data, quantity: 1 });
+      addToCartOf(activeCartId, { type: "service", serviceRate: gridItem.data, quantity: 1 });
     }
-  }
-
-  function updateQuantity(itemKey: string, delta: number) {
-    setCartItems((prev) =>
-      prev
-        .map((item) =>
-          cartItemKey(item) === itemKey ? { ...item, quantity: item.quantity + delta } : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
-  }
-
-  function removeItem(itemKey: string) {
-    setCartItems((prev) => prev.filter((item) => cartItemKey(item) !== itemKey));
-  }
-
-  function updateItemPrice(itemKey: string, newPrice: number | undefined) {
-    setCartItems((prev) =>
-      prev.map((item) =>
-        cartItemKey(item) === itemKey ? { ...item, overridePrice: newPrice } : item
-      )
-    );
-  }
-
-  function clearCart() {
-    setCartItems([]);
-  }
-
-  function handleSaleComplete(soldItems: CartItem[]) {
-    setProducts((prev) =>
-      prev.map((p) => {
-        const sold = soldItems.find(
-          (i) => i.type === "product" && i.product.id === p.id
-        );
-        if (sold && sold.type === "product") {
-          return { ...p, stock_central: p.stock_central - sold.quantity };
-        }
-        return p;
-      })
-    );
   }
 
   if (loadingCaja || loadingProducts) {
@@ -146,11 +90,7 @@ export default function Home() {
   }
 
   if (errorProducts === "403") {
-    return (
-      <div className="flex h-screen flex-col">
-        <Unauthorized />
-      </div>
-    );
+    return <div className="flex h-screen flex-col"><Unauthorized /></div>;
   }
 
   if (!caja) {
@@ -160,8 +100,9 @@ export default function Home() {
   return (
     <div className="flex h-full flex-col">
       <SidebarProvider
-        defaultOpen={true}
-        style={{ "--sidebar-width": "75vw" } as React.CSSProperties}
+        open={sidebarOpen}
+        onOpenChange={(val) => { if (!val || carts.length < MAX_CARTS) setSidebarOpen(val); }}
+        style={{ "--sidebar-width": sidebarWidth } as React.CSSProperties}
         className="min-h-0 flex-1 overflow-hidden"
       >
         <ProductSidebar
@@ -181,19 +122,29 @@ export default function Home() {
         />
 
         <SidebarInset>
-          <div className="relative flex h-full overflow-hidden">
+          <div className="relative flex h-full overflow-x-auto overflow-y-hidden">
             <SidebarTrigger className="absolute left-2 top-2 z-10 rounded-full shadow-md" />
 
-            <CartPanel
-              items={cartItems}
-              products={products}
-              onAddProduct={addProductToCart}
-              onUpdateQuantity={updateQuantity}
-              onRemoveItem={removeItem}
-              onUpdatePrice={updateItemPrice}
-              onClear={clearCart}
-              onSaleComplete={handleSaleComplete}
-            />
+            {carts.map((cart, index) => (
+              <CartPanel
+                key={cart.id}
+                cartNumber={index + 1}
+                items={cart.items}
+                isMember={cart.isMember}
+                isActive={cart.id === activeCartId}
+                products={products}
+                onAddProduct={(p) => addToCartOf(cart.id, { type: "product", product: p, quantity: 1 })}
+                onUpdateQuantity={(key, delta) => updateQuantityOf(cart.id, key, delta)}
+                onRemoveItem={(key) => removeItemOf(cart.id, key)}
+                onUpdatePrice={(key, price) => updateItemPriceOf(cart.id, key, price)}
+                onClear={() => clearCartOf(cart.id)}
+                onSetMember={(val) => setMemberOf(cart.id, val)}
+                onSaleComplete={(items) => handleSaleComplete(cart.id, items)}
+                onClose={index < carts.length - 1 ? () => removeCart(cart.id) : undefined}
+                onActivate={() => setActiveCartId(cart.id)}
+                onAddCart={index === carts.length - 1 && carts.length < MAX_CARTS ? addCart : undefined}
+              />
+            ))}
           </div>
         </SidebarInset>
       </SidebarProvider>

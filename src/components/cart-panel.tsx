@@ -3,17 +3,17 @@
 import { useState } from "react";
 import { CartItem as CartItemType, cartItemKey, ProductType } from "@/types/product";
 import { CartItem } from "@/components/cart-item";
+import { CartPanelHeader } from "@/components/cart-panel-header";
+import { CartTotals } from "@/components/cart-totals";
 import { CheckoutDialog } from "@/components/checkout-dialog";
 import { SaleCompleteDialog } from "@/components/sale-complete-dialog";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ShoppingCart, BadgePercent, ScanBarcode } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import { printReceipt } from "@/lib/print-receipt";
-import { postVenta } from "@/api/postVenta";
-import { patchProductStock } from "@/api/patchProductStock";
-import { getUser } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 import { useCaja } from "@/lib/caja-context";
+import { useCartTotals } from "@/hooks/useCartTotals";
+import { useCheckout } from "@/hooks/useCheckout";
 
 interface CartPanelProps {
   items: CartItemType[];
@@ -24,6 +24,13 @@ interface CartPanelProps {
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
   onClear: () => void;
   onSaleComplete: (items: CartItemType[]) => void;
+  isMember: boolean;
+  onSetMember: (val: boolean) => void;
+  isActive: boolean;
+  onActivate: () => void;
+  onClose?: () => void;
+  onAddCart?: () => void;
+  cartNumber: number;
 }
 
 export function CartPanel({
@@ -35,82 +42,64 @@ export function CartPanel({
   onUpdatePrice,
   onClear,
   onSaleComplete,
+  isMember,
+  onSetMember,
+  isActive,
+  onActivate,
+  onClose,
+  onAddCart,
+  cartNumber,
 }: CartPanelProps) {
-  const { caja, refetchEfectivo } = useCaja();
+  const { caja } = useCaja();
   const tipoCambio = caja?.tipoCambio ?? 1;
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [isMember, setIsMember] = useState(false);
   const [saleResult, setSaleResult] = useState<{ paymentMethod: "efectivo" | "tarjeta"; change: number } | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
 
+  const { total, subtotal, iva, ahorro, getPrice } = useCartTotals(items, isMember);
+
+  const { handleConfirm } = useCheckout({
+    items,
+    subtotal,
+    iva,
+    total,
+    isMember,
+    tipoCambio,
+    getPrice,
+    onSaleComplete,
+    onSetMember,
+    onClear,
+    setCheckoutOpen,
+    setSaleResult,
+  });
+
   function handleBarcodeScan(code: string) {
     const term = code.trim().toLowerCase();
-    const product = products.find(
-      (p) => p.barCode?.trim().toLowerCase() === term,
-    );
+    const product = products.find((p) => p.barCode?.trim().toLowerCase() === term);
     if (product) {
       onAddProduct(product);
       setBarcodeInput("");
     }
   }
 
-  const getPrice = (item: CartItemType) => {
-    if (item.overridePrice !== undefined) return item.overridePrice;
-    if (item.type === "service") return item.serviceRate.price;
-    return (isMember ? item.product.priceMember : item.product.price) ?? 0;
-  };
-
-  const IVA_RATE = 0.08;
-  const IVA_SLUGS = ["cuidado-belleza", "suplementos"];
-
-  const itemHasIva = (item: CartItemType) =>
-    item.type === "product" && IVA_SLUGS.includes(item.product.category?.slug ?? "");
-
-  const totalWithIva = items.reduce(
-    (sum, item) => (itemHasIva(item) ? sum + getPrice(item) * item.quantity : sum),
-    0,
-  );
-  const totalWithoutIva = items.reduce(
-    (sum, item) => (!itemHasIva(item) ? sum + getPrice(item) * item.quantity : sum),
-    0,
-  );
-  const total = totalWithIva + totalWithoutIva;
-  const subtotal = totalWithIva / (1 + IVA_RATE) + totalWithoutIva;
-  const iva = total - subtotal;
-
-  const totalRegular = items.reduce((sum, item) => {
-    if (item.type === "product") return sum + (item.product.price ?? 0) * item.quantity;
-    return sum + item.serviceRate.price * item.quantity;
-  }, 0);
-  const ahorro = isMember ? totalRegular - total : 0;
-
   return (
-    <aside className="flex h-full w-full flex-col overflow-hidden bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <div className="w-9"></div>
-        <div className="flex items-center gap-2">
-          <ShoppingCart className="h-5 w-5" />
-          <span className="font-semibold">Venta Actual</span>
-          {items.length > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-primary-foreground">
-              {items.length}
-            </span>
-          )}
-        </div>
-        {items.length > 0 && (
-          <button
-            onClick={onClear}
-            className="text-sm font-medium text-red-500 hover:text-red-700"
-          >
-            Limpiar
-          </button>
-        )}
-      </div>
+    <aside
+      className={cn(
+        "flex h-full flex-1 flex-col overflow-hidden bg-white border-r cursor-pointer min-w-65",
+        isActive && "ring-2 ring-primary ring-inset"
+      )}
+      onClick={onActivate}
+    >
+      <CartPanelHeader
+        cartNumber={cartNumber}
+        itemCount={items.length}
+        onAddCart={onAddCart}
+        onClose={onClose}
+      />
 
       {/* Barcode scanner input */}
-      <div className="border-b px-4 py-2">
+      <div className="border-b px-4 py-2" onClick={(e) => e.stopPropagation()}>
         <div className="relative">
           <ScanBarcode className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -119,16 +108,14 @@ export function CartPanel({
             value={barcodeInput}
             onChange={(e) => setBarcodeInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && barcodeInput.trim()) {
-                handleBarcodeScan(barcodeInput.trim());
-              }
+              if (e.key === "Enter" && barcodeInput.trim()) handleBarcodeScan(barcodeInput.trim());
             }}
+            onFocus={onActivate}
             className="h-9 w-full rounded-md border bg-transparent pl-9 pr-3 text-sm outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
       </div>
 
-      {/* Cart items */}
       {items.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 text-gray-400">
           <ShoppingCart className="h-16 w-16 stroke-1" />
@@ -137,7 +124,7 @@ export function CartPanel({
         </div>
       ) : (
         <>
-          <ScrollArea className="min-h-0 flex-1 px-4 py-2">
+          <ScrollArea className="min-h-0 flex-1 px-4 py-2" onClick={(e) => e.stopPropagation()}>
             <div className="space-y-2">
               {items.map((item) => (
                 <CartItem
@@ -152,65 +139,23 @@ export function CartPanel({
             </div>
           </ScrollArea>
 
-          {/* Member discount toggle */}
-          <div className="flex items-center justify-between border-t px-4 py-3">
+          <div className="flex items-center justify-between border-t px-4 py-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
               <BadgePercent className="h-4 w-4 text-emerald-500" />
               <span className="text-sm font-medium">Precio Health Pass</span>
             </div>
-            <Switch checked={isMember} onCheckedChange={setIsMember} />
+            <Switch checked={isMember} onCheckedChange={onSetMember} />
           </div>
 
-          {/* Totals */}
-          <div className="border-t px-4 py-3">
-            <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 gap-y-1 text-sm">
-              {/* Column headers */}
-              <div />
-              <span className="text-right text-xs font-semibold text-muted-foreground">MXN</span>
-              <span className="text-right text-xs font-semibold text-green-600">USD</span>
-
-              {/* Subtotal */}
-              <span className="text-muted-foreground">Subtotal</span>
-              <span className="text-right tabular-nums">${subtotal.toFixed(2)}</span>
-              <span className="text-right tabular-nums text-green-600">${(subtotal / tipoCambio).toFixed(2)}</span>
-
-              {/* IVA */}
-              {iva > 0 && (
-                <>
-                  <span className="text-muted-foreground">IVA (8%)</span>
-                  <span className="text-right tabular-nums">${iva.toFixed(2)}</span>
-                  <span className="text-right tabular-nums text-green-600">${(iva / tipoCambio).toFixed(2)}</span>
-                </>
-              )}
-
-              {/* Ahorro */}
-              {isMember && ahorro > 0 && (
-                <>
-                  <span className="flex items-center gap-1 text-emerald-600">
-                    <BadgePercent className="h-3 w-3" />
-                    Ahorro Health Pass
-                  </span>
-                  <span className="text-right tabular-nums text-emerald-600">-${ahorro.toFixed(2)}</span>
-                  <span className="text-right tabular-nums text-emerald-600">-${(ahorro / tipoCambio).toFixed(2)}</span>
-                </>
-              )}
-
-              {/* Divider */}
-              <div className="col-span-3 my-0.5 border-t" />
-
-              {/* Total */}
-              <span className="text-base font-bold">Total</span>
-              <span className="text-right text-base font-bold tabular-nums">${total.toFixed(2)}</span>
-              <span className="text-right text-base font-bold tabular-nums text-green-600">${(total / tipoCambio).toFixed(2)}</span>
-            </div>
-
-            <Button
-              className="mt-3 h-12 w-full bg-primary text-primary-foreground text-base font-semibold hover:bg-primary/90"
-              onClick={() => setCheckoutOpen(true)}
-            >
-              Cobrar — ${total.toFixed(2)}
-            </Button>
-          </div>
+          <CartTotals
+            subtotal={subtotal}
+            iva={iva}
+            total={total}
+            ahorro={ahorro}
+            isMember={isMember}
+            tipoCambio={tipoCambio}
+            onCheckout={() => setCheckoutOpen(true)}
+          />
         </>
       )}
 
@@ -218,11 +163,7 @@ export function CartPanel({
         open={saleResult !== null}
         paymentMethod={saleResult?.paymentMethod ?? "efectivo"}
         change={saleResult?.change ?? 0}
-        onClose={() => {
-          setSaleResult(null);
-          setIsMember(false);
-          onClear();
-        }}
+        onClose={() => { setSaleResult(null); onSetMember(false); onClear(); }}
       />
 
       <CheckoutDialog
@@ -231,88 +172,7 @@ export function CartPanel({
         total={total}
         tipoCambio={tipoCambio}
         isMember={isMember}
-        onConfirm={async (method, received, recibidoUSD, tipoCambioUsado, nota) => {
-          const change = received - total;
-          const operador = getUser()?.username ?? "desconocido";
-
-          let receiptId = 0;
-          try {
-            receiptId = await postVenta({
-              fecha: new Date().toISOString(),
-              subtotal,
-              iva,
-              total,
-              metodoPago: method,
-              recibido: received,
-              cambio: change > 0 ? change : 0,
-              recibidoUSD,
-              tipoCambioUsado,
-              estado: "completada",
-              operador,
-              nota: nota || undefined,
-              esMembresia: isMember,
-              venta: items.map((item) => {
-                if (item.type === "product") {
-                  return {
-                    type: "product" as const,
-                    product: item.product.documentId,
-                    service_rate: null,
-                    productName: item.product.productName,
-                    quantity: item.quantity,
-                    unitPrice: getPrice(item),
-                    totalLine: getPrice(item) * item.quantity,
-                  };
-                } else {
-                  return {
-                    type: "service" as const,
-                    product: null,
-                    service_rate: item.serviceRate.documentId,
-                    productName: item.serviceRate.medical_service.name,
-                    quantity: 1,
-                    unitPrice: item.serviceRate.price,
-                    totalLine: item.serviceRate.price,
-                  };
-                }
-              }),
-            });
-          } catch (err) {
-            console.error("Error al registrar venta:", err);
-          }
-
-          // Only patch stock for product items
-          await Promise.allSettled(
-            items
-              .filter((i): i is Extract<CartItemType, { type: "product" }> => i.type === "product")
-              .map((i) => patchProductStock(i.product.documentId, i.product.stock_central - i.quantity))
-          );
-          onSaleComplete(items);
-
-          const cardSurcharge = isMember && method === "tarjeta" ? total * 0.03 : 0;
-
-          printReceipt({
-            receiptId,
-            operador,
-            items: items.map((item) => ({
-              productName: item.type === "product" ? item.product.productName : item.serviceRate.medical_service.name,
-              quantity: item.quantity,
-              unitPrice: getPrice(item),
-              totalLine: getPrice(item) * item.quantity,
-            })),
-            subtotal,
-            iva,
-            total,
-            paymentMethod: method,
-            received,
-            change: change > 0 ? change : 0,
-            isMember,
-            cardSurcharge,
-            recibidoUSD,
-            tipoCambioUsado,
-          });
-          if (method === "efectivo") refetchEfectivo();
-          setCheckoutOpen(false);
-          setSaleResult({ paymentMethod: method, change: change > 0 ? change : 0 });
-        }}
+        onConfirm={handleConfirm}
       />
     </aside>
   );
