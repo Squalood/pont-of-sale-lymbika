@@ -54,7 +54,7 @@ export function useCheckout({
         metodoPago: method,
         recibido: received,
         cambio: change > 0 ? change : 0,
-        recibidoUSD,
+        recibidoUSD: recibidoUSD ?? 0,
         tipoCambioUsado,
         estado: "completada",
         operador,
