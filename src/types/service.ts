@@ -4,7 +4,7 @@ export type ServiceRateType = {
   price: number;
   duration_min: number;
   notes: string | null;
-  medical_service: {
+  medical_service: null | {
     id: number;
     documentId: string;
     name: string;

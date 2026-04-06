@@ -65,7 +65,6 @@ export function CartPanel({
     iva,
     total,
     isMember,
-    tipoCambio,
     getPrice,
     onSaleComplete,
     onSetMember,

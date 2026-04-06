@@ -13,8 +13,10 @@ interface ServiceCardProps {
 }
 
 export function ServiceCard({ service, onClick }: ServiceCardProps) {
-  const imageUrl = service.medical_service.image?.url;
+  const imageUrl = service.medical_service?.image?.url;
   const [imageLoaded, setImageLoaded] = useState(false);
+
+  if (!service.medical_service) return null;
 
   return (
     <Card

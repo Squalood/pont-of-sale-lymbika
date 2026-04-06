@@ -5,7 +5,7 @@ import { ServiceRateType } from "@/types/service";
 import { authFetch } from "@/lib/auth";
 
 export function useGetServiceRates() {
-  const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/service-rates?populate[medical_service][populate]=*&populate[doctor][fields][0]=doctorName&pagination[pageSize]=500`;
+  const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/service-rates?populate[medical_service][populate]=*&populate[doctor][fields][0]=doctorName&pagination[pageSize]=500&filters[medical_service][id][$notNull]=true`;
   const [result, setResult] = useState<ServiceRateType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

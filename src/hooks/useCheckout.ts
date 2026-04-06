@@ -11,7 +11,6 @@ interface UseCheckoutParams {
   iva: number;
   total: number;
   isMember: boolean;
-  tipoCambio: number;
   getPrice: (item: CartItem) => number;
   onSaleComplete: (items: CartItem[]) => void;
   onSetMember: (val: boolean) => void;
@@ -26,7 +25,6 @@ export function useCheckout({
   iva,
   total,
   isMember,
-  tipoCambio,
   getPrice,
   onSaleComplete,
   setCheckoutOpen,
@@ -78,8 +76,8 @@ export function useCheckout({
               service_rate: item.serviceRate.documentId,
               productName: item.serviceRate.medical_service.name,
               quantity: 1,
-              unitPrice: item.serviceRate.price,
-              totalLine: item.serviceRate.price,
+              unitPrice: getPrice(item),
+              totalLine: getPrice(item),
             };
           }
         }),

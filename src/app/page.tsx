@@ -66,7 +66,7 @@ export default function Home() {
 
     const serviceItems: GridItem[] = selectedCategory === "todos" || selectedCategory === "consultas"
       ? serviceRates
-          .filter((sr) => !term || normalize(sr.medical_service.name).includes(term) || (sr.doctor ? normalize(sr.doctor.doctorName).includes(term) : false))
+          .filter((sr) => sr.medical_service && (!term || normalize(sr.medical_service.name).includes(term) || (sr.doctor ? normalize(sr.doctor.doctorName).includes(term) : false)))
           .map((sr) => ({ type: "service" as const, data: sr }))
       : [];
 
