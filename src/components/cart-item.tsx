@@ -48,9 +48,9 @@ export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem, onUpd
           </div>
           <span
             className="block w-0 flex-1 truncate text-sm font-medium"
-            title={serviceRate.medical_service.name}
+            title={serviceRate.medical_service?.name}
           >
-            {serviceRate.medical_service.name}
+            {serviceRate.medical_service?.name}
           </span>
           <Button
             variant="ghost"

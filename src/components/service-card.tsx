@@ -33,7 +33,7 @@ export function ServiceCard({ service, onClick }: ServiceCardProps) {
             )}
             <img
               src={imageUrl}
-              alt={service.medical_service.name}
+              alt={service.medical_service?.name}
               className={`h-10 w-10 rounded object-cover transition-opacity ${imageLoaded ? "opacity-100" : "opacity-0"}`}
               onLoad={() => setImageLoaded(true)}
             />
@@ -45,17 +45,17 @@ export function ServiceCard({ service, onClick }: ServiceCardProps) {
         )}
         <Badge
           variant="outline"
-          className={`text-xs ${service.medical_service.type === "consultation" ? "border-blue-300 text-blue-600" : "border-purple-300 text-purple-600"}`}
+          className={`text-xs ${service.medical_service?.type === "consultation" ? "border-blue-300 text-blue-600" : "border-purple-300 text-purple-600"}`}
         >
-          {service.medical_service.type === "consultation" ? "Consulta" : "Procedimiento"}
+          {service.medical_service?.type === "consultation" ? "Consulta" : "Procedimiento"}
         </Badge>
       </div>
       <div>
         <h3
           className="mt-2 line-clamp-2 min-h-10 text-sm font-medium text-foreground"
-          title={service.medical_service.name}
+          title={service.medical_service?.name}
         >
-          {service.medical_service.name}
+          {service.medical_service?.name}
         </h3>
         {service.doctor?.doctorName && (
           <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground">
