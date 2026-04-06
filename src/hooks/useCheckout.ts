@@ -74,7 +74,7 @@ export function useCheckout({
               type: "service" as const,
               product: null,
               service_rate: item.serviceRate.documentId,
-              productName: item.serviceRate.medical_service.name,
+              productName: item.serviceRate.medical_service?.name ?? "",
               quantity: 1,
               unitPrice: getPrice(item),
               totalLine: getPrice(item),
@@ -99,7 +99,7 @@ export function useCheckout({
       receiptId,
       operador,
       items: items.map((item) => ({
-        productName: item.type === "product" ? item.product.productName : item.serviceRate.medical_service.name,
+        productName: item.type === "product" ? item.product.productName : item.serviceRate.medical_service?.name ?? "",
         quantity: item.quantity,
         unitPrice: getPrice(item),
         totalLine: getPrice(item) * item.quantity,
