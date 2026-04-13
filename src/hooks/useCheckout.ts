@@ -39,7 +39,9 @@ export function useCheckout({
     tipoCambioUsado: number,
     nota: string | undefined
   ) {
-    const change = received - total;
+    const cardSurcharge = isMember && method === "tarjeta" ? total * 0.03 : 0;
+    const effectiveTotal = total + cardSurcharge;
+    const change = received - effectiveTotal;
     const operador = getUser()?.username ?? "desconocido";
 
     let receiptId = 0;
@@ -48,7 +50,7 @@ export function useCheckout({
         fecha: new Date().toISOString(),
         subtotal,
         iva,
-        total,
+        total: effectiveTotal,
         metodoPago: method,
         recibido: received,
         cambio: change > 0 ? change : 0,
@@ -92,8 +94,6 @@ export function useCheckout({
         .map((i) => patchProductStock(i.product.documentId, i.product.stock_central - i.quantity))
     );
     onSaleComplete(items);
-
-    const cardSurcharge = isMember && method === "tarjeta" ? total * 0.03 : 0;
 
     printReceipt({
       receiptId,

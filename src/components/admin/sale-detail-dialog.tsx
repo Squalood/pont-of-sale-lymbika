@@ -42,6 +42,10 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
   const iva = venta.iva ?? venta.total - subtotal;
 
   function handleReprint() {
+    const isCardMember = venta!.esMembresia && venta!.metodoPago === "tarjeta";
+    const baseTotal = isCardMember ? venta!.total / 1.03 : venta!.total;
+    const cardSurcharge = isCardMember ? venta!.total - baseTotal : 0;
+
     printReceipt({
       receiptId: venta!.id,
       operador: venta!.operador ?? "",
@@ -53,12 +57,13 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
       })),
       subtotal,
       iva,
-      total: venta!.total,
+      total: baseTotal,
       paymentMethod: venta!.metodoPago,
       received: venta!.recibido,
       change: venta!.cambio,
       fecha: venta!.fecha,
       isMember: venta!.esMembresia ?? false,
+      cardSurcharge,
       recibidoUSD: venta!.recibidoUSD,
       tipoCambioUsado: venta!.tipoCambioUsado,
     });
@@ -181,6 +186,22 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
                   <span>${iva.toFixed(2)}</span>
                 </div>
               )}
+              {venta.esMembresia && venta.metodoPago === "tarjeta" && (() => {
+                const baseTotal = venta.total / 1.03;
+                const surcharge = venta.total - baseTotal;
+                return (
+                  <>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Subtotal Health Pass</span>
+                      <span>${baseTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Cargo tarjeta (3%)</span>
+                      <span>+${surcharge.toFixed(2)}</span>
+                    </div>
+                  </>
+                );
+              })()}
               <div className="flex justify-between text-base font-bold">
                 <span>Total</span>
                 <span>${venta.total.toFixed(2)}</span>
