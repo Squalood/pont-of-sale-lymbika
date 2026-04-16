@@ -183,15 +183,7 @@ export function NuevaCompraDialog({
     );
   }
 
-  function handleItemCosto(idx: number, value: string) {
-    const costoUnitario = Math.max(0, parseFloat(value) || 0);
-    setItems((prev) =>
-      prev.map((item, i) => {
-        if (i !== idx) return item;
-        return { ...item, costoUnitario, totalLine: item.quantity * costoUnitario };
-      })
-    );
-  }
+  // TODO: restaurar handleItemCosto cuando se habiliten costos
 
   function handleRemoveItem(idx: number) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
@@ -250,7 +242,7 @@ export function NuevaCompraDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>Nueva Compra</DialogTitle>
         </DialogHeader>
@@ -473,32 +465,14 @@ export function NuevaCompraDialog({
                             className="h-7 w-16 text-center text-sm"
                           />
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-muted-foreground">Costo U.</span>
-                          <Input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            value={item.costoUnitario || ""}
-                            placeholder="0.00"
-                            onChange={(e) => handleItemCosto(idx, e.target.value)}
-                            className="h-7 w-24 text-sm"
-                          />
-                        </div>
-                        <span className="ml-auto text-sm font-semibold">
-                          ${item.totalLine.toFixed(2)}
-                        </span>
+                        {/* TODO: restaurar costo unitario y total cuando se habiliten costos */}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
 
-              {items.length > 0 && (
-                <div className="border-t pt-2 flex justify-end text-sm font-semibold">
-                  Total: ${total.toFixed(2)}
-                </div>
-              )}
+              {/* TODO: restaurar total general cuando se habiliten costos */}
             </div>
 
             <DialogFooter>
@@ -535,24 +509,13 @@ export function NuevaCompraDialog({
               {/* Items */}
               <div className="divide-y rounded-lg border text-sm max-h-56 overflow-y-auto">
                 {items.map((item, i) => (
-                  <div key={i} className="px-3 py-2 space-y-0.5">
-                    <p className="truncate text-sm font-medium">{item.productName}</p>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Badge variant="outline" className="text-xs shrink-0">x{item.quantity}</Badge>
-                      <span className="shrink-0">${item.costoUnitario.toFixed(2)} c/u</span>
-                      <span className="ml-auto shrink-0 font-medium text-foreground">
-                        ${item.totalLine.toFixed(2)}
-                      </span>
-                    </div>
+                  <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
+                    <span className="truncate flex-1 font-medium">{item.productName}</span>
+                    <Badge variant="outline" className="text-xs shrink-0">x{item.quantity}</Badge>
                   </div>
                 ))}
               </div>
-
-              {/* Total */}
-              <div className="border-t pt-3 flex justify-between text-base font-bold">
-                <span>Total</span>
-                <span>${total.toFixed(2)}</span>
-              </div>
+              {/* TODO: restaurar total cuando se habiliten costos */}
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}

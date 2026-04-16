@@ -65,7 +65,6 @@ export function ComprasTable({ compras, onNuevaCompra }: ComprasTableProps) {
     });
   }, [compras, period, search]);
 
-  const totalComprado = filtered.reduce((sum, c) => sum + (c.total ?? 0), 0);
 
   return (
     <div className="space-y-4">
@@ -103,13 +102,12 @@ export function ComprasTable({ compras, onNuevaCompra }: ComprasTableProps) {
               <TableHead>Operador</TableHead>
               <TableHead className="text-center">Estado</TableHead>
               <TableHead className="text-center">Factura</TableHead>
-              <TableHead className="text-right">Total</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                   No hay compras en este período
                 </TableCell>
               </TableRow>
@@ -151,9 +149,6 @@ export function ComprasTable({ compras, onNuevaCompra }: ComprasTableProps) {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
-                      ${(compra.total ?? 0).toFixed(2)}
-                    </TableCell>
                   </TableRow>
                 );
               })
@@ -162,14 +157,7 @@ export function ComprasTable({ compras, onNuevaCompra }: ComprasTableProps) {
         </Table>
       </div>
 
-      {filtered.length > 0 && (
-        <div className="flex justify-end text-sm">
-          <span className="text-muted-foreground">
-            Total comprado:{" "}
-            <span className="font-semibold text-foreground">${totalComprado.toFixed(2)}</span>
-          </span>
-        </div>
-      )}
+      {/* TODO: restaurar total comprado cuando se habiliten costos */}
 
       {/* Detail dialog */}
       <CompraDetailDialog
@@ -215,7 +203,7 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>
             Detalle de compra{" "}
@@ -287,8 +275,6 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
               <TableRow>
                 <TableHead>Producto</TableHead>
                 <TableHead className="text-center">Cant</TableHead>
-                <TableHead className="text-right">Costo U.</TableHead>
-                <TableHead className="text-right">Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -296,20 +282,12 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
                 <TableRow key={i}>
                   <TableCell className="max-w-48 truncate">{item.productName}</TableCell>
                   <TableCell className="text-center">{item.quantity}</TableCell>
-                  <TableCell className="text-right">${item.costoUnitario.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${item.totalLine.toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
 
-          {/* Total */}
-          <div className="border-t pt-3">
-            <div className="flex justify-between text-base font-bold">
-              <span>Total</span>
-              <span>${(compra.total ?? 0).toFixed(2)}</span>
-            </div>
-          </div>
+          {/* TODO: restaurar total cuando se habiliten costos */}
         </div>
       </DialogContent>
     </Dialog>
