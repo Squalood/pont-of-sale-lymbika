@@ -177,7 +177,7 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
                     <TableCell>
                       <div className="flex flex-col items-start gap-1">
                         <Badge variant="outline" className="capitalize">
-                          {venta.metodoPago}
+                          {venta.metodoPago === "transfe" ? "Transferencia" : venta.metodoPago}
                         </Badge>
                         {venta.esMembresia && (
                           <Badge className="gap-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200 font-normal text-xs px-1.5 py-0">

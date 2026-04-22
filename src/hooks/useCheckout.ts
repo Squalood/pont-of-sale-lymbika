@@ -4,6 +4,7 @@ import { patchProductStock } from "@/api/patchProductStock";
 import { printReceipt } from "@/lib/print-receipt";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
+import type { MetodoPago } from "@/types/venta";
 
 interface UseCheckoutParams {
   items: CartItem[];
@@ -16,7 +17,7 @@ interface UseCheckoutParams {
   onSetMember: (val: boolean) => void;
   onClear: () => void;
   setCheckoutOpen: (val: boolean) => void;
-  setSaleResult: (val: { paymentMethod: "efectivo" | "tarjeta"; change: number } | null) => void;
+  setSaleResult: (val: { paymentMethod: MetodoPago; change: number; cardCharge: number } | null) => void;
 }
 
 export function useCheckout({
@@ -33,15 +34,20 @@ export function useCheckout({
   const { refetchEfectivo } = useCaja();
 
   async function handleConfirm(
-    method: "efectivo" | "tarjeta",
+    method: MetodoPago,
     received: number,
     recibidoUSD: number | undefined,
     tipoCambioUsado: number,
-    nota: string | undefined
+    nota: string | undefined,
+    montoTarjeta: number,
+    montoTransfe: number
   ) {
-    const cardSurcharge = isMember && method === "tarjeta" ? total * 0.03 : 0;
+    const cardBase = montoTarjeta;
+    const cardSurcharge = isMember && cardBase > 0 ? cardBase * 0.03 : 0;
     const effectiveTotal = total + cardSurcharge;
-    const change = received - effectiveTotal;
+    const cashNeeded = total - cardBase - montoTransfe;
+    const noChangeMethod = method === "tarjeta" || method === "transfe";
+    const change = noChangeMethod ? 0 : received - cashNeeded;
     const operador = getUser()?.username ?? "desconocido";
 
     let receiptId = 0;
@@ -52,6 +58,8 @@ export function useCheckout({
         iva,
         total: effectiveTotal,
         metodoPago: method,
+        montoTarjeta: cardBase,
+        montoTransferencia: montoTransfe,
         recibido: received,
         cambio: change > 0 ? change : 0,
         recibidoUSD: recibidoUSD ?? 0,
@@ -112,13 +120,16 @@ export function useCheckout({
       change: change > 0 ? change : 0,
       isMember,
       cardSurcharge,
+      montoTarjeta: cardBase,
+      montoTransfe,
       recibidoUSD,
       tipoCambioUsado,
     });
 
-    if (method === "efectivo") refetchEfectivo();
+    if (method !== "tarjeta" && method !== "transfe") refetchEfectivo();
     setCheckoutOpen(false);
-    setSaleResult({ paymentMethod: method, change: change > 0 ? change : 0 });
+    const cardCharge = method === "tarjeta" ? effectiveTotal : cardBase + cardSurcharge;
+    setSaleResult({ paymentMethod: method, change: change > 0 ? change : 0, cardCharge });
   }
 
   return { handleConfirm };

@@ -41,11 +41,22 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
   const subtotal = venta.subtotal ?? venta.total / 1.08;
   const iva = venta.iva ?? venta.total - subtotal;
 
-  function handleReprint() {
-    const isCardMember = venta!.esMembresia && venta!.metodoPago === "tarjeta";
-    const baseTotal = isCardMember ? venta!.total / 1.03 : venta!.total;
-    const cardSurcharge = isCardMember ? venta!.total - baseTotal : 0;
+  const cardBase =
+    venta.metodoPago === "tarjeta"
+      ? venta.total / (venta.esMembresia ? 1.03 : 1)
+      : venta.metodoPago === "mixto"
+        ? venta.montoTarjeta ?? 0
+        : 0;
+  const cardSurcharge = venta.esMembresia && cardBase > 0 ? cardBase * 0.03 : 0;
+  const baseTotal = venta.total - cardSurcharge;
+  const transfeBase =
+    venta.metodoPago === "transfe"
+      ? venta.total
+      : venta.metodoPago === "mixto"
+        ? venta.montoTransferencia ?? 0
+        : 0;
 
+  function handleReprint() {
     printReceipt({
       receiptId: venta!.id,
       operador: venta!.operador ?? "",
@@ -64,6 +75,8 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
       fecha: venta!.fecha,
       isMember: venta!.esMembresia ?? false,
       cardSurcharge,
+      montoTarjeta: cardBase,
+      montoTransfe: transfeBase,
       recibidoUSD: venta!.recibidoUSD,
       tipoCambioUsado: venta!.tipoCambioUsado,
     });
@@ -93,7 +106,9 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
               </div>
               <div>
                 <span className="text-muted-foreground">Método de pago</span>
-                <p className="font-medium capitalize">{venta.metodoPago}</p>
+                <p className="font-medium capitalize">
+                  {venta.metodoPago === "transfe" ? "Transferencia" : venta.metodoPago}
+                </p>
               </div>
               <div>
                 <span className="text-muted-foreground">Estado</span>
@@ -113,10 +128,22 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
                   <span className="text-sm font-medium">Venta con Health Pass</span>
                 </div>
               )}
-              {venta.metodoPago === "efectivo" && (
+              {venta.metodoPago === "mixto" && cardBase > 0 && (
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">Cobro en terminal</span>
+                  <p className="font-medium">${(cardBase + cardSurcharge).toFixed(2)}</p>
+                </div>
+              )}
+              {(venta.metodoPago === "transfe" || (venta.metodoPago === "mixto" && transfeBase > 0)) && (
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">Transferencia</span>
+                  <p className="font-medium">${transfeBase.toFixed(2)}</p>
+                </div>
+              )}
+              {(venta.metodoPago === "efectivo" || venta.metodoPago === "mixto") && (
                 <>
                   <div>
-                    <span className="text-muted-foreground">Recibido</span>
+                    <span className="text-muted-foreground">Recibido en efectivo</span>
                     <p className="font-medium">${venta.recibido.toFixed(2)} MXN</p>
                   </div>
                   <div>
@@ -186,22 +213,24 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
                   <span>${iva.toFixed(2)}</span>
                 </div>
               )}
-              {venta.esMembresia && venta.metodoPago === "tarjeta" && (() => {
-                const baseTotal = venta.total / 1.03;
-                const surcharge = venta.total - baseTotal;
-                return (
-                  <>
+              {cardSurcharge > 0 && (
+                <>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Subtotal Health Pass</span>
+                    <span>${baseTotal.toFixed(2)}</span>
+                  </div>
+                  {venta.metodoPago === "mixto" && (
                     <div className="flex justify-between text-muted-foreground">
-                      <span>Subtotal Health Pass</span>
-                      <span>${baseTotal.toFixed(2)}</span>
+                      <span>Porción en tarjeta</span>
+                      <span>${cardBase.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Cargo tarjeta (3%)</span>
-                      <span>+${surcharge.toFixed(2)}</span>
-                    </div>
-                  </>
-                );
-              })()}
+                  )}
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Cargo tarjeta (3%)</span>
+                    <span>+${cardSurcharge.toFixed(2)}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between text-base font-bold">
                 <span>Total</span>
                 <span>${venta.total.toFixed(2)}</span>

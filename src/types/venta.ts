@@ -25,6 +25,8 @@ export interface VentaItemType {
   } | null;
 }
 
+export type MetodoPago = "efectivo" | "tarjeta" | "mixto" | "transfe";
+
 export interface VentaType {
   id: number;
   documentId: string;
@@ -32,7 +34,9 @@ export interface VentaType {
   subtotal: number;
   iva: number;
   total: number;
-  metodoPago: "efectivo" | "tarjeta";
+  metodoPago: MetodoPago;
+  montoTarjeta?: number;
+  montoTransferencia?: number;
   recibido: number;
   cambio: number;
   recibidoUSD: number;
@@ -49,7 +53,9 @@ export interface VentaPayload {
   subtotal: number;
   iva: number;
   total: number;
-  metodoPago: "efectivo" | "tarjeta";
+  metodoPago: MetodoPago;
+  montoTarjeta?: number;
+  montoTransferencia?: number;
   recibido: number;
   cambio: number;
   recibidoUSD: number;

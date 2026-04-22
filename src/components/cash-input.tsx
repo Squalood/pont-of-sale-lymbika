@@ -5,9 +5,11 @@ import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+export type CashCurrency = "MXN" | "USD" | "tarjeta" | "transfe";
+
 export interface CashEntry {
   amount: number;
-  currency: "MXN" | "USD";
+  currency: CashCurrency;
 }
 
 interface CashInputProps {
@@ -15,23 +17,42 @@ interface CashInputProps {
   tipoCambio: number;
   entries: CashEntry[];
   onEntriesChange: (entries: CashEntry[]) => void;
+  autoFocus?: boolean;
+  allowTarjeta?: boolean;
 }
 
-export function CashInput({ total, tipoCambio, entries, onEntriesChange }: CashInputProps) {
-  const [currentAmount, setCurrentAmount] = useState("");
-  const [currency, setCurrency] = useState<"MXN" | "USD">("MXN");
+function entryToMXN(entry: CashEntry, tipoCambio: number): number {
+  return entry.currency === "USD" ? entry.amount * tipoCambio : entry.amount;
+}
 
-  const receivedTotal = entries.reduce(
-    (sum, e) => sum + (e.currency === "MXN" ? e.amount : e.amount * tipoCambio),
+export function CashInput({
+  total,
+  tipoCambio,
+  entries,
+  onEntriesChange,
+  autoFocus = true,
+  allowTarjeta = false,
+}: CashInputProps) {
+  const [currentAmount, setCurrentAmount] = useState("");
+  const [currency, setCurrency] = useState<CashCurrency>("MXN");
+
+  const receivedTotal = entries.reduce((sum, e) => sum + entryToMXN(e, tipoCambio), 0);
+  const nonCashTotal = entries.reduce(
+    (sum, e) => sum + (e.currency === "tarjeta" || e.currency === "transfe" ? e.amount : 0),
     0
   );
   const remaining = total - receivedTotal;
   const change = receivedTotal - total;
 
+  const parsedAmount = parseFloat(currentAmount);
+  const hasValidAmount = !!parsedAmount && parsedAmount > 0;
+  const isNonCash = currency === "tarjeta" || currency === "transfe";
+  const nonCashOverflow =
+    isNonCash && hasValidAmount && nonCashTotal + parsedAmount > total;
+
   function addEntry() {
-    const value = parseFloat(currentAmount);
-    if (!value || value <= 0) return;
-    onEntriesChange([...entries, { amount: value, currency }]);
+    if (!hasValidAmount || nonCashOverflow) return;
+    onEntriesChange([...entries, { amount: parsedAmount, currency }]);
     setCurrentAmount("");
   }
 
@@ -75,6 +96,32 @@ export function CashInput({ total, tipoCambio, entries, onEntriesChange }: CashI
           >
             USD
           </button>
+          {allowTarjeta && (
+            <>
+              <button
+                type="button"
+                onClick={() => setCurrency("tarjeta")}
+                className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  currency === "tarjeta"
+                    ? "bg-blue-600 text-white"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                Tarjeta
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrency("transfe")}
+                className={`px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                  currency === "transfe"
+                    ? "bg-purple-600 text-white"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                TB
+              </button>
+            </>
+          )}
         </div>
         <div className="relative flex-1">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
@@ -89,7 +136,7 @@ export function CashInput({ total, tipoCambio, entries, onEntriesChange }: CashI
             onChange={(e) => setCurrentAmount(e.target.value)}
             onKeyDown={handleKeyDown}
             className="h-10 pl-7"
-            autoFocus
+            autoFocus={autoFocus}
           />
         </div>
         <Button
@@ -97,47 +144,75 @@ export function CashInput({ total, tipoCambio, entries, onEntriesChange }: CashI
           size="icon"
           className="h-10 w-10 shrink-0"
           onClick={addEntry}
-          disabled={!currentAmount || parseFloat(currentAmount) <= 0}
+          disabled={!hasValidAmount || nonCashOverflow}
         >
           <Plus className="h-4 w-4" />
         </Button>
       </div>
 
-      {/* Quick amounts — MXN */}
-      <div>
-        <p className="mb-1.5 text-xs text-muted-foreground">Pesos MXN</p>
-        <div className="flex flex-wrap gap-1.5">
-          {[20, 50, 100, 200, 500, 1000].map((amount) => (
-            <Button
-              key={amount}
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={() => onEntriesChange([...entries, { amount, currency: "MXN" }])}
-            >
-              ${amount}
-            </Button>
-          ))}
-        </div>
-      </div>
+      {nonCashOverflow && (
+        <p className="text-xs text-destructive">
+          El monto de {currency === "tarjeta" ? "tarjeta" : "transferencia"} no puede superar ${total.toFixed(2)}
+        </p>
+      )}
 
-      {/* Quick amounts — USD */}
-      <div>
-        <p className="mb-1.5 text-xs text-muted-foreground">Dólares USD</p>
-        <div className="flex flex-wrap gap-1.5">
-          {[1, 5, 10, 20, 50, 100].map((amount) => (
-            <Button
-              key={amount}
-              variant="outline"
-              size="sm"
-              className="h-8 border-green-300 text-green-700 hover:bg-green-50"
-              onClick={() => onEntriesChange([...entries, { amount, currency: "USD" }])}
-            >
-              ${amount}
-            </Button>
-          ))}
+      {isNonCash && remaining > 0 && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={`h-8 w-full ${
+            currency === "tarjeta"
+              ? "border-blue-300 text-blue-700 hover:bg-blue-50"
+              : "border-purple-300 text-purple-700 hover:bg-purple-50"
+          }`}
+          onClick={() => {
+            onEntriesChange([...entries, { amount: remaining, currency }]);
+            setCurrentAmount("");
+          }}
+        >
+          Cobrar restante ${remaining.toFixed(2)}
+        </Button>
+      )}
+
+      {currency === "MXN" && (
+        <div>
+          <p className="mb-1.5 text-xs text-muted-foreground">Pesos MXN</p>
+          <div className="flex flex-wrap gap-1.5">
+            {[20, 50, 100, 200, 500, 1000].map((amount) => (
+              <Button
+                key={amount}
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => onEntriesChange([...entries, { amount, currency: "MXN" }])}
+              >
+                ${amount}
+              </Button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {currency === "USD" && (
+        <div>
+          <p className="mb-1.5 text-xs text-muted-foreground">Dólares USD</p>
+          <div className="flex flex-wrap gap-1.5">
+            {[1, 5, 10, 20, 50, 100].map((amount) => (
+              <Button
+                key={amount}
+                variant="outline"
+                size="sm"
+                className="h-8 border-green-300 text-green-700 hover:bg-green-50"
+                onClick={() => onEntriesChange([...entries, { amount, currency: "USD" }])}
+              >
+                ${amount}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+      
 
       {/* Entries list */}
       {entries.length > 0 && (
@@ -150,12 +225,20 @@ export function CashInput({ total, tipoCambio, entries, onEntriesChange }: CashI
               >
                 {entry.currency === "MXN" ? (
                   <span className="text-sm">${entry.amount.toFixed(2)} MXN</span>
-                ) : (
+                ) : entry.currency === "USD" ? (
                   <span className="text-sm">
                     <span className="text-green-700">${entry.amount.toFixed(2)} USD</span>
                     <span className="ml-1.5 text-xs text-muted-foreground">
                       → ${(entry.amount * tipoCambio).toFixed(2)} MXN
                     </span>
+                  </span>
+                ) : entry.currency === "tarjeta" ? (
+                  <span className="text-sm font-medium text-blue-700">
+                    ${entry.amount.toFixed(2)} Tarjeta
+                  </span>
+                ) : (
+                  <span className="text-sm font-medium text-purple-700">
+                    ${entry.amount.toFixed(2)} Transferencia bancaria
                   </span>
                 )}
                 <button

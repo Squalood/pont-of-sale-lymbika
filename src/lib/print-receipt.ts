@@ -18,12 +18,29 @@ interface ReceiptData {
   fecha?: Date | string;
   isMember?: boolean;
   cardSurcharge?: number;
+  montoTarjeta?: number;
+  montoTransfe?: number;
   recibidoUSD?: number;
   tipoCambioUsado?: number;
 }
 
 export function printReceipt(data: ReceiptData) {
-  const { receiptId, operador, items, subtotal, total, paymentMethod, received, change, isMember, cardSurcharge = 0, recibidoUSD = 0, tipoCambioUsado = 0 } = data;
+  const {
+    receiptId,
+    operador,
+    items,
+    subtotal,
+    total,
+    paymentMethod,
+    received,
+    change,
+    isMember,
+    cardSurcharge = 0,
+    montoTarjeta = 0,
+    montoTransfe = 0,
+    recibidoUSD = 0,
+    tipoCambioUsado = 0,
+  } = data;
   const effectiveTotal = total + cardSurcharge;
   const now = data.fecha ? new Date(data.fecha) : new Date();
   const date = now.toLocaleDateString("es-MX", {
@@ -49,6 +66,20 @@ export function printReceipt(data: ReceiptData) {
       </tr>`
     )
     .join("");
+
+  const methodLabel =
+    paymentMethod === "efectivo"
+      ? "Efectivo"
+      : paymentMethod === "tarjeta"
+        ? "Tarjeta"
+        : paymentMethod === "transfe"
+          ? "Transferencia"
+          : "Mixto";
+  const hasCash = paymentMethod === "efectivo" || paymentMethod === "mixto";
+  const hasCard = paymentMethod === "tarjeta" || (paymentMethod === "mixto" && montoTarjeta > 0);
+  const hasTransfe = paymentMethod === "transfe" || (paymentMethod === "mixto" && montoTransfe > 0);
+  const cardCharge = paymentMethod === "tarjeta" ? effectiveTotal : montoTarjeta + cardSurcharge;
+  const transfeCharge = paymentMethod === "transfe" ? total : montoTransfe;
 
   const html = `
     <!DOCTYPE html>
@@ -186,13 +217,21 @@ export function printReceipt(data: ReceiptData) {
       <div class="payment">
         <div class="row">
           <span>Método de pago</span>
-          <span>${paymentMethod === "efectivo" ? "Efectivo" : "Tarjeta"}</span>
+          <span>${methodLabel}</span>
         </div>
-        ${
-          paymentMethod === "efectivo"
-            ? `
+        ${hasCard ? `
         <div class="row">
-          <span>Recibido</span>
+          <span>Tarjeta</span>
+          <span>$${cardCharge.toFixed(2)}</span>
+        </div>` : ""}
+        ${hasTransfe ? `
+        <div class="row">
+          <span>Transferencia</span>
+          <span>$${transfeCharge.toFixed(2)}</span>
+        </div>` : ""}
+        ${hasCash ? `
+        <div class="row">
+          <span>Efectivo recibido</span>
           <span>$${received.toFixed(2)} MXN</span>
         </div>
         ${recibidoUSD > 0 ? `
@@ -211,9 +250,7 @@ export function printReceipt(data: ReceiptData) {
         <div class="row">
           <span>Cambio</span>
           <span>$${change.toFixed(2)}</span>
-        </div>`
-            : ""
-        }
+        </div>` : ""}
         <div class="row" style="margin-top:4px;">
           <span>Cajero</span>
           <span>${operador}</span>

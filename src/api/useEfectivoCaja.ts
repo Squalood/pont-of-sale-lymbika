@@ -27,7 +27,8 @@ export function useEfectivoCaja(fondoInicial: number | null) {
       const [ventasRes, devolucionesRes] = await Promise.all([
         authFetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ventas-pos` +
-          `?filters[metodoPago][$eq]=efectivo` +
+          `?filters[metodoPago][$in][0]=efectivo` +
+          `&filters[metodoPago][$in][1]=mixto` +
           `&filters[fecha][$gte]=${fechaDesde}` +
           `&fields[0]=recibido&fields[1]=cambio&fields[2]=recibidoUSD&fields[3]=tipoCambioUsado` +
           `&pagination[pageSize]=5000`

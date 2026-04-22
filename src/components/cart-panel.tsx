@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { useCaja } from "@/lib/caja-context";
 import { useCartTotals } from "@/hooks/useCartTotals";
 import { useCheckout } from "@/hooks/useCheckout";
+import type { MetodoPago } from "@/types/venta";
 
 interface CartPanelProps {
   items: CartItemType[];
@@ -54,7 +55,7 @@ export function CartPanel({
   const tipoCambio = caja?.tipoCambio ?? 1;
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [saleResult, setSaleResult] = useState<{ paymentMethod: "efectivo" | "tarjeta"; change: number } | null>(null);
+  const [saleResult, setSaleResult] = useState<{ paymentMethod: MetodoPago; change: number; cardCharge: number } | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
 
   const { total, subtotal, iva, ahorro, getPrice } = useCartTotals(items, isMember);
@@ -162,6 +163,7 @@ export function CartPanel({
         open={saleResult !== null}
         paymentMethod={saleResult?.paymentMethod ?? "efectivo"}
         change={saleResult?.change ?? 0}
+        cardCharge={saleResult?.cardCharge ?? 0}
         onClose={() => { setSaleResult(null); onSetMember(false); onClear(); }}
       />
 
