@@ -19,7 +19,10 @@ interface CashInputProps {
   onEntriesChange: (entries: CashEntry[]) => void;
   autoFocus?: boolean;
   allowTarjeta?: boolean;
+  isMember?: boolean;
 }
+
+const CARD_SURCHARGE_RATE = 0.03;
 
 function entryToMXN(entry: CashEntry, tipoCambio: number): number {
   return entry.currency === "USD" ? entry.amount * tipoCambio : entry.amount;
@@ -32,23 +35,36 @@ export function CashInput({
   onEntriesChange,
   autoFocus = true,
   allowTarjeta = false,
+  isMember = false,
 }: CashInputProps) {
   const [currentAmount, setCurrentAmount] = useState("");
   const [currency, setCurrency] = useState<CashCurrency>("MXN");
 
   const receivedTotal = entries.reduce((sum, e) => sum + entryToMXN(e, tipoCambio), 0);
-  const nonCashTotal = entries.reduce(
-    (sum, e) => sum + (e.currency === "tarjeta" || e.currency === "transfe" ? e.amount : 0),
+  const tarjetaFromEntries = entries.reduce(
+    (sum, e) => sum + (e.currency === "tarjeta" ? e.amount : 0),
     0
   );
-  const remaining = total - receivedTotal;
-  const change = receivedTotal - total;
+  const transfeFromEntries = entries.reduce(
+    (sum, e) => sum + (e.currency === "transfe" ? e.amount : 0),
+    0
+  );
+  // Tarjeta entry = monto que se pasa en la terminal (incluye recargo si aplica).
+  // base = swipe / 1.03 para miembros; surcharge = swipe - base.
+  const cardSurcharge = isMember
+    ? tarjetaFromEntries - tarjetaFromEntries / (1 + CARD_SURCHARGE_RATE)
+    : 0;
+  const effectiveTotal = total + cardSurcharge;
+  const remaining = effectiveTotal - receivedTotal;
+  const change = receivedTotal - effectiveTotal;
 
   const parsedAmount = parseFloat(currentAmount);
   const hasValidAmount = !!parsedAmount && parsedAmount > 0;
   const isNonCash = currency === "tarjeta" || currency === "transfe";
   const nonCashOverflow =
-    isNonCash && hasValidAmount && nonCashTotal + parsedAmount > total;
+    isNonCash &&
+    hasValidAmount &&
+    tarjetaFromEntries + transfeFromEntries + parsedAmount > effectiveTotal + 0.001;
 
   function addEntry() {
     if (!hasValidAmount || nonCashOverflow) return;
@@ -156,24 +172,30 @@ export function CashInput({
         </p>
       )}
 
-      {isNonCash && remaining > 0 && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className={`h-8 w-full ${
-            currency === "tarjeta"
-              ? "border-blue-300 text-blue-700 hover:bg-blue-50"
-              : "border-purple-300 text-purple-700 hover:bg-purple-50"
-          }`}
-          onClick={() => {
-            onEntriesChange([...entries, { amount: remaining, currency }]);
-            setCurrentAmount("");
-          }}
-        >
-          Cobrar restante ${remaining.toFixed(2)}
-        </Button>
-      )}
+      {isNonCash && remaining > 0 && (() => {
+        const restanteAmount =
+          currency === "tarjeta" && isMember
+            ? remaining * (1 + CARD_SURCHARGE_RATE)
+            : remaining;
+        return (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={`h-8 w-full ${
+              currency === "tarjeta"
+                ? "border-blue-300 text-blue-700 hover:bg-blue-50"
+                : "border-purple-300 text-purple-700 hover:bg-purple-50"
+            }`}
+            onClick={() => {
+              onEntriesChange([...entries, { amount: restanteAmount, currency }]);
+              setCurrentAmount("");
+            }}
+          >
+            Cobrar restante ${restanteAmount.toFixed(2)}
+          </Button>
+        );
+      })()}
 
       {currency === "MXN" && (
         <div>

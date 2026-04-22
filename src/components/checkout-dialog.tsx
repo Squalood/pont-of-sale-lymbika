@@ -70,12 +70,16 @@ export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onC
           ? "transfe"
           : "efectivo";
 
-  const cardBase = tarjetaFromEntries;
+  // Tarjeta entry = monto cobrado en terminal (incluye recargo si es miembro).
+  // Base (lo que cubre del total) = swipe / 1.03 para miembros.
+  const cardBase = isMember
+    ? tarjetaFromEntries / (1 + CARD_SURCHARGE_RATE)
+    : tarjetaFromEntries;
   const transfeBase = transfeFromEntries;
-  const cardSurcharge = isMember && cardBase > 0 ? cardBase * CARD_SURCHARGE_RATE : 0;
+  const cardSurcharge = tarjetaFromEntries - cardBase;
   const effectiveTotal = total + cardSurcharge;
 
-  const canConfirm = entries.length > 0 && receivedTotal >= total;
+  const canConfirm = entries.length > 0 && receivedTotal + 0.001 >= effectiveTotal;
 
   function resetState() {
     setEntries([]);
@@ -128,6 +132,7 @@ export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onC
           entries={entries}
           onEntriesChange={setEntries}
           allowTarjeta
+          isMember={!!isMember}
         />
 
         <NoteInput value={nota} onChange={setNota} />
