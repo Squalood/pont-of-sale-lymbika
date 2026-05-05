@@ -24,7 +24,7 @@ export function SaleCompleteDialog({ open, onClose, paymentMethod, change, cardC
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-sm text-center" showCloseButton={false}>
+      <DialogContent className="sm:max-w-sm text-center" showCloseButton={false} aria-describedby={undefined}>
         <div className="flex flex-col items-center gap-4 py-4">
           <CheckCircle2 className="h-16 w-16 text-emerald-500" strokeWidth={1.5} />
           <DialogTitle className="text-xl font-semibold">Venta Completada</DialogTitle>

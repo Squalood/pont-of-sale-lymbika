@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { Cart, CartItem, ProductType, cartItemKey } from "@/types/product";
 
 export const CART_VW = 25;
@@ -102,6 +103,9 @@ export function useMultiCart(
       })
     );
     clearCartOf(cartId);
+    toast.success("Venta completada", {
+      description: `${soldItems.reduce((acc, i) => acc + i.quantity, 0)} artículo(s) vendido(s)`,
+    });
   }
 
   return {

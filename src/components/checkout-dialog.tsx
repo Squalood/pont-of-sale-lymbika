@@ -111,7 +111,7 @@ export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onC
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !isLoading && handleClose()}>
-      <DialogContent className="max-h-[95vh] overflow-y-auto sm:max-w-md">
+      <DialogContent className="max-h-[95vh] overflow-y-auto sm:max-w-md" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="text-xl">Cobro</DialogTitle>
         </DialogHeader>

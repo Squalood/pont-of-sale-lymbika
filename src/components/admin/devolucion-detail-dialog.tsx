@@ -52,7 +52,7 @@ export function DevolucionDetailDialog({ devolucion, open, onClose }: Devolucion
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>
             Detalle de devolución{" "}

@@ -85,7 +85,7 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>
               Detalle de venta{" "}

@@ -54,6 +54,7 @@ export function AperturaCajaDialog({ open, onSuccess }: AperturaCajaDialogProps)
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
         className="sm:max-w-md"
+        aria-describedby={undefined}
         onEscapeKeyDown={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
