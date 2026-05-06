@@ -11,6 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { ProductType, GridItem } from "@/types/product";
@@ -77,7 +78,10 @@ export function ProductSidebar({
 
       {/* Full panel - hidden when collapsed */}
       <SidebarHeader className="gap-3 p-4 group-data-[collapsible=icon]:hidden">
-        <h2 className="text-lg font-semibold">Productos</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Productos</h2>
+          <SidebarTrigger />
+        </div>
         <SearchBar
           search={search}
           onSearchChange={onSearchChange}

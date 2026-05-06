@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { postCaja } from "@/api/postCaja";
+import { fetchCajaAbierta } from "@/api/getCajaAbierta";
 import { getUser } from "@/lib/auth";
 
 interface AperturaCajaDialogProps {
@@ -35,6 +36,11 @@ export function AperturaCajaDialog({ open, onSuccess }: AperturaCajaDialogProps)
     setError(null);
 
     try {
+      const existente = await fetchCajaAbierta();
+      if (existente) {
+        onSuccess();
+        return;
+      }
       const user = getUser();
       await postCaja({
         fecha: new Date().toISOString(),

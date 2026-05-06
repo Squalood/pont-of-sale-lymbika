@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ProductSidebar } from "@/components/product-sidebar";
 import { CartPanel } from "@/components/cart-panel";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useGetProducts } from "@/api/getProducts";
 import { useGetCategories } from "@/api/getCategories";
 import { useGetServiceRates } from "@/api/getServiceRates";
@@ -66,7 +66,11 @@ export default function Home() {
 
     const serviceItems: GridItem[] = selectedCategory === "todos" || selectedCategory === "consultas"
       ? serviceRates
-          .filter((sr) => sr.medical_service && (!term || normalize(sr.medical_service.name).includes(term) || (sr.doctor ? normalize(sr.doctor.doctorName).includes(term) : false)))
+          .filter((sr) => {
+            if (!sr.medical_service) return false;
+            if (selectedCategory === "consultas" && sr.medical_service.type !== "consultation") return false;
+            return !term || normalize(sr.medical_service.name).includes(term) || (sr.doctor ? normalize(sr.doctor.doctorName).includes(term) : false);
+          })
           .map((sr) => ({ type: "service" as const, data: sr }))
       : [];
 
@@ -108,7 +112,7 @@ export default function Home() {
         <ProductSidebar
           products={products}
           filteredItems={filteredItems}
-          serviceRateCount={serviceRates.length}
+          serviceRateCount={serviceRates.filter((sr) => sr.medical_service?.type === "consultation").length}
           categories={categories}
           loading={loadingProducts}
           error={errorProducts}
@@ -123,8 +127,6 @@ export default function Home() {
 
         <SidebarInset>
           <div className="relative flex h-full overflow-x-auto overflow-y-hidden">
-            <SidebarTrigger className="absolute left-2 top-2 z-10 rounded-full shadow-md" />
-
             {carts.map((cart, index) => (
               <CartPanel
                 key={cart.id}
@@ -140,7 +142,7 @@ export default function Home() {
                 onClear={() => clearCartOf(cart.id)}
                 onSetMember={(val) => setMemberOf(cart.id, val)}
                 onSaleComplete={(items) => handleSaleComplete(cart.id, items)}
-                onClose={index < carts.length - 1 ? () => removeCart(cart.id) : undefined}
+                onClose={carts.length > 1 ? () => removeCart(cart.id) : undefined}
                 onActivate={() => setActiveCartId(cart.id)}
                 onAddCart={index === carts.length - 1 && carts.length < MAX_CARTS ? addCart : undefined}
               />

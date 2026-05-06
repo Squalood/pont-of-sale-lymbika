@@ -10,7 +10,17 @@ interface CartPanelHeaderProps {
 export function CartPanelHeader({ cartNumber, itemCount, onAddCart, onClose }: CartPanelHeaderProps) {
   return (
     <div className="flex items-center justify-between border-b px-4 py-3">
-      <div className="w-4" />
+      {onClose ? (
+        <button
+          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+          title="Cerrar carrito"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      ) : (
+        <div className="w-4" />
+      )}
       <div className="flex items-center gap-2">
         <ShoppingCart className="h-5 w-5" />
         <span className="font-semibold">Venta #{cartNumber}</span>
@@ -27,13 +37,6 @@ export function CartPanelHeader({ cartNumber, itemCount, onAddCart, onClose }: C
           title="Nuevo carrito"
         >
           <Plus className="h-4 w-4" />
-        </button>
-      ) : onClose ? (
-        <button
-          onClick={(e) => { e.stopPropagation(); onClose(); }}
-          className="text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <X className="h-4 w-4" />
         </button>
       ) : (
         <div className="w-4" />
