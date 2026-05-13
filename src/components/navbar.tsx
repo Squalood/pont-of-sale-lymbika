@@ -38,7 +38,7 @@ export function Navbar() {
         <img src="/logo.svg" alt="Logo" className="h-9 w-9 rounded-full" />
         <div>
           <h1 className="text-sm font-bold leading-tight">
-            Farmacia Lymbika
+            {caja?.pharmacy?.nombre ?? "Caja no Iniciada"}
             {user && (
               <span className="ml-2 font-normal opacity-70">— operador: {user.username}</span>
             )}
@@ -57,6 +57,7 @@ export function Navbar() {
                 <p><span className="font-semibold">Apertura:</span> {new Date(caja.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</p>
                 <p><span className="font-semibold">Fondo inicial:</span> ${caja.fondoInicial.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
                 <p><span className="font-semibold">Operador:</span> {caja.operador}</p>
+                <p><span className="font-semibold">Sucursal:</span> {caja.pharmacy?.nombre}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

@@ -1,19 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { postCaja } from "@/api/postCaja";
 import { fetchCajaAbierta } from "@/api/getCajaAbierta";
+import { fetchPharmacies } from "@/api/getPharmacies";
 import { getUser } from "@/lib/auth";
+import { PharmacyType } from "@/types/pharmacy";
 
 interface AperturaCajaDialogProps {
   open: boolean;
@@ -24,11 +33,33 @@ export function AperturaCajaDialog({ open, onSuccess }: AperturaCajaDialogProps)
   const [fondoInicial, setFondoInicial] = useState("");
   const [tipoCambio, setTipoCambio] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pharmacies, setPharmacies] = useState<PharmacyType[]>([]);
+  const [pharmacyId, setPharmacyId] = useState<string>("");
+
+  useEffect(() => {
+    if (!open) return;
+    setChecking(true);
+    fetchCajaAbierta()
+      .then((existente) => { if (existente) onSuccess(); })
+      .catch(() => {})
+      .finally(() => setChecking(false));
+  }, [open, onSuccess]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetchPharmacies()
+      .then((data) => {
+        setPharmacies(data);
+        if (data.length === 1) setPharmacyId(data[0].documentId);
+      })
+      .catch(() => {});
+  }, [open]);
 
   const fondoNum = parseFloat(fondoInicial);
   const tipoCambioNum = parseFloat(tipoCambio);
-  const canSubmit = fondoNum > 0 && tipoCambioNum > 0 && !loading;
+  const canSubmit = fondoNum > 0 && tipoCambioNum > 0 && !!pharmacyId && !loading && !checking;
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -48,6 +79,7 @@ export function AperturaCajaDialog({ open, onSuccess }: AperturaCajaDialogProps)
         tipoCambio: tipoCambioNum,
         estado: "Abierta",
         operador: user?.username ?? "desconocido",
+        pharmacy: pharmacyId,
       });
       onSuccess();
     } catch (err) {
@@ -68,12 +100,37 @@ export function AperturaCajaDialog({ open, onSuccess }: AperturaCajaDialogProps)
       >
         <DialogHeader>
           <DialogTitle className="text-xl">Apertura de Caja</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Ingresa los datos para abrir la caja del día.
-          </p>
+          {!checking && (
+            <p className="text-sm text-muted-foreground">
+              Ingresa los datos para abrir la caja del día.
+            </p>
+          )}
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
+        {checking && (
+          <div className="flex flex-col items-center gap-3 py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Verificando caja...</p>
+          </div>
+        )}
+
+        <div className={checking ? "hidden" : "space-y-5 py-2"}>
+          <div className="space-y-2">
+            <Label>Farmacia</Label>
+            <Select value={pharmacyId} onValueChange={setPharmacyId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecciona una farmacia" />
+              </SelectTrigger>
+              <SelectContent>
+                {pharmacies.map((p) => (
+                  <SelectItem key={p.documentId} value={p.documentId}>
+                    {p.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="fondo-inicial">Fondo inicial</Label>
             <div className="relative">
@@ -123,7 +180,7 @@ export function AperturaCajaDialog({ open, onSuccess }: AperturaCajaDialogProps)
         </div>
 
         <Button
-          className="w-full"
+          className={`w-full${checking ? " hidden" : ""}`}
           disabled={!canSubmit}
           onClick={handleSubmit}
         >

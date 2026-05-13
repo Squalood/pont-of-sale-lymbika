@@ -8,7 +8,7 @@ export async function fetchCajaAbierta(): Promise<CajaType | null> {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
   const fechaDesde = hoy.toISOString();
-  const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/cajas-pos?filters[estado][$eq]=Abierta&filters[fecha][$gte]=${fechaDesde}&sort=fecha:desc&pagination[pageSize]=1`;
+  const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/cajas-pos?filters[estado][$eq]=Abierta&filters[fecha][$gte]=${fechaDesde}&sort=fecha:desc&pagination[pageSize]=1&populate=pharmacy`;
   const res = await authFetch(url);
   if (!res.ok) throw new Error(`Error ${res.status}`);
   const json = await res.json();

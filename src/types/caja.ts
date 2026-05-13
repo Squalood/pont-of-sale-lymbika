@@ -1,3 +1,5 @@
+import { PharmacyType } from "./pharmacy";
+
 export interface CajaType {
   id: number;
   documentId: string;
@@ -6,6 +8,7 @@ export interface CajaType {
   tipoCambio: number;
   estado: "Abierta" | "Cerrada";
   operador: string;
+  pharmacy?: PharmacyType | null;
 }
 
 export interface CajaPayload {
@@ -14,4 +17,5 @@ export interface CajaPayload {
   tipoCambio: number;
   estado: "Abierta" | "Cerrada";
   operador: string;
+  pharmacy?: string;
 }
