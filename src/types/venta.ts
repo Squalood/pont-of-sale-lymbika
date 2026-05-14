@@ -1,3 +1,5 @@
+import { PharmacyType } from "./pharmacy";
+
 export interface VentaItem {
   type: "product" | "service";
   product?: string | null; // product documentId
@@ -46,6 +48,7 @@ export interface VentaType {
   nota?: string;
   esMembresia?: boolean;
   venta: VentaItemType[];
+  pharmacies?: PharmacyType[] | null;
 }
 
 export interface VentaPayload {
@@ -65,4 +68,5 @@ export interface VentaPayload {
   nota?: string;
   esMembresia?: boolean;
   venta: VentaItem[];
+  pharmacies?: string;
 }

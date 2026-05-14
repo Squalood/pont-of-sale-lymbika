@@ -57,16 +57,27 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
   const [period, setPeriod] = useState<Period>("hoy");
   const [selectedVenta, setSelectedVenta] = useState<VentaType | null>(null);
   const [operadorFilter, setOperadorFilter] = useState<string>("todos");
+  const [pharmacyFilter, setPharmacyFilter] = useState<string>("todas");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   function handlePeriod(v: string) { setPeriod(v as Period); setPage(1); }
   function handleOperador(v: string) { setOperadorFilter(v); setPage(1); }
+  function handlePharmacy(v: string) { setPharmacyFilter(v); setPage(1); }
   function handleSearch(v: string) { setSearch(v); setPage(1); }
 
   const operadores = useMemo(() => {
     const unique = Array.from(new Set(ventas.map((v) => v.operador).filter(Boolean)));
     return unique.sort();
+  }, [ventas]);
+
+  const pharmacias = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const v of ventas) {
+      const p = v.pharmacies?.[0];
+      if (p?.documentId) map.set(p.documentId, p.nombre);
+    }
+    return Array.from(map.entries()).map(([documentId, nombre]) => ({ documentId, nombre }));
   }, [ventas]);
 
   const filteredVentas = useMemo(() => {
@@ -92,10 +103,11 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
         }
       })();
       const matchesOperador = operadorFilter === "todos" || v.operador === operadorFilter;
+      const matchesPharmacy = pharmacyFilter === "todas" || v.pharmacies?.[0]?.documentId === pharmacyFilter;
       const matchesSearch = search === "" || String(v.id).padStart(5, "0").includes(search.replace(/^#/, ""));
-      return matchesPeriod && matchesOperador && matchesSearch;
+      return matchesPeriod && matchesOperador && matchesPharmacy && matchesSearch;
     });
-  }, [ventas, period, operadorFilter, search]);
+  }, [ventas, period, operadorFilter, pharmacyFilter, search]);
 
   const totalPages = Math.max(1, Math.ceil(filteredVentas.length / PAGE_SIZE));
   const paginatedVentas = filteredVentas.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -111,6 +123,21 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
             onChange={(e) => handleSearch(e.target.value)}
             className="w-44 h-8 text-sm"
           />
+          {pharmacias.length > 1 && (
+            <Select value={pharmacyFilter} onValueChange={handlePharmacy}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Sucursal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas</SelectItem>
+                {pharmacias.map((p) => (
+                  <SelectItem key={p.documentId} value={p.documentId}>
+                    {p.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={operadorFilter} onValueChange={handleOperador}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Operador" />
@@ -143,6 +170,7 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
               <TableHead className="text-center"># Items</TableHead>
               <TableHead>Método</TableHead>
               <TableHead>Operador</TableHead>
+              <TableHead>Sucursal</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-center">Estado</TableHead>
             </TableRow>
@@ -150,7 +178,7 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
           <TableBody>
             {filteredVentas.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                   No hay ventas en este período
                 </TableCell>
               </TableRow>
@@ -189,6 +217,9 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {venta.operador ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {venta.pharmacies?.[0]?.nombre ?? "—"}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       ${venta.total.toFixed(2)}

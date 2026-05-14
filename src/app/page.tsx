@@ -19,7 +19,7 @@ import { useMultiCart, MAX_CARTS } from "@/hooks/useMultiCart";
 
 export default function Home() {
   const router = useRouter();
-  const { caja, loading: loadingCaja, refetch: refetchCaja } = useCaja();
+  const { caja, loading: loadingCaja, refetch: refetchCaja, pharmacyId, setPharmacyId } = useCaja();
 
   const { result: fetchedProducts, loading: loadingProducts, error: errorProducts } = useGetProducts();
   const { result: categories } = useGetCategories();
@@ -98,7 +98,16 @@ export default function Home() {
   }
 
   if (!caja) {
-    return <AperturaCajaDialog open={true} onSuccess={refetchCaja} />;
+    return (
+      <AperturaCajaDialog
+        open={true}
+        defaultPharmacyId={pharmacyId ?? undefined}
+        onSuccess={(pharmId) => {
+          setPharmacyId(pharmId);
+          if (pharmId === pharmacyId) refetchCaja();
+        }}
+      />
+    );
   }
 
   return (

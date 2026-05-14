@@ -47,7 +47,7 @@ interface ReturnRow extends VentaItemType {
 }
 
 export function ReturnDialog({ venta, products, open, onClose, onReturnComplete }: ReturnDialogProps) {
-  const { refetchEfectivo } = useCaja();
+  const { caja, refetchEfectivo } = useCaja();
   const [step, setStep] = useState<Step>("items");
   const [rows, setRows] = useState<ReturnRow[]>([]);
   const [motivo, setMotivo] = useState("");
@@ -134,6 +134,7 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
           };
         }),
         venta: venta.documentId,
+        pharmacies: caja?.pharmacy?.documentId,
       });
 
       // 2. Mark venta as cancelada only if all items are fully returned

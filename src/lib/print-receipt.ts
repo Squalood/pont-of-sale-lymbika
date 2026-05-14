@@ -16,6 +16,7 @@ interface ReceiptData {
   received: number;
   change: number;
   fecha?: Date | string;
+  pharmacyName?: string;
   isMember?: boolean;
   cardSurcharge?: number;
   montoTarjeta?: number;
@@ -40,6 +41,7 @@ export function printReceipt(data: ReceiptData) {
     montoTransfe = 0,
     recibidoUSD = 0,
     tipoCambioUsado = 0,
+    pharmacyName,
   } = data;
   const effectiveTotal = total + cardSurcharge;
   const now = data.fecha ? new Date(data.fecha) : new Date();
@@ -174,8 +176,9 @@ export function printReceipt(data: ReceiptData) {
     </head>
     <body>
       <div class="header">
-        <h1>Farmacia Lymbika</h1>
+        <h1>Grupo Lymbika</h1>
         <p>Punto de Venta</p>
+        <p>${pharmacyName ?? ""}</p>
         <p>${date} — ${time}</p>
         <p class="receipt-no">Recibo ${receiptNo}</p>
       </div>

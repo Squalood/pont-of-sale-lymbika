@@ -60,6 +60,7 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
     printReceipt({
       receiptId: venta!.id,
       operador: venta!.operador ?? "",
+      pharmacyName: venta!.pharmacies?.[0]?.nombre,
       items: venta!.venta.map((item) => ({
         productName: item.productName,
         quantity: item.quantity,
@@ -122,6 +123,12 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
                 <span className="text-muted-foreground">Operador</span>
                 <p className="font-medium">{venta.operador ?? "—"}</p>
               </div>
+              {venta.pharmacies?.[0] && (
+                <div>
+                  <span className="text-muted-foreground">Sucursal</span>
+                  <p className="font-medium">{venta.pharmacies[0].nombre}</p>
+                </div>
+              )}
               {venta.esMembresia && (
                 <div className="col-span-2 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
                   <BadgePercent className="h-4 w-4 shrink-0" />

@@ -31,7 +31,7 @@ export function useCheckout({
   setCheckoutOpen,
   setSaleResult,
 }: UseCheckoutParams) {
-  const { refetchEfectivo } = useCaja();
+  const { caja, refetchEfectivo } = useCaja();
 
   async function handleConfirm(
     method: MetodoPago,
@@ -68,6 +68,7 @@ export function useCheckout({
         operador,
         nota: nota || undefined,
         esMembresia: isMember,
+        pharmacies: caja?.pharmacy?.documentId,
         venta: items.map((item) => {
           if (item.type === "product") {
             return {
@@ -106,6 +107,7 @@ export function useCheckout({
     printReceipt({
       receiptId,
       operador,
+      pharmacyName: caja?.pharmacy?.nombre,
       items: items.map((item) => ({
         productName: item.type === "product" ? item.product.productName : item.serviceRate.medical_service?.name ?? "",
         quantity: item.quantity,

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { CajaType } from "@/types/caja";
 import { useGetCajaAbierta } from "@/api/getCajaAbierta";
 import { useEfectivoCaja, EfectivoCaja } from "@/api/useEfectivoCaja";
@@ -11,6 +11,8 @@ interface CajaContextType {
   refetch: () => void;
   efectivo: EfectivoCaja | null;
   refetchEfectivo: () => void;
+  pharmacyId: string | null | undefined;
+  setPharmacyId: (id: string) => void;
 }
 
 const CajaContext = createContext<CajaContextType>({
@@ -19,14 +21,30 @@ const CajaContext = createContext<CajaContextType>({
   refetch: () => {},
   efectivo: null,
   refetchEfectivo: () => {},
+  pharmacyId: undefined,
+  setPharmacyId: () => {},
 });
 
 export function CajaProvider({ children }: { children: React.ReactNode }) {
-  const { result, loading, refetch } = useGetCajaAbierta();
-  const { result: efectivo, refetch: refetchEfectivo } = useEfectivoCaja(result?.fondoInicial ?? null);
+  const [pharmacyId, setPharmacyIdState] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    setPharmacyIdState(localStorage.getItem("pos_pharmacy_id"));
+  }, []);
+
+  const setPharmacyId = useCallback((id: string) => {
+    localStorage.setItem("pos_pharmacy_id", id);
+    setPharmacyIdState(id);
+  }, []);
+
+  const { result, loading, refetch } = useGetCajaAbierta(pharmacyId);
+  const { result: efectivo, refetch: refetchEfectivo } = useEfectivoCaja(
+    result?.fondoInicial ?? null,
+    result?.pharmacy?.documentId ?? null,
+  );
 
   return (
-    <CajaContext.Provider value={{ caja: result, loading, refetch, efectivo, refetchEfectivo }}>
+    <CajaContext.Provider value={{ caja: result, loading, refetch, efectivo, refetchEfectivo, pharmacyId, setPharmacyId }}>
       {children}
     </CajaContext.Provider>
   );

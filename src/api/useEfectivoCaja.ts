@@ -11,17 +11,18 @@ export interface EfectivoCaja {
   efectivoUSD: number;      // suma de recibidoUSD de ventas del día
 }
 
-export function useEfectivoCaja(fondoInicial: number | null) {
+export function useEfectivoCaja(fondoInicial: number | null, pharmacyId: string | null) {
   const [result, setResult] = useState<EfectivoCaja | null>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchEfectivo = useCallback(async () => {
-    if (fondoInicial === null) return;
+    if (fondoInicial === null || !pharmacyId) return;
     setLoading(true);
 
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
     const fechaDesde = hoy.toISOString();
+    const pharmacyFilter = `&filters[pharmacies][documentId][$eq]=${pharmacyId}`;
 
     try {
       const [ventasRes, devolucionesRes] = await Promise.all([
@@ -30,6 +31,7 @@ export function useEfectivoCaja(fondoInicial: number | null) {
           `?filters[metodoPago][$in][0]=efectivo` +
           `&filters[metodoPago][$in][1]=mixto` +
           `&filters[fecha][$gte]=${fechaDesde}` +
+          pharmacyFilter +
           `&fields[0]=recibido&fields[1]=cambio&fields[2]=recibidoUSD&fields[3]=tipoCambioUsado` +
           `&pagination[pageSize]=5000`
         ),
@@ -37,6 +39,7 @@ export function useEfectivoCaja(fondoInicial: number | null) {
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/devoluciones-pos` +
           `?filters[metodo][$eq]=Efectivo` +
           `&filters[fecha][$gte]=${fechaDesde}` +
+          pharmacyFilter +
           `&fields[0]=montoReembolso` +
           `&pagination[pageSize]=5000`
         ),
@@ -71,7 +74,7 @@ export function useEfectivoCaja(fondoInicial: number | null) {
     } finally {
       setLoading(false);
     }
-  }, [fondoInicial]);
+  }, [fondoInicial, pharmacyId]);
 
   useEffect(() => {
     fetchEfectivo();

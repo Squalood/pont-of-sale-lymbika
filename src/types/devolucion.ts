@@ -1,4 +1,5 @@
 import { VentaItemType } from "@/types/venta";
+import { PharmacyType } from "@/types/pharmacy";
 
 export interface DevolucionItem {
   product: string | null; // documentId
@@ -22,6 +23,7 @@ export interface DevolucionType {
     id: number;
     documentId: string;
   } | null;
+  pharmacies?: PharmacyType[] | null;
 }
 
 export interface DevolucionPayload {
@@ -33,4 +35,5 @@ export interface DevolucionPayload {
   operador: string;
   items: DevolucionItem[];
   venta: string; // venta documentId
+  pharmacies?: string;
 }
