@@ -4,7 +4,13 @@ import { useState } from "react";
 import { ServiceRateType } from "@/types/service";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Stethoscope, Clock, UserRound } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Stethoscope, Clock, UserRound, Info } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 interface ServiceCardProps {
@@ -15,6 +21,7 @@ interface ServiceCardProps {
 export function ServiceCard({ service, onClick }: ServiceCardProps) {
   const imageUrl = service.medical_service?.image?.url;
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [descOpen, setDescOpen] = useState(false);
 
   if (!service.medical_service) return null;
 
@@ -43,12 +50,22 @@ export function ServiceCard({ service, onClick }: ServiceCardProps) {
             <Stethoscope className="h-5 w-5" />
           </div>
         )}
-        <Badge
-          variant="outline"
-          className={`text-xs ${service.medical_service?.type === "consultation" ? "border-blue-300 text-blue-600" : "border-purple-300 text-purple-600"}`}
-        >
-          {service.medical_service?.type === "consultation" ? "Consulta" : "Procedimiento"}
-        </Badge>
+        <div className="flex items-center gap-1">
+          {service.medical_service?.description && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setDescOpen(true); }}
+              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          )}
+          <Badge
+            variant="outline"
+            className={`text-xs ${service.medical_service?.type === "consultation" ? "border-blue-300 text-blue-600" : "border-purple-300 text-purple-600"}`}
+          >
+            {service.medical_service?.type === "consultation" ? "Consulta" : "Procedimiento"}
+          </Badge>
+        </div>
       </div>
       <div>
         <h3
@@ -78,6 +95,16 @@ export function ServiceCard({ service, onClick }: ServiceCardProps) {
         </div>
 
       </div>
+      <Dialog open={descOpen} onOpenChange={setDescOpen}>
+        <DialogContent onClick={(e) => e.stopPropagation()} className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{service.medical_service?.name}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {service.medical_service?.description}
+          </p>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

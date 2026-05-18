@@ -93,7 +93,7 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
         }}
       >
         <ExternalLink className="h-3 w-3" />
-        Ver en tienda
+        Ver en eShop
       </Button>
     </Card>
   );
