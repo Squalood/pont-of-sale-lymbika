@@ -24,7 +24,7 @@ export function ExportProductsButton() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "productos.csv";
+      a.download = `productos_${new Date().toISOString().slice(0, 16).replace("T", "_").replace(":", "-")}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
