@@ -5,10 +5,12 @@ import { authFetch } from "@/lib/auth";
 
 export interface EfectivoCaja {
   fondoInicial: number;
-  ventasNetoMXN: number;    // (recibidoMXN - cambio) de ventas en efectivo hoy
-  devolucionesMXN: number;  // suma de montoReembolso de devoluciones en efectivo hoy
-  efectivoMXN: number;      // fondoInicial + ventasNetoMXN - devolucionesMXN
-  efectivoUSD: number;      // suma de recibidoUSD de ventas del día
+  ventasNetoMXN: number;
+  devolucionesMXN: number;
+  efectivoMXN: number;
+  efectivoUSD: number;
+  ventasTarjeta: number;
+  ventasTransfe: number;
 }
 
 export function useEfectivoCaja(fondoInicial: number | null, pharmacyId: string | null) {
@@ -28,11 +30,12 @@ export function useEfectivoCaja(fondoInicial: number | null, pharmacyId: string 
       const [ventasRes, devolucionesRes] = await Promise.all([
         authFetch(
           `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ventas-pos` +
-          `?filters[metodoPago][$in][0]=efectivo` +
-          `&filters[metodoPago][$in][1]=mixto` +
-          `&filters[fecha][$gte]=${fechaDesde}` +
+          `?filters[fecha][$gte]=${fechaDesde}` +
+          `&filters[estado][$ne]=cancelada` +
           pharmacyFilter +
-          `&fields[0]=recibido&fields[1]=cambio&fields[2]=recibidoUSD&fields[3]=tipoCambioUsado` +
+          `&fields[0]=metodoPago&fields[1]=recibido&fields[2]=cambio` +
+          `&fields[3]=recibidoUSD&fields[4]=tipoCambioUsado` +
+          `&fields[5]=montoTarjeta&fields[6]=montoTransferencia&fields[7]=total` +
           `&pagination[pageSize]=5000`
         ),
         authFetch(
@@ -48,7 +51,12 @@ export function useEfectivoCaja(fondoInicial: number | null, pharmacyId: string 
       const ventasJson = await ventasRes.json();
       const devolucionesJson = await devolucionesRes.json();
 
-      type VentaRow = { recibido: number; cambio: number; recibidoUSD: number; tipoCambioUsado: number };
+      type VentaRow = {
+        metodoPago: string;
+        recibido: number; cambio: number;
+        recibidoUSD: number; tipoCambioUsado: number;
+        montoTarjeta?: number; montoTransferencia?: number; total: number;
+      };
       type DevRow = { montoReembolso: number };
 
       const ventas: VentaRow[] = ventasJson.data ?? [];
@@ -56,19 +64,29 @@ export function useEfectivoCaja(fondoInicial: number | null, pharmacyId: string 
 
       let ventasNetoMXN = 0;
       let efectivoUSD = 0;
+      let ventasTarjeta = 0;
+      let ventasTransfe = 0;
 
       for (const v of ventas) {
-        const usd = v.recibidoUSD ?? 0;
-        const tc = v.tipoCambioUsado ?? 1;
-        const recibidoMXN = v.recibido - usd * tc;
-        ventasNetoMXN += recibidoMXN - v.cambio;
-        efectivoUSD += usd;
+        if (v.metodoPago === "efectivo" || v.metodoPago === "mixto") {
+          const usd = v.recibidoUSD ?? 0;
+          const tc = v.tipoCambioUsado ?? 1;
+          const recibidoMXN = (v.recibido ?? 0) - usd * tc;
+          ventasNetoMXN += recibidoMXN - (v.cambio ?? 0);
+          efectivoUSD += usd;
+        }
+        if (v.metodoPago === "tarjeta") ventasTarjeta += v.total;
+        if (v.metodoPago === "mixto") {
+          ventasTarjeta += v.montoTarjeta ?? 0;
+          ventasTransfe += v.montoTransferencia ?? 0;
+        }
+        if (v.metodoPago === "transfe") ventasTransfe += v.total;
       }
 
       const totalDevolucionesMXN = devoluciones.reduce((sum, d) => sum + d.montoReembolso, 0);
       const efectivoMXN = fondoInicial + ventasNetoMXN - totalDevolucionesMXN;
 
-      setResult({ fondoInicial, ventasNetoMXN, devolucionesMXN: totalDevolucionesMXN, efectivoMXN, efectivoUSD });
+      setResult({ fondoInicial, ventasNetoMXN, devolucionesMXN: totalDevolucionesMXN, efectivoMXN, efectivoUSD, ventasTarjeta, ventasTransfe });
     } catch {
       // silently fail — badge simplemente no muestra datos actualizados
     } finally {

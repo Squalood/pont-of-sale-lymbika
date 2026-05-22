@@ -14,12 +14,13 @@ import { useForbidden } from "@/lib/forbidden-context";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
 import { AperturaCajaDialog } from "@/components/apertura-caja-dialog";
+import { ResumenCierreScreen } from "@/components/resumen-cierre-screen";
 import { Loader2 } from "lucide-react";
 import { useMultiCart, MAX_CARTS } from "@/hooks/useMultiCart";
 
 export default function Home() {
   const router = useRouter();
-  const { caja, loading: loadingCaja, refetch: refetchCaja, pharmacyId, setPharmacyId } = useCaja();
+  const { caja, loading: loadingCaja, refetch: refetchCaja, pharmacyId, setPharmacyId, cierreResumen } = useCaja();
 
   const { result: fetchedProducts, loading: loadingProducts, error: errorProducts } = useGetProducts();
   const { result: categories } = useGetCategories();
@@ -95,6 +96,10 @@ export default function Home() {
 
   if (errorProducts === "403") {
     return <div className="flex h-screen flex-col"><Unauthorized /></div>;
+  }
+
+  if (!caja && cierreResumen) {
+    return <ResumenCierreScreen data={cierreResumen} />;
   }
 
   if (!caja) {

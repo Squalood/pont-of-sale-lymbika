@@ -34,7 +34,7 @@ export default function RootLayout({
         <ForbiddenProvider>
           <CajaProvider>
             <Navbar />
-            <main className="flex-1 overflow-hidden">
+            <main className="flex-1 flex flex-col overflow-hidden">
               {children}
             </main>
             <Toaster position="bottom-right" richColors />

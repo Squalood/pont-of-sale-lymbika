@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, DoorClosed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { clearAuth, getUser, AuthUser } from "@/lib/auth";
 import { useForbidden } from "@/lib/forbidden-context";
 import { useCaja } from "@/lib/caja-context";
+import { CierreCajaDialog } from "@/components/cierre-caja-dialog";
 
 export function Navbar() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export function Navbar() {
   const [mounted, setMounted] = useState(false);
   const { isForbidden } = useForbidden();
   const { caja, efectivo } = useCaja();
+  const [cierreOpen, setCierreOpen] = useState(false);
 
   useEffect(() => {
     setUser(getUser());
@@ -33,6 +35,7 @@ export function Navbar() {
   }
 
   return (
+    <>
     <header className="sticky top-0 z-50 flex h-14 items-center justify-between bg-primary px-4 text-primary-foreground">
       <div className="flex items-center gap-3">
         <img src="/logo.svg" alt="Logo" className="h-9 w-9 rounded-full" />
@@ -86,6 +89,17 @@ export function Navbar() {
       </div>
 
       <div className="flex items-center gap-2">
+          {caja && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-8 gap-2 text-xs"
+              onClick={() => setCierreOpen(true)}
+            >
+              <DoorClosed className="h-4 w-4" />
+              Cerrar Caja
+            </Button>
+          )}
           {!isForbidden && (
             <Link href="/admin">
               <Button
@@ -108,5 +122,8 @@ export function Navbar() {
           </Button>
       </div>
     </header>
+
+    <CierreCajaDialog open={cierreOpen} onClose={() => setCierreOpen(false)} />
+    </>
   );
 }
