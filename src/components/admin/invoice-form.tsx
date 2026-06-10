@@ -311,7 +311,6 @@ function DatePickerField({ value, onChange, placeholder = "Seleccionar fecha" }:
             onChange(d);
             setOpen(false);
           }}
-          initialFocus
         />
       </PopoverContent>
     </Popover>
