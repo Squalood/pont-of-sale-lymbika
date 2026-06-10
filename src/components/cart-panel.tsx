@@ -8,7 +8,7 @@ import { CartTotals } from "@/components/cart-totals";
 import { CheckoutDialog } from "@/components/checkout-dialog";
 import { SaleCompleteDialog } from "@/components/sale-complete-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ShoppingCart, BadgePercent, ScanBarcode } from "lucide-react";
+import { ShoppingCart, BadgePercent, ScanBarcode, Receipt } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useCaja } from "@/lib/caja-context";
@@ -57,8 +57,9 @@ export function CartPanel({
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [saleResult, setSaleResult] = useState<{ paymentMethod: MetodoPago; change: number; cardCharge: number } | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
+  const [ivaRate, setIvaRate] = useState<0 | 8 | 16>(0);
 
-  const { total, subtotal, iva, ahorro, getPrice } = useCartTotals(items, isMember);
+  const { total, subtotal, iva, ahorro, getPrice, manualIva } = useCartTotals(items, isMember, ivaRate);
 
   const { handleConfirm } = useCheckout({
     items,
@@ -66,6 +67,8 @@ export function CartPanel({
     iva,
     total,
     isMember,
+    ivaRate,
+    manualIva,
     getPrice,
     onSaleComplete,
     onSetMember,
@@ -147,12 +150,37 @@ export function CartPanel({
             <Switch checked={isMember} onCheckedChange={onSetMember} />
           </div>
 
+          <div className="flex items-center justify-between border-t px-4 py-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-blue-500" />
+              <span className="text-sm font-medium">IVA</span>
+            </div>
+            <div className="flex overflow-hidden rounded-md border text-xs">
+              {([0, 8, 16] as const).map((rate) => (
+                <button
+                  key={rate}
+                  onClick={() => setIvaRate(rate)}
+                  className={cn(
+                    "px-2.5 py-1 font-medium transition-colors",
+                    ivaRate === rate
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  {rate === 0 ? "Sin IVA adicional" : `${rate}%`}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <CartTotals
             subtotal={subtotal}
             iva={iva}
             total={total}
             ahorro={ahorro}
             isMember={isMember}
+            ivaRate={ivaRate}
+            manualIva={manualIva}
             tipoCambio={tipoCambio}
             onCheckout={() => setCheckoutOpen(true)}
           />
@@ -164,7 +192,7 @@ export function CartPanel({
         paymentMethod={saleResult?.paymentMethod ?? "efectivo"}
         change={saleResult?.change ?? 0}
         cardCharge={saleResult?.cardCharge ?? 0}
-        onClose={() => { setSaleResult(null); onSetMember(false); onClear(); }}
+        onClose={() => { setSaleResult(null); onSetMember(false); setIvaRate(0); onClear(); }}
       />
 
       <CheckoutDialog

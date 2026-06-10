@@ -12,6 +12,8 @@ interface UseCheckoutParams {
   iva: number;
   total: number;
   isMember: boolean;
+  ivaRate: 0 | 8 | 16;
+  manualIva: number;
   getPrice: (item: CartItem) => number;
   onSaleComplete: (items: CartItem[]) => void;
   onSetMember: (val: boolean) => void;
@@ -26,6 +28,8 @@ export function useCheckout({
   iva,
   total,
   isMember,
+  ivaRate,
+  manualIva,
   getPrice,
   onSaleComplete,
   setCheckoutOpen,
@@ -117,6 +121,8 @@ export function useCheckout({
       subtotal,
       iva,
       total,
+      ivaRate,
+      manualIva,
       paymentMethod: method,
       received,
       change: change > 0 ? change : 0,

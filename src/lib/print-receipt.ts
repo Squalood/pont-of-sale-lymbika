@@ -23,6 +23,8 @@ interface ReceiptData {
   montoTransfe?: number;
   recibidoUSD?: number;
   tipoCambioUsado?: number;
+  ivaRate?: 0 | 8 | 16;
+  manualIva?: number;
 }
 
 export function printReceipt(data: ReceiptData) {
@@ -108,6 +110,12 @@ export function printReceipt(data: ReceiptData) {
           text-align: center;
           margin-bottom: 8px;
         }
+        .header img {
+          height: 40px;
+          width: auto;
+          display: block;
+          margin: 0 auto 4px;
+        }
         .header h1 {
           font-size: 16px;
           margin-bottom: 2px;
@@ -176,9 +184,9 @@ export function printReceipt(data: ReceiptData) {
     </head>
     <body>
       <div class="header">
-        <h1>Grupo Lymbika</h1>
+        <img src="/Logotipo-print.png" alt="Logo" />
         <p>Punto de Venta</p>
-        <p>${pharmacyName ?? ""}</p>
+        <h1>${pharmacyName ?? ""}</h1>
         <p>${date} — ${time}</p>
         <p class="receipt-no">Recibo ${receiptNo}</p>
       </div>
@@ -206,7 +214,14 @@ export function printReceipt(data: ReceiptData) {
           <span>Subtotal</span>
           <span>$${subtotal.toFixed(2)}</span>
         </div>
-        ${data.iva > 0 ? `<div class="row"><span>IVA (8%)</span><span>$${data.iva.toFixed(2)}</span></div>` : ""}
+        ${(() => {
+          const manualIva = data.manualIva ?? 0;
+          const extractedIva = data.iva - manualIva;
+          const rows = [];
+          if (extractedIva > 0) rows.push(`<div class="row"><span>IVA incluído (8%)</span><span>$${extractedIva.toFixed(2)}</span></div>`);
+          if (manualIva > 0) rows.push(`<div class="row"><span>IVA (${data.ivaRate}%)</span><span>$${manualIva.toFixed(2)}</span></div>`);
+          return rows.join("");
+        })()}
         ${isMember ? `<div class="row member-note"><span>&#9733; Precio Health Pass</span></div>` : ""}
         ${cardSurcharge > 0 ? `<div class="row"><span>Cargo tarjeta (3%)</span><span>+$${cardSurcharge.toFixed(2)}</span></div>` : ""}
         <div class="row total">

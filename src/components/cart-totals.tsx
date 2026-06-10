@@ -7,11 +7,15 @@ interface CartTotalsProps {
   total: number;
   ahorro: number;
   isMember: boolean;
+  ivaRate: 0 | 8 | 16;
+  manualIva: number;
   tipoCambio: number;
   onCheckout: () => void;
 }
 
-export function CartTotals({ subtotal, iva, total, ahorro, isMember, tipoCambio, onCheckout }: CartTotalsProps) {
+export function CartTotals({ subtotal, iva, total, ahorro, isMember, ivaRate, manualIva, tipoCambio, onCheckout }: CartTotalsProps) {
+  const extractedIva = iva - manualIva;
+
   return (
     <div className="border-t px-4 py-3" onClick={(e) => e.stopPropagation()}>
       <div className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-4 gap-y-1 text-sm">
@@ -23,11 +27,19 @@ export function CartTotals({ subtotal, iva, total, ahorro, isMember, tipoCambio,
         <span className="text-right tabular-nums">${subtotal.toFixed(2)}</span>
         <span className="text-right tabular-nums text-green-600">${(subtotal / tipoCambio).toFixed(2)}</span>
 
-        {iva > 0 && (
+        {extractedIva > 0 && (
           <>
             <span className="text-muted-foreground">IVA (8%)</span>
-            <span className="text-right tabular-nums">${iva.toFixed(2)}</span>
-            <span className="text-right tabular-nums text-green-600">${(iva / tipoCambio).toFixed(2)}</span>
+            <span className="text-right tabular-nums">${extractedIva.toFixed(2)}</span>
+            <span className="text-right tabular-nums text-green-600">${(extractedIva / tipoCambio).toFixed(2)}</span>
+          </>
+        )}
+
+        {manualIva > 0 && (
+          <>
+            <span className="text-muted-foreground">IVA ({ivaRate}%)</span>
+            <span className="text-right tabular-nums">${manualIva.toFixed(2)}</span>
+            <span className="text-right tabular-nums text-green-600">${(manualIva / tipoCambio).toFixed(2)}</span>
           </>
         )}
 
