@@ -7,8 +7,17 @@ export async function postUpload(file: File): Promise<number> {
   const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/upload`;
   const token = getToken();
 
+  // Read content eagerly into memory — avoids empty-file uploads for PDFs when
+  // the OS file handle is briefly locked (antivirus, indexer) by the time fetch reads it.
+  let bytes: ArrayBuffer;
+  try {
+    bytes = await file.arrayBuffer();
+  } catch {
+    throw new Error(`No se pudo leer el archivo "${file.name}"`);
+  }
+
   const formData = new FormData();
-  formData.append("files", file);
+  formData.append("files", new Blob([bytes], { type: file.type }), file.name);
 
   const res = await fetch(url, {
     method: "POST",

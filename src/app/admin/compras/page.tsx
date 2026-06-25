@@ -6,7 +6,7 @@ import { useGetCompras } from "@/api/getCompras";
 import { useGetProducts } from "@/api/getProducts";
 import { ProductType } from "@/types/product";
 import { ComprasTable } from "@/components/admin/compras-table";
-import { NuevaCompraDialog } from "@/components/admin/nueva-compra-dialog";
+import { NewPurchaseDialog } from "@/components/admin/new-purchase-dialog";
 
 export default function ComprasPage() {
   const { result: compras, loading, error, refetch } = useGetCompras();
@@ -48,7 +48,7 @@ export default function ComprasPage() {
         />
       )}
 
-      <NuevaCompraDialog
+      <NewPurchaseDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         products={products}
