@@ -40,7 +40,8 @@ export function ItemsStep({
       .filter(
         (p) =>
           p.productName.toLowerCase().includes(q) ||
-          (p.sal ?? "").toLowerCase().includes(q)
+          (p.sal ?? "").toLowerCase().includes(q) ||
+          (p.barCode ?? "").toLowerCase().includes(q)
       )
       .slice(0, 8);
   }, [products, search]);
