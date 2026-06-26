@@ -13,6 +13,7 @@ import { useGetProveedores } from "@/api/getProveedores";
 import { postUpload } from "@/api/postUpload";
 import { postCompra } from "@/api/postCompra";
 import { patchProductStock } from "@/api/patchProductStock";
+import { patchProductMemberPrice } from "@/api/patchProductMemberPrice";
 import { getUser } from "@/lib/auth";
 import { LocalItem } from "./purchase/types";
 import { SupplierStep } from "./purchase/supplier-step";
@@ -84,6 +85,7 @@ export function NewPurchaseDialog({
       );
       return;
     }
+    const costoUnitario = product.priceMember ?? 0;
     setItems((prev) => [
       ...prev,
       {
@@ -91,8 +93,8 @@ export function NewPurchaseDialog({
         product: product.documentId,
         productName: product.productName,
         quantity: 1,
-        costoUnitario: 0,
-        totalLine: 0,
+        costoUnitario,
+        totalLine: costoUnitario,
       },
     ]);
   }
@@ -107,7 +109,15 @@ export function NewPurchaseDialog({
     );
   }
 
-  // TODO: restaurar handleItemCosto cuando se habiliten costos
+  function handleItemCosto(idx: number, value: string) {
+    const costoUnitario = Math.max(0, parseFloat(value) || 0);
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== idx) return item;
+        return { ...item, costoUnitario, totalLine: item.quantity * costoUnitario };
+      })
+    );
+  }
 
   function handleRemoveItem(idx: number) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
@@ -146,6 +156,9 @@ export function NewPurchaseDialog({
           product.documentId,
           product.stock_central + item.quantity
         );
+        if (item.costoUnitario > 0) {
+          await patchProductMemberPrice(product.documentId, item.costoUnitario);
+        }
         updatedItems.push({ productId: item.productId, quantity: item.quantity });
       }
 
@@ -190,6 +203,7 @@ export function NewPurchaseDialog({
             items={items}
             onAddProduct={handleAddProduct}
             onChangeQty={handleItemQty}
+            onChangeCosto={handleItemCosto}
             onRemoveItem={handleRemoveItem}
             onNext={() => setStep("confirm")}
             onBack={() => setStep("proveedor")}
@@ -202,6 +216,7 @@ export function NewPurchaseDialog({
             file={file}
             notas={notas}
             items={items}
+            total={total}
             loading={loading}
             error={error}
             onConfirm={handleConfirm}

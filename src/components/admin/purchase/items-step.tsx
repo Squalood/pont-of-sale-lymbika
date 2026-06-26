@@ -13,16 +13,20 @@ interface ItemsStepProps {
   items: LocalItem[];
   onAddProduct: (product: ProductType) => void;
   onChangeQty: (idx: number, value: string) => void;
+  onChangeCosto: (idx: number, value: string) => void;
   onRemoveItem: (idx: number) => void;
   onNext: () => void;
   onBack: () => void;
 }
+
+const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
 
 export function ItemsStep({
   products,
   items,
   onAddProduct,
   onChangeQty,
+  onChangeCosto,
   onRemoveItem,
   onNext,
   onBack,
@@ -40,6 +44,8 @@ export function ItemsStep({
       )
       .slice(0, 8);
   }, [products, search]);
+
+  const total = items.reduce((sum, i) => sum + i.totalLine, 0);
 
   function handleAdd(product: ProductType) {
     setSearch("");
@@ -94,7 +100,7 @@ export function ItemsStep({
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">Cant</span>
                     <Input
@@ -105,13 +111,34 @@ export function ItemsStep({
                       className="h-7 w-16 text-center text-sm"
                     />
                   </div>
-                  {/* TODO: restaurar costo unitario y total cuando se habiliten costos */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Precio</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={item.costoUnitario === 0 ? "" : item.costoUnitario}
+                      onChange={(e) => onChangeCosto(idx, e.target.value)}
+                      placeholder="0.00"
+                      className="h-7 w-24 text-center text-sm"
+                    />
+                  </div>
+                  {item.costoUnitario > 0 && (
+                    <span className="ml-auto text-xs text-muted-foreground shrink-0">
+                      ${fmt(item.totalLine)}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
-        {/* TODO: restaurar total general cuando se habiliten costos */}
+
+        {total > 0 && (
+          <div className="flex justify-end border-t pt-2">
+            <span className="text-sm font-semibold">Total: ${fmt(total)}</span>
+          </div>
+        )}
       </div>
 
       <DialogFooter>

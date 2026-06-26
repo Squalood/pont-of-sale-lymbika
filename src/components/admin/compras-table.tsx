@@ -270,24 +270,47 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
           </div>
 
           {/* Items */}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Producto</TableHead>
-                <TableHead className="text-center">Cant</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(compra.items ?? []).map((item, i) => (
-                <TableRow key={i}>
-                  <TableCell className="max-w-48 truncate">{item.productName}</TableCell>
-                  <TableCell className="text-center">{item.quantity}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          {/* TODO: restaurar total cuando se habiliten costos */}
+          {(() => {
+            const showCosts = compra.total > 0;
+            const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
+            return (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Producto</TableHead>
+                      <TableHead className="text-center">Cant</TableHead>
+                      {showCosts && <TableHead className="text-right">Precio unit.</TableHead>}
+                      {showCosts && <TableHead className="text-right">Total</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(compra.items ?? []).map((item, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="max-w-48 truncate">{item.productName}</TableCell>
+                        <TableCell className="text-center">{item.quantity}</TableCell>
+                        {showCosts && (
+                          <TableCell className="text-right text-muted-foreground">
+                            ${fmt(item.costoUnitario)}
+                          </TableCell>
+                        )}
+                        {showCosts && (
+                          <TableCell className="text-right font-medium">
+                            ${fmt(item.totalLine)}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {showCosts && (
+                  <div className="flex justify-end border-t pt-2">
+                    <span className="text-sm font-semibold">Total: ${fmt(compra.total)}</span>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </DialogContent>
     </Dialog>

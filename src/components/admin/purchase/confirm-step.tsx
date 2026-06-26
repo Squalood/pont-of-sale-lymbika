@@ -12,17 +12,21 @@ interface ConfirmStepProps {
   file: File | null;
   notas: string;
   items: LocalItem[];
+  total: number;
   loading: boolean;
   error: string | null;
   onConfirm: () => void;
   onBack: () => void;
 }
 
+const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
+
 export function ConfirmStep({
   selectedProveedor,
   file,
   notas,
   items,
+  total,
   loading,
   error,
   onConfirm,
@@ -53,10 +57,20 @@ export function ConfirmStep({
             <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
               <span className="truncate flex-1 font-medium">{item.productName}</span>
               <Badge variant="outline" className="text-xs shrink-0">x{item.quantity}</Badge>
+              {item.costoUnitario > 0 && (
+                <span className="text-xs text-muted-foreground shrink-0 w-20 text-right">
+                  ${fmt(item.totalLine)}
+                </span>
+              )}
             </div>
           ))}
         </div>
-        {/* TODO: restaurar total cuando se habiliten costos */}
+
+        {total > 0 && (
+          <div className="flex justify-end border-t pt-2">
+            <span className="text-sm font-semibold">Total: ${fmt(total)}</span>
+          </div>
+        )}
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
