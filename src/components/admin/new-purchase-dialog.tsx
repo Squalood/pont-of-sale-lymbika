@@ -14,6 +14,7 @@ import { postUpload } from "@/api/postUpload";
 import { postCompra } from "@/api/postCompra";
 import { patchProductStock } from "@/api/patchProductStock";
 import { patchProductMemberPrice } from "@/api/patchProductMemberPrice";
+import { postLote } from "@/api/postLote";
 import { getUser } from "@/lib/auth";
 import { LocalItem } from "./purchase/types";
 import { SupplierStep } from "./purchase/supplier-step";
@@ -119,6 +120,18 @@ export function NewPurchaseDialog({
     );
   }
 
+  function handleItemLote(idx: number, value: string) {
+    setItems((prev) =>
+      prev.map((item, i) => (i !== idx ? item : { ...item, numeroLote: value }))
+    );
+  }
+
+  function handleItemCaducidad(idx: number, value: string) {
+    setItems((prev) =>
+      prev.map((item, i) => (i !== idx ? item : { ...item, fechaCaducidad: value }))
+    );
+  }
+
   function handleRemoveItem(idx: number) {
     setItems((prev) => prev.filter((_, i) => i !== idx));
   }
@@ -134,7 +147,7 @@ export function NewPurchaseDialog({
         uploadId = await postUpload(file);
       }
 
-      await postCompra(
+      const compraDocId = await postCompra(
         {
           fecha: new Date().toISOString(),
           total,
@@ -158,6 +171,15 @@ export function NewPurchaseDialog({
         );
         if (item.costoUnitario > 0) {
           await patchProductMemberPrice(product.documentId, item.costoUnitario);
+        }
+        if (item.numeroLote?.trim()) {
+          await postLote({
+            product: product.documentId,
+            numeroLote: item.numeroLote.trim(),
+            fechaCaducidad: item.fechaCaducidad,
+            cantidadInicial: item.quantity,
+            compraDocId,
+          });
         }
         updatedItems.push({ productId: item.productId, quantity: item.quantity });
       }
@@ -204,6 +226,8 @@ export function NewPurchaseDialog({
             onAddProduct={handleAddProduct}
             onChangeQty={handleItemQty}
             onChangeCosto={handleItemCosto}
+            onChangeLote={handleItemLote}
+            onChangeCaducidad={handleItemCaducidad}
             onRemoveItem={handleRemoveItem}
             onNext={() => setStep("confirm")}
             onBack={() => setStep("proveedor")}

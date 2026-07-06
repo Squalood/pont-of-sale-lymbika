@@ -201,116 +201,136 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
   const fecha = new Date(compra.fecha);
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 
+  const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
+  const fmtDate = (s: string) => new Date(s).toLocaleDateString("es-MX");
+  const items = compra.items ?? [];
+  const showCosts = compra.total > 0;
+  const showLotes = items.some((i) => i.numeroLote);
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
+      <DialogContent className="sm:max-w-2xl" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>
-            Detalle de compra{" "}
+            Compra{" "}
             <span className="text-muted-foreground font-normal">
               #{String(compra.id).padStart(5, "0")}
             </span>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Info */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="space-y-4 text-sm">
+          {/* Info grid */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
             <div>
-              <span className="text-muted-foreground">Fecha</span>
+              <p className="text-muted-foreground">Fecha</p>
               <p className="font-medium">
                 {fecha.toLocaleDateString("es-MX")} —{" "}
                 {fecha.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
               </p>
             </div>
             <div>
-              <span className="text-muted-foreground">Proveedor</span>
-              <p className="font-medium">{compra.proveedor?.name ?? "—"}</p>
+              <p className="text-muted-foreground">Proveedor</p>
+              <p className="font-medium">{compra.proveedor?.name ?? <span className="text-muted-foreground">Sin especificar</span>}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Operador</span>
+              <p className="text-muted-foreground">Operador</p>
               <p className="font-medium">{compra.operador ?? "—"}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Estado</span>
-              <p>
-                <Badge variant={compra.estado === "registrada" ? "default" : "destructive"}>
-                  {compra.estado}
-                </Badge>
-              </p>
+              <p className="text-muted-foreground">Estado</p>
+              <Badge variant={compra.estado === "registrada" ? "default" : "destructive"} className="mt-0.5">
+                {compra.estado}
+              </Badge>
             </div>
+            <div>
+              <p className="text-muted-foreground">Productos</p>
+              <p className="font-medium">{items.length} {items.length === 1 ? "ítem" : "ítems"}</p>
+            </div>
+            {showCosts && (
+              <div>
+                <p className="text-muted-foreground">Total</p>
+                <p className="font-semibold text-base">${fmt(compra.total)}</p>
+              </div>
+            )}
             {compra.notas && (
               <div className="col-span-2">
-                <span className="text-muted-foreground">Notas</span>
+                <p className="text-muted-foreground">Notas</p>
                 <p className="font-medium">{compra.notas}</p>
               </div>
             )}
             {compra.archivo && (
               <div className="col-span-2">
-                <span className="text-muted-foreground">Factura adjunta</span>
-                <div className="mt-1">
-                  <button
-                    type="button"
-                    disabled={downloading}
-                    onClick={() => {
-                      const url = compra.archivo!.url.startsWith("http")
-                        ? compra.archivo!.url
-                        : `${backendUrl}${compra.archivo!.url}`;
-                      handleDownload(url, compra.archivo!.name);
-                    }}
-                    className="inline-flex items-center gap-1.5 text-sm text-primary underline-offset-4 hover:underline disabled:opacity-50"
-                  >
-                    <Paperclip className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate max-w-56">{compra.archivo.name}</span>
-                    <Download className="h-3.5 w-3.5 shrink-0" />
-                  </button>
-                </div>
+                <p className="text-muted-foreground mb-1">Factura adjunta</p>
+                <button
+                  type="button"
+                  disabled={downloading}
+                  onClick={() => {
+                    const url = compra.archivo!.url.startsWith("http")
+                      ? compra.archivo!.url
+                      : `${backendUrl}${compra.archivo!.url}`;
+                    handleDownload(url, compra.archivo!.name);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-primary underline-offset-4 hover:underline disabled:opacity-50"
+                >
+                  <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate max-w-64">{compra.archivo.name}</span>
+                  <Download className="h-3.5 w-3.5 shrink-0" />
+                </button>
               </div>
             )}
           </div>
 
           {/* Items */}
-          {(() => {
-            const showCosts = compra.total > 0;
-            const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
-            return (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Producto</TableHead>
-                      <TableHead className="text-center">Cant</TableHead>
-                      {showCosts && <TableHead className="text-right">Precio unit.</TableHead>}
-                      {showCosts && <TableHead className="text-right">Total</TableHead>}
+          <div className="rounded-lg border overflow-hidden">
+            <div className="overflow-x-auto max-h-72 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-40">Producto</TableHead>
+                    <TableHead className="text-center w-16">Cant</TableHead>
+                    {showCosts && <TableHead className="text-right w-28">Precio unit.</TableHead>}
+                    {showCosts && <TableHead className="text-right w-24">Subtotal</TableHead>}
+                    {showLotes && <TableHead className="w-28">Lote</TableHead>}
+                    {showLotes && <TableHead className="w-28">Caduca</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-medium">{item.productName}</TableCell>
+                      <TableCell className="text-center">{item.quantity}</TableCell>
+                      {showCosts && (
+                        <TableCell className="text-right text-muted-foreground">
+                          ${fmt(item.costoUnitario)}
+                        </TableCell>
+                      )}
+                      {showCosts && (
+                        <TableCell className="text-right font-medium">
+                          ${fmt(item.totalLine)}
+                        </TableCell>
+                      )}
+                      {showLotes && (
+                        <TableCell className="text-muted-foreground">
+                          {item.numeroLote ?? "—"}
+                        </TableCell>
+                      )}
+                      {showLotes && (
+                        <TableCell className="text-muted-foreground">
+                          {item.fechaCaducidad ? fmtDate(item.fechaCaducidad) : "—"}
+                        </TableCell>
+                      )}
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(compra.items ?? []).map((item, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="max-w-48 truncate">{item.productName}</TableCell>
-                        <TableCell className="text-center">{item.quantity}</TableCell>
-                        {showCosts && (
-                          <TableCell className="text-right text-muted-foreground">
-                            ${fmt(item.costoUnitario)}
-                          </TableCell>
-                        )}
-                        {showCosts && (
-                          <TableCell className="text-right font-medium">
-                            ${fmt(item.totalLine)}
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {showCosts && (
-                  <div className="flex justify-end border-t pt-2">
-                    <span className="text-sm font-semibold">Total: ${fmt(compra.total)}</span>
-                  </div>
-                )}
-              </>
-            );
-          })()}
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {showCosts && (
+              <div className="flex justify-end border-t px-4 py-2 bg-muted/30">
+                <span className="font-semibold">Total: ${fmt(compra.total)}</span>
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -14,6 +14,8 @@ interface ItemsStepProps {
   onAddProduct: (product: ProductType) => void;
   onChangeQty: (idx: number, value: string) => void;
   onChangeCosto: (idx: number, value: string) => void;
+  onChangeLote: (idx: number, value: string) => void;
+  onChangeCaducidad: (idx: number, value: string) => void;
   onRemoveItem: (idx: number) => void;
   onNext: () => void;
   onBack: () => void;
@@ -27,6 +29,8 @@ export function ItemsStep({
   onAddProduct,
   onChangeQty,
   onChangeCosto,
+  onChangeLote,
+  onChangeCaducidad,
   onRemoveItem,
   onNext,
   onBack,
@@ -88,9 +92,10 @@ export function ItemsStep({
             Busca y agrega productos a esta compra
           </p>
         ) : (
-          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
             {items.map((item, idx) => (
               <div key={idx} className="rounded-lg border px-3 py-2 space-y-1.5">
+                {/* Nombre + eliminar */}
                 <div className="flex items-center gap-2 min-w-0">
                   <p className="flex-1 truncate text-sm font-medium">{item.productName}</p>
                   <button
@@ -101,6 +106,7 @@ export function ItemsStep({
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
+                {/* Cant + Precio */}
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">Cant</span>
@@ -129,6 +135,27 @@ export function ItemsStep({
                       ${fmt(item.totalLine)}
                     </span>
                   )}
+                </div>
+                {/* Lote + Caducidad */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Lote</span>
+                    <Input
+                      value={item.numeroLote ?? ""}
+                      onChange={(e) => onChangeLote(idx, e.target.value)}
+                      placeholder="Nº lote"
+                      className="h-7 w-28 text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">Caduca</span>
+                    <Input
+                      type="date"
+                      value={item.fechaCaducidad ?? ""}
+                      onChange={(e) => onChangeCaducidad(idx, e.target.value)}
+                      className="h-7 w-36 text-sm"
+                    />
+                  </div>
                 </div>
               </div>
             ))}

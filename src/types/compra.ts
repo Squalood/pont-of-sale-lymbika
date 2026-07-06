@@ -7,6 +7,8 @@ export interface CompraItem {
   quantity: number;
   costoUnitario: number;
   totalLine: number;
+  numeroLote?: string;
+  fechaCaducidad?: string; // "YYYY-MM-DD"
 }
 
 // Component — tal como lo devuelve Strapi poblado
@@ -16,6 +18,8 @@ export interface CompraItemType {
   quantity: number;
   costoUnitario: number;
   totalLine: number;
+  numeroLote?: string;
+  fechaCaducidad?: string;
   product: {
     id: number;
     documentId: string;
