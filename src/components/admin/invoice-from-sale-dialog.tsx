@@ -167,7 +167,7 @@ export function InvoiceFromSaleDialog({ venta, open, onClose }: InvoiceFromSaleD
   }
 
   async function handleGenerate() {
-    if (!cfdi) return;
+    if (!cfdi || !venta) return;
     const folio = cfdi.folio.trim() || "FAC-" + Date.now();
     const invoiceLines = lines.map(({ descripcion, cantidad, precioUnitario, impuesto }) => ({
       descripcion,
