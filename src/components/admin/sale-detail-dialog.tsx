@@ -18,11 +18,12 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Printer, RotateCcw, NotebookPen, BadgePercent } from "lucide-react";
+import { Printer, RotateCcw, NotebookPen, BadgePercent, FileText } from "lucide-react";
 import { VentaType } from "@/types/venta";
 import { ProductType } from "@/types/product";
 import { printReceipt } from "@/lib/print-receipt";
 import { ReturnDialog } from "@/components/admin/return-dialog";
+import { InvoiceFromSaleDialog } from "@/components/admin/invoice-from-sale-dialog";
 
 interface SaleDetailDialogProps {
   venta: VentaType | null;
@@ -34,6 +35,7 @@ interface SaleDetailDialogProps {
 
 export function SaleDetailDialog({ venta, open, onClose, products, onReturnComplete }: SaleDetailDialogProps) {
   const [returnOpen, setReturnOpen] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
 
   if (!venta) return null;
 
@@ -250,6 +252,10 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
               <Printer className="h-4 w-4" />
               Reimprimir
             </Button>
+            <Button variant="default" onClick={() => setInvoiceOpen(true)}>
+              <FileText className="h-4 w-4" />
+              Generar factura
+            </Button>
             {venta.estado === "completada" && (
               <Button variant="destructive" onClick={() => setReturnOpen(true)}>
                 <RotateCcw className="h-4 w-4" />
@@ -259,6 +265,12 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <InvoiceFromSaleDialog
+        venta={venta}
+        open={invoiceOpen}
+        onClose={() => setInvoiceOpen(false)}
+      />
 
       <ReturnDialog
         venta={venta}

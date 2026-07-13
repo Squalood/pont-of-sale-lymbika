@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { ProductType } from "@/types/product";
 import { printInvoice } from "@/lib/print-invoice";
+import { postFactura } from "@/api/postFactura";
+import { useCaja } from "@/lib/caja-context";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,6 +33,8 @@ interface InvoiceLine {
 interface InvoiceState {
   invoiceNumber: string;
   cliente: string;
+  rfc: string;
+  tipoCliente: "empresa" | "particular" | "";
   formaDePago: string;
   politicaDePago: string;
   uso: string;
@@ -77,6 +81,8 @@ function makeInitialState(): InvoiceState {
   return {
     invoiceNumber: "",
     cliente: "",
+    rfc: "",
+    tipoCliente: "",
     formaDePago: "",
     politicaDePago: "",
     uso: "",
@@ -321,10 +327,13 @@ function DatePickerField({ value, onChange, placeholder = "Seleccionar fecha" }:
 
 interface InvoiceFormProps {
   products: ProductType[];
+  onSaved?: () => void;
 }
 
-export function InvoiceForm({ products }: InvoiceFormProps) {
+export function InvoiceForm({ products, onSaved }: InvoiceFormProps) {
   const [invoice, setInvoice] = useState<InvoiceState>(makeInitialState);
+  const [saving, setSaving] = useState(false);
+  const { pharmacyId } = useCaja();
 
   const { subtotal, ivaAmount16, ivaAmount8, total } = useMemo(() => {
     const subtotal = invoice.lines.reduce(
@@ -364,9 +373,18 @@ export function InvoiceForm({ products }: InvoiceFormProps) {
     }));
   }
 
-  function handlePrint() {
+  async function handlePrint() {
+    const folio = invoice.invoiceNumber.trim() || "FAC-" + Date.now();
+    const lines = invoice.lines.map(({ descripcion, cantidad, precioUnitario, impuesto, productDocumentId }) => ({
+      descripcion,
+      cantidad,
+      precioUnitario,
+      impuesto,
+      product: productDocumentId || null,
+    }));
+
     printInvoice({
-      invoiceNumber: invoice.invoiceNumber || undefined,
+      invoiceNumber: folio,
       cliente: invoice.cliente,
       formaDePago: invoice.formaDePago,
       politicaDePago: invoice.politicaDePago,
@@ -376,13 +394,38 @@ export function InvoiceForm({ products }: InvoiceFormProps) {
       fechaVencimiento: invoice.fechaVencimiento,
       diario: invoice.diario,
       cfdiOrigen: invoice.cfdiOrigen,
-      lines: invoice.lines.map(({ descripcion, cantidad, precioUnitario, impuesto }) => ({
-        descripcion,
-        cantidad,
-        precioUnitario,
-        impuesto,
-      })),
+      lines,
     });
+
+    setSaving(true);
+    try {
+      await postFactura({
+        folio,
+        fecha: invoice.fechaFactura.toISOString(),
+        fechaVencimiento: invoice.fechaVencimiento?.toISOString() ?? null,
+        cliente: invoice.cliente,
+        rfc: invoice.rfc || undefined,
+        tipoCliente: (invoice.tipoCliente as "empresa" | "particular") || undefined,
+        formaDePago: invoice.formaDePago || undefined,
+        politicaDePago: invoice.politicaDePago || undefined,
+        usoCfdi: invoice.uso || undefined,
+        cfdiAlPublico: invoice.cfdiAlPublico,
+        diario: invoice.diario || undefined,
+        cfdiOrigen: invoice.cfdiOrigen || undefined,
+        subtotal,
+        iva16: ivaAmount16,
+        iva8: ivaAmount8,
+        total,
+        estado: "emitida",
+        items: lines,
+        pharmacy: pharmacyId ?? undefined,
+      });
+      onSaved?.();
+    } catch (err) {
+      console.error("Error al guardar factura:", err);
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleReset() {
@@ -406,9 +449,9 @@ export function InvoiceForm({ products }: InvoiceFormProps) {
           <Button type="button" variant="outline" onClick={handleReset}>
             Limpiar
           </Button>
-          <Button type="button" onClick={handlePrint}>
+          <Button type="button" onClick={handlePrint} disabled={saving}>
             <Printer className="mr-2 h-4 w-4" />
-            Generar / Imprimir
+            {saving ? "Guardando..." : "Generar / Imprimir"}
           </Button>
         </div>
       </div>
@@ -421,13 +464,41 @@ export function InvoiceForm({ products }: InvoiceFormProps) {
           {/* Left column */}
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="cliente">Cliente</Label>
+              <Label htmlFor="cliente">Cliente / Razón social</Label>
               <Input
                 id="cliente"
                 value={invoice.cliente}
                 onChange={(e) => setField("cliente", e.target.value)}
-                placeholder="Nombre del cliente"
+                placeholder="Nombre del cliente o razón social"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="rfc">RFC</Label>
+                <Input
+                  id="rfc"
+                  value={invoice.rfc}
+                  onChange={(e) => setField("rfc", e.target.value.toUpperCase())}
+                  placeholder="XAXX010101000"
+                  className="uppercase"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tipo de cliente</Label>
+                <Select
+                  value={invoice.tipoCliente}
+                  onValueChange={(v) => setField("tipoCliente", v as InvoiceState["tipoCliente"])}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="empresa">Empresa</SelectItem>
+                    <SelectItem value="particular">Particular</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-1.5">
