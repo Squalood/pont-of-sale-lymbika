@@ -203,9 +203,12 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
 
   const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
   const fmtDate = (s: string) => new Date(s).toLocaleDateString("es-MX");
+  const fmtIva = (iva?: "iva8" | "iva16" | "exento") =>
+    iva === "iva8" ? "8%" : iva === "iva16" ? "16%" : "—";
   const items = compra.items ?? [];
   const showCosts = compra.total > 0;
   const showLotes = items.some((i) => i.numeroLote);
+  const showIva = items.some((i) => i.iva && i.iva !== "exento");
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -290,6 +293,7 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
                     <TableHead className="min-w-40">Producto</TableHead>
                     <TableHead className="text-center w-16">Cant</TableHead>
                     {showCosts && <TableHead className="text-right w-28">Precio unit.</TableHead>}
+                    {showIva && <TableHead className="text-center w-16">IVA</TableHead>}
                     {showCosts && <TableHead className="text-right w-24">Subtotal</TableHead>}
                     {showLotes && <TableHead className="w-28">Lote</TableHead>}
                     {showLotes && <TableHead className="w-28">Caduca</TableHead>}
@@ -303,6 +307,11 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
                       {showCosts && (
                         <TableCell className="text-right text-muted-foreground">
                           ${fmt(item.costoUnitario)}
+                        </TableCell>
+                      )}
+                      {showIva && (
+                        <TableCell className="text-center text-muted-foreground">
+                          {fmtIva(item.iva)}
                         </TableCell>
                       )}
                       {showCosts && (

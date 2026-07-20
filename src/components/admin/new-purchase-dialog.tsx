@@ -74,6 +74,12 @@ export function NewPurchaseDialog({
     onClose();
   }
 
+  function ivaMultiplier(iva?: "iva8" | "iva16" | "exento") {
+    if (iva === "iva8") return 1.08;
+    if (iva === "iva16") return 1.16;
+    return 1;
+  }
+
   function handleAddProduct(product: ProductType) {
     const existing = items.findIndex((i) => i.productId === product.id);
     if (existing !== -1) {
@@ -81,7 +87,7 @@ export function NewPurchaseDialog({
         prev.map((item, idx) => {
           if (idx !== existing) return item;
           const quantity = item.quantity + 1;
-          return { ...item, quantity, totalLine: quantity * item.costoUnitario };
+          return { ...item, quantity, totalLine: quantity * item.costoUnitario * ivaMultiplier(item.iva) };
         })
       );
       return;
@@ -95,6 +101,7 @@ export function NewPurchaseDialog({
         productName: product.productName,
         quantity: 1,
         costoUnitario,
+        iva: "exento" as const,
         totalLine: costoUnitario,
       },
     ]);
@@ -105,7 +112,7 @@ export function NewPurchaseDialog({
     setItems((prev) =>
       prev.map((item, i) => {
         if (i !== idx) return item;
-        return { ...item, quantity, totalLine: quantity * item.costoUnitario };
+        return { ...item, quantity, totalLine: quantity * item.costoUnitario * ivaMultiplier(item.iva) };
       })
     );
   }
@@ -115,7 +122,16 @@ export function NewPurchaseDialog({
     setItems((prev) =>
       prev.map((item, i) => {
         if (i !== idx) return item;
-        return { ...item, costoUnitario, totalLine: item.quantity * costoUnitario };
+        return { ...item, costoUnitario, totalLine: item.quantity * costoUnitario * ivaMultiplier(item.iva) };
+      })
+    );
+  }
+
+  function handleItemIva(idx: number, value: "iva8" | "iva16" | "exento") {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== idx) return item;
+        return { ...item, iva: value, totalLine: item.quantity * item.costoUnitario * ivaMultiplier(value) };
       })
     );
   }
@@ -228,6 +244,7 @@ export function NewPurchaseDialog({
             onChangeCosto={handleItemCosto}
             onChangeLote={handleItemLote}
             onChangeCaducidad={handleItemCaducidad}
+            onChangeIva={handleItemIva}
             onRemoveItem={handleRemoveItem}
             onNext={() => setStep("confirm")}
             onBack={() => setStep("proveedor")}

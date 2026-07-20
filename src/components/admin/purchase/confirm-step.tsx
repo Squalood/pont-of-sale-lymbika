@@ -57,6 +57,11 @@ export function ConfirmStep({
             <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
               <span className="truncate flex-1 font-medium">{item.productName}</span>
               <Badge variant="outline" className="text-xs shrink-0">x{item.quantity}</Badge>
+              {item.iva && item.iva !== "exento" && (
+                <Badge variant="secondary" className="text-xs shrink-0">
+                  IVA {item.iva === "iva8" ? "8%" : "16%"}
+                </Badge>
+              )}
               {item.costoUnitario > 0 && (
                 <span className="text-xs text-muted-foreground shrink-0 w-20 text-right">
                   ${fmt(item.totalLine)}

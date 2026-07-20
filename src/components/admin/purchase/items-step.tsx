@@ -16,12 +16,19 @@ interface ItemsStepProps {
   onChangeCosto: (idx: number, value: string) => void;
   onChangeLote: (idx: number, value: string) => void;
   onChangeCaducidad: (idx: number, value: string) => void;
+  onChangeIva: (idx: number, value: "iva8" | "iva16" | "exento") => void;
   onRemoveItem: (idx: number) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
 const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
+
+const IVA_OPTIONS = [
+  { value: "exento", label: "Ex" },
+  { value: "iva8", label: "8%" },
+  { value: "iva16", label: "16%" },
+] as const;
 
 export function ItemsStep({
   products,
@@ -31,6 +38,7 @@ export function ItemsStep({
   onChangeCosto,
   onChangeLote,
   onChangeCaducidad,
+  onChangeIva,
   onRemoveItem,
   onNext,
   onBack,
@@ -106,8 +114,8 @@ export function ItemsStep({
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-                {/* Cant + Precio */}
-                <div className="flex items-center gap-3">
+                {/* Cant + Precio + IVA */}
+                <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">Cant</span>
                     <Input
@@ -129,6 +137,25 @@ export function ItemsStep({
                       placeholder="0.00"
                       className="h-7 w-24 text-center text-sm"
                     />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">IVA</span>
+                    <div className="flex rounded border overflow-hidden text-xs">
+                      {IVA_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => onChangeIva(idx, opt.value)}
+                          className={`px-2 py-0.5 border-r last:border-r-0 ${
+                            (item.iva ?? "exento") === opt.value
+                              ? "bg-primary text-primary-foreground"
+                              : "hover:bg-muted"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   {item.costoUnitario > 0 && (
                     <span className="ml-auto text-xs text-muted-foreground shrink-0">

@@ -9,6 +9,7 @@ export interface CompraItem {
   totalLine: number;
   numeroLote?: string;
   fechaCaducidad?: string; // "YYYY-MM-DD"
+  iva?: "iva8" | "iva16" | "exento";
 }
 
 // Component — tal como lo devuelve Strapi poblado
@@ -20,6 +21,7 @@ export interface CompraItemType {
   totalLine: number;
   numeroLote?: string;
   fechaCaducidad?: string;
+  iva?: "iva8" | "iva16" | "exento";
   product: {
     id: number;
     documentId: string;
