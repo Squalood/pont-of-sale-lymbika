@@ -333,7 +333,7 @@ interface InvoiceFormProps {
 export function InvoiceForm({ products, onSaved }: InvoiceFormProps) {
   const [invoice, setInvoice] = useState<InvoiceState>(makeInitialState);
   const [saving, setSaving] = useState(false);
-  const { pharmacyId } = useCaja();
+  const { pharmacyId, caja } = useCaja();
 
   const { subtotal, ivaAmount16, ivaAmount8, total } = useMemo(() => {
     const subtotal = invoice.lines.reduce(
@@ -395,6 +395,7 @@ export function InvoiceForm({ products, onSaved }: InvoiceFormProps) {
       diario: invoice.diario,
       cfdiOrigen: invoice.cfdiOrigen,
       lines,
+      pharmacy: caja?.pharmacy ?? null,
     });
 
     setSaving(true);

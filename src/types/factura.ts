@@ -24,6 +24,9 @@ export interface FacturaPayload {
   iva8: number;
   total: number;
   estado: "emitida";
+  estadoPago?: "pendiente" | "pagada" | "pagada_parcial";
+  montoPagado?: number;
+  fechaPago?: string | null;
   items: FacturaItemPayload[];
   pharmacy?: string;  // documentId
   venta_pos?: string; // documentId
@@ -58,6 +61,18 @@ export interface FacturaType {
   iva8: number;
   total: number;
   estado: "emitida" | "cancelada";
+  estadoPago: "pendiente" | "pagada" | "pagada_parcial";
+  montoPagado: number;
+  fechaPago: string | null;
   items: FacturaItemType[];
-  pharmacy: { id: number; documentId: string; nombre: string } | null;
+  pharmacy: {
+    id: number;
+    documentId: string;
+    nombre: string;
+    razonSocial?: string | null;
+    rfc?: string | null;
+    direccion?: string | null;
+    contacto_tel?: string | null;
+    contacto_email?: string | null;
+  } | null;
 }

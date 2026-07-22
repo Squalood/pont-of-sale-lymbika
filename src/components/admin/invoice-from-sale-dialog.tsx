@@ -135,7 +135,7 @@ function makeLines(venta: VentaType): LineState[] {
 }
 
 export function InvoiceFromSaleDialog({ venta, open, onClose }: InvoiceFromSaleDialogProps) {
-  const { pharmacyId } = useCaja();
+  const { pharmacyId, caja } = useCaja();
   const [cfdi, setCfdi] = useState<CfdiState | null>(null);
   const [lines, setLines] = useState<LineState[]>([]);
   const [saving, setSaving] = useState(false);
@@ -188,6 +188,7 @@ export function InvoiceFromSaleDialog({ venta, open, onClose }: InvoiceFromSaleD
       diario: "Ventas",
       cfdiOrigen: "",
       lines: invoiceLines,
+      pharmacy: caja?.pharmacy ?? null,
     });
 
     setSaving(true);
@@ -207,6 +208,9 @@ export function InvoiceFromSaleDialog({ venta, open, onClose }: InvoiceFromSaleD
         iva8: ivaAmount8,
         total,
         estado: "emitida",
+        estadoPago: venta.estado === "completada" ? "pagada" : "pendiente",
+        montoPagado: venta.estado === "completada" ? total : 0,
+        fechaPago: venta.estado === "completada" ? venta.fecha : null,
         items: lines.map(({ descripcion, cantidad, precioUnitario, impuesto, productDocumentId }) => ({
           descripcion,
           cantidad,

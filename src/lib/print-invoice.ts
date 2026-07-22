@@ -1,10 +1,19 @@
-const COMPANY_INFO = {
+const COMPANY_FALLBACK = {
   razonSocial: "Grupo Lymbika S.A. de C.V.",
   rfc: "GLY123456ABC",
-  domicilio: "Calle Ejemplo #123, Col. Centro, CDMX, C.P. 06000",
-  tel: "+52 55 0000 0000",
-  email: "facturacion@lymbika.com",
+  domicilio: "Av Paseo de la Victoria #9350, Partido Iglesias, 32618 Juárez, Chih.",
+  tel: "+52 656-110-0446",
+  email: "lymbikagroup@gmail.com",
 };
+
+export interface PharmacyInfo {
+  nombre: string;
+  razonSocial?: string | null;
+  rfc?: string | null;
+  direccion?: string | null;
+  contacto_tel?: string | null;
+  contacto_email?: string | null;
+}
 
 function fmt(n: number) {
   return n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -33,10 +42,20 @@ export interface InvoiceData {
   diario: string;
   cfdiOrigen: string;
   lines: InvoiceLine[];
+  pharmacy?: PharmacyInfo | null;
 }
 
 export function printInvoice(data: InvoiceData): void {
   const invoiceNo = data.invoiceNumber?.trim() || "FAC-" + Date.now();
+
+  const p = data.pharmacy;
+  const company = {
+    razonSocial: p?.razonSocial || p?.nombre || COMPANY_FALLBACK.razonSocial,
+    rfc: p?.rfc || null,
+    domicilio: p?.direccion || COMPANY_FALLBACK.domicilio,
+    tel: p?.contacto_tel || COMPANY_FALLBACK.tel,
+    email: p?.contacto_email || COMPANY_FALLBACK.email,
+  };
 
   const subtotal = data.lines.reduce((s, l) => s + l.cantidad * l.precioUnitario, 0);
   const ivaBase16 = data.lines
@@ -119,11 +138,11 @@ export function printInvoice(data: InvoiceData): void {
   <div class="header">
     <div class="company">
       <img src="/Logotipo-print.png" alt="Logo" class="logo" />
-      <strong>${COMPANY_INFO.razonSocial}</strong>
-      RFC: ${COMPANY_INFO.rfc}<br/>
-      ${COMPANY_INFO.domicilio}<br/>
-      Tel: ${COMPANY_INFO.tel}<br/>
-      ${COMPANY_INFO.email}
+      <strong>${company.razonSocial}</strong>
+      ${company.rfc ? `RFC: ${company.rfc}<br/>` : ""}
+      ${company.domicilio}<br/>
+      Tel: ${company.tel}<br/>
+      ${company.email}
     </div>
     <div class="invoice-meta">
       <h1>FACTURA</h1>
