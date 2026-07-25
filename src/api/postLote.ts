@@ -5,7 +5,7 @@ interface PostLotePayload {
   numeroLote: string;
   fechaCaducidad?: string;
   cantidadInicial: number;
-  compraDocId: string;
+  compraDocId?: string; // opcional: el lote de apertura no tiene compra asociada
 }
 
 export async function postLote(payload: PostLotePayload): Promise<void> {
@@ -19,7 +19,7 @@ export async function postLote(payload: PostLotePayload): Promise<void> {
         ...(payload.fechaCaducidad ? { expirationDate: payload.fechaCaducidad } : {}),
         initialQuantity: payload.cantidadInicial,
         currentAmount: payload.cantidadInicial,
-        compra: payload.compraDocId,
+        ...(payload.compraDocId ? { compra: payload.compraDocId } : {}),
         state: "activo",
       },
     }),

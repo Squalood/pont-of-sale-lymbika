@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ProductType } from "@/types/product";
 import { authFetch } from "@/lib/auth";
 
@@ -8,22 +8,26 @@ export function useGetProducts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await authFetch(url);
-        if (!res.ok) {
-          throw new Error(`Error ${res.status}: ${res.statusText}`);
-        }
-        const json = await res.json();
-        setResult(json.data);
-        setLoading(false);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error desconocido");
-        setLoading(false);
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch(url);
+      if (!res.ok) {
+        throw new Error(`Error ${res.status}: ${res.statusText}`);
       }
-    })();
+      const json = await res.json();
+      setResult(json.data);
+      setError(null);
+      setLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+      setLoading(false);
+    }
   }, [url]);
 
-  return { loading, result, error };
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  return { loading, result, error, refetch: fetchProducts };
 }

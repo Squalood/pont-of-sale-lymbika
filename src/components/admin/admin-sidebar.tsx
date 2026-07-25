@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Receipt, Package, ArrowLeft, LogOut, Settings, RotateCcw, ShoppingBag, Vault, FileText } from "lucide-react";
+import { LayoutDashboard, Receipt, Package, ArrowLeft, LogOut, Settings, RotateCcw, ShoppingBag, Vault, FileText, Scale } from "lucide-react";
 import { clearAuth } from "@/lib/auth";
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { href: "/admin/compras", label: "Compras", icon: ShoppingBag },
   { href: "/admin/productos", label: "Productos", icon: Package },
   { href: "/admin/facturas", label: "Facturas", icon: FileText },
+  { href: "/admin/reconciliacion", label: "Reconciliación", icon: Scale },
 ];
 
 export function AdminSidebar() {

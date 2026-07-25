@@ -4,6 +4,9 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ProductSidebar } from "@/components/product-sidebar";
 import { CartPanel } from "@/components/cart-panel";
+import { LoteSelectorDialog } from "@/components/lote-selector-dialog";
+import { getSellableLots, toSelectedLot } from "@/lib/lotes";
+import { InventoryLotOnProduct } from "@/types/product";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useGetProducts } from "@/api/getProducts";
 import { useGetCategories } from "@/api/getCategories";
@@ -36,6 +39,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [barcode, setBarcode] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("todos");
+  const [pendingLot, setPendingLot] = useState<{ cartId: number; product: ProductType } | null>(null);
 
   const {
     carts, activeCartId, setActiveCartId,
@@ -78,9 +82,37 @@ export default function Home() {
     return [...productItems, ...serviceItems];
   }, [products, serviceRates, search, barcode, selectedCategory]);
 
+  // Selección condicional de lote al agregar:
+  //  - 0 lotes vendibles → agregar directo, se vende solo por stock_central (producto aún sin lotear).
+  //  - 1 lote vendible   → auto-seleccionar.
+  //  - varios            → abrir el picker para que el cajero elija.
+  function addProductWithLot(cartId: number, product: ProductType) {
+    const lots = getSellableLots(product);
+    if (lots.length === 0) {
+      addToCartOf(cartId, { type: "product", product, quantity: 1 });
+      return;
+    }
+    if (lots.length === 1) {
+      addToCartOf(cartId, { type: "product", product, quantity: 1, selectedLot: toSelectedLot(lots[0]) });
+      return;
+    }
+    setPendingLot({ cartId, product });
+  }
+
+  function handleLotPicked(lot: InventoryLotOnProduct) {
+    if (!pendingLot) return;
+    addToCartOf(pendingLot.cartId, {
+      type: "product",
+      product: pendingLot.product,
+      quantity: 1,
+      selectedLot: toSelectedLot(lot),
+    });
+    setPendingLot(null);
+  }
+
   function handleItemClick(gridItem: GridItem) {
     if (gridItem.type === "product") {
-      addToCartOf(activeCartId, { type: "product", product: gridItem.data, quantity: 1 });
+      addProductWithLot(activeCartId, gridItem.data);
     } else {
       addToCartOf(activeCartId, { type: "service", serviceRate: gridItem.data, quantity: 1 });
     }
@@ -149,7 +181,7 @@ export default function Home() {
                 isMember={cart.isMember}
                 isActive={cart.id === activeCartId}
                 products={products}
-                onAddProduct={(p) => addToCartOf(cart.id, { type: "product", product: p, quantity: 1 })}
+                onAddProduct={(p) => addProductWithLot(cart.id, p)}
                 onUpdateQuantity={(key, delta) => updateQuantityOf(cart.id, key, delta)}
                 onRemoveItem={(key) => removeItemOf(cart.id, key)}
                 onUpdatePrice={(key, price) => updateItemPriceOf(cart.id, key, price)}
@@ -164,6 +196,13 @@ export default function Home() {
           </div>
         </SidebarInset>
       </SidebarProvider>
+
+      <LoteSelectorDialog
+        product={pendingLot?.product ?? null}
+        open={pendingLot !== null}
+        onSelect={handleLotPicked}
+        onClose={() => setPendingLot(null)}
+      />
     </div>
   );
 }

@@ -3,6 +3,8 @@ export interface ReceiptItem {
   quantity: number;
   unitPrice: number;
   totalLine: number;
+  lotNumber?: string | null;
+  expirationDate?: string | null;
 }
 
 interface ReceiptData {
@@ -61,13 +63,21 @@ export function printReceipt(data: ReceiptData) {
 
   const itemsHtml = items
     .map(
-      (item) => `
+      (item) => {
+        const lotParts = [];
+        if (item.lotNumber) lotParts.push(`Lote: ${item.lotNumber}`);
+        if (item.expirationDate && item.expirationDate < "2099-01-01") lotParts.push(`Cad: ${item.expirationDate}`);
+        const lotLine = lotParts.length
+          ? `<tr><td colspan="4" style="text-align:left; font-size:9px; color:#555; padding:0 0 2px 0;">${lotParts.join(" · ")}</td></tr>`
+          : "";
+        return `
       <tr>
         <td style="text-align:left; padding:2px 0;">${item.productName}</td>
         <td style="text-align:center;">${item.quantity}</td>
         <td style="text-align:right;">$${item.unitPrice.toFixed(2)}</td>
         <td style="text-align:right;">$${item.totalLine.toFixed(2)}</td>
-      </tr>`
+      </tr>${lotLine}`;
+      }
     )
     .join("");
 

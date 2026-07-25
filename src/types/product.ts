@@ -10,12 +10,22 @@ export interface Product {
   requiresPrescription?: boolean;
 }
 
+export type SelectedLot = {
+  documentId: string;
+  lotNumber: string;
+  expirationDate: string | null;
+};
+
 export type CartItem =
-  | { type: "product"; product: ProductType; quantity: number; overridePrice?: number }
+  // selectedLot es opcional: un producto aún sin lotes capturados se vende solo por stock_central.
+  | { type: "product"; product: ProductType; quantity: number; overridePrice?: number; selectedLot?: SelectedLot }
   | { type: "service"; serviceRate: ServiceRateType; quantity: number; overridePrice?: number };
 
 export function cartItemKey(item: CartItem): string {
-  return item.type === "product" ? `p-${item.product.id}` : `s-${item.serviceRate.id}`;
+  if (item.type !== "product") return `s-${item.serviceRate.id}`;
+  return item.selectedLot
+    ? `p-${item.product.id}-${item.selectedLot.documentId}`
+    : `p-${item.product.id}`;
 }
 
 export type GridItem =
@@ -51,4 +61,15 @@ export type ProductType = {
   sku: string;
   barCode: string;
   stock_central: number;
+  inventory_lots?: InventoryLotOnProduct[];
+};
+
+export type InventoryLotOnProduct = {
+  id: number;
+  documentId: string;
+  lotNumber: string;
+  expirationDate: string | null;
+  initialQuantity: number;
+  currentAmount: number;
+  state: "activo" | "agotado" | "vencido";
 };

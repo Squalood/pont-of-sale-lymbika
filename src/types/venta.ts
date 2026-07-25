@@ -8,6 +8,9 @@ export interface VentaItem {
   quantity: number;
   unitPrice: number;
   totalLine: number;
+  lotDocumentId?: string | null; // documentId del lote del que sale la línea [D1]
+  lotNumber?: string | null; // snapshot
+  expirationDate?: string | null; // snapshot
 }
 
 export interface VentaItemType {
@@ -17,6 +20,9 @@ export interface VentaItemType {
   quantity: number;
   unitPrice: number;
   totalLine: number;
+  lotDocumentId?: string | null;
+  lotNumber?: string | null;
+  expirationDate?: string | null;
   product: {
     id: number;
     productName: string;

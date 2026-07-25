@@ -1,6 +1,8 @@
+import { toast } from "sonner";
 import { CartItem } from "@/types/product";
 import { postVenta } from "@/api/postVenta";
 import { patchProductStock } from "@/api/patchProductStock";
+import { patchLote } from "@/api/patchLote";
 import { printReceipt } from "@/lib/print-receipt";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
@@ -54,6 +56,11 @@ export function useCheckout({
     const change = noChangeMethod ? 0 : received - cashNeeded;
     const operador = getUser()?.username ?? "desconocido";
 
+    const productLines = items.filter(
+      (i): i is Extract<CartItem, { type: "product" }> => i.type === "product"
+    );
+
+    // 1. Registrar la venta PRIMERO. Si falla, abortar: no se descuenta inventario ni se imprime. [A5]
     let receiptId = 0;
     try {
       receiptId = await postVenta({
@@ -83,6 +90,9 @@ export function useCheckout({
               quantity: item.quantity,
               unitPrice: getPrice(item),
               totalLine: getPrice(item) * item.quantity,
+              lotDocumentId: item.selectedLot?.documentId ?? null,
+              lotNumber: item.selectedLot?.lotNumber ?? null,
+              expirationDate: item.selectedLot?.expirationDate ?? null,
             };
           } else {
             return {
@@ -99,13 +109,48 @@ export function useCheckout({
       });
     } catch (err) {
       console.error("Error al registrar venta:", err);
+      toast.error("No se registró la venta. No se descontó inventario.", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+      return;
     }
 
-    await Promise.allSettled(
-      items
-        .filter((i): i is Extract<CartItem, { type: "product" }> => i.type === "product")
-        .map((i) => patchProductStock(i.product.documentId, i.product.stock_central - i.quantity))
-    );
+    // 2. Descuento en lockstep: stock_central agregado por producto + currentAmount por lote-línea. [A3]
+    const perProduct = new Map<string, { documentId: string; baseStock: number; totalQty: number }>();
+    productLines.forEach((l) => {
+      const cur = perProduct.get(l.product.documentId) ?? {
+        documentId: l.product.documentId,
+        baseStock: l.product.stock_central,
+        totalQty: 0,
+      };
+      cur.totalQty += l.quantity;
+      perProduct.set(l.product.documentId, cur);
+    });
+
+    const ops: Promise<void>[] = [];
+    // stock_central: siempre, agregado por producto (con o sin lote).
+    perProduct.forEach((p) => ops.push(patchProductStock(p.documentId, p.baseStock - p.totalQty)));
+    // patchLote: solo para líneas que salieron de un lote concreto.
+    productLines.forEach((l) => {
+      if (!l.selectedLot) return; // línea sin lote → ya se descontó stock_central, nada más
+      const selected = l.selectedLot;
+      const lot = l.product.inventory_lots?.find((x) => x.documentId === selected.documentId);
+      const newAmount = Math.max(0, (lot?.currentAmount ?? 0) - l.quantity);
+      ops.push(
+        patchLote(
+          selected.documentId,
+          newAmount === 0 ? { currentAmount: 0, state: "agotado" } : { currentAmount: newAmount }
+        )
+      );
+    });
+
+    const results = await Promise.allSettled(ops);
+    const failures = results.filter((r) => r.status === "rejected").length;
+    if (failures > 0) {
+      toast.warning(
+        `Venta registrada, pero ${failures} ajuste(s) de inventario fallaron. Corre la reconciliación de lotes.`
+      );
+    }
     onSaleComplete(items);
 
     printReceipt({
@@ -117,6 +162,8 @@ export function useCheckout({
         quantity: item.quantity,
         unitPrice: getPrice(item),
         totalLine: getPrice(item) * item.quantity,
+        lotNumber: item.type === "product" ? item.selectedLot?.lotNumber : undefined,
+        expirationDate: item.type === "product" ? item.selectedLot?.expirationDate : undefined,
       })),
       subtotal,
       iva,

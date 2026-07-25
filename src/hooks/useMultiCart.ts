@@ -5,6 +5,16 @@ import { Cart, CartItem, ProductType, cartItemKey } from "@/types/product";
 export const CART_VW = 25;
 export const MAX_CARTS = 4;
 
+// Tope de cantidad de una línea = currentAmount del lote elegido (snapshot del producto en el
+// carrito). Una línea = un lote, así que no se puede vender más de lo que hay en ese lote.
+// Línea sin lote (producto aún sin lotear) → sin tope por lote (se limita solo por stock real).
+function lotCap(item: CartItem): number {
+  if (item.type !== "product" || !item.selectedLot) return Infinity;
+  const selected = item.selectedLot;
+  const lot = item.product.inventory_lots?.find((l) => l.documentId === selected.documentId);
+  return lot?.currentAmount ?? Infinity;
+}
+
 export function useMultiCart(
   setProducts: React.Dispatch<React.SetStateAction<ProductType[]>>
 ) {
@@ -22,9 +32,11 @@ export function useMultiCart(
         const key = cartItemKey(item);
         const existing = cart.items.find((i) => cartItemKey(i) === key);
         if (existing) {
-          return { ...cart, items: cart.items.map((i) => cartItemKey(i) === key ? { ...i, quantity: i.quantity + 1 } : i) };
+          const cap = lotCap(existing);
+          const newQty = Math.min(existing.quantity + item.quantity, cap);
+          return { ...cart, items: cart.items.map((i) => cartItemKey(i) === key ? { ...i, quantity: newQty } : i) };
         }
-        return { ...cart, items: [...cart.items, item] };
+        return { ...cart, items: [...cart.items, { ...item, quantity: Math.min(item.quantity, lotCap(item)) }] };
       })
     );
   }
@@ -36,7 +48,7 @@ export function useMultiCart(
         return {
           ...cart,
           items: cart.items
-            .map((item) => cartItemKey(item) === itemKey ? { ...item, quantity: item.quantity + delta } : item)
+            .map((item) => cartItemKey(item) === itemKey ? { ...item, quantity: Math.min(item.quantity + delta, lotCap(item)) } : item)
             .filter((item) => item.quantity > 0),
         };
       })
@@ -93,13 +105,31 @@ export function useMultiCart(
   }
 
   function handleSaleComplete(cartId: number, soldItems: CartItem[]) {
+    // [A3] Un producto puede aparecer en varias líneas (varios lotes). Agregamos por producto para
+    // restar stock_central una sola vez, y decrementamos el currentAmount de cada lote vendido.
+    const productLines = soldItems.filter(
+      (i): i is Extract<CartItem, { type: "product" }> => i.type === "product"
+    );
     setProducts((prev) =>
       prev.map((p) => {
-        const sold = soldItems.find((i) => i.type === "product" && i.product.id === p.id);
-        if (sold && sold.type === "product") {
-          return { ...p, stock_central: p.stock_central - sold.quantity };
-        }
-        return p;
+        const lines = productLines.filter((l) => l.product.id === p.id);
+        if (lines.length === 0) return p;
+
+        const totalQty = lines.reduce((sum, l) => sum + l.quantity, 0);
+        const soldPerLot = new Map<string, number>();
+        lines.forEach((l) => {
+          if (!l.selectedLot) return; // línea sin lote: solo afecta stock_central
+          soldPerLot.set(l.selectedLot.documentId, (soldPerLot.get(l.selectedLot.documentId) ?? 0) + l.quantity);
+        });
+
+        const inventory_lots = p.inventory_lots?.map((lot) => {
+          const sold = soldPerLot.get(lot.documentId);
+          if (!sold) return lot;
+          const currentAmount = Math.max(0, lot.currentAmount - sold);
+          return { ...lot, currentAmount, state: currentAmount === 0 ? ("agotado" as const) : lot.state };
+        });
+
+        return { ...p, stock_central: p.stock_central - totalQty, inventory_lots };
       })
     );
     clearCartOf(cartId);
