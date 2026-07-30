@@ -289,7 +289,7 @@ export function printReceipt(data: ReceiptData) {
 
       <div class="footer">
         <p style="font-size:15px; font-weight:bold;">¡Gracias por su compra!</p>
-        <p style="margin-top:14px;">No se aceptan devoluciones ni cambios en medicamentos.</p>
+        <p style="margin-top:14px;">No se aceptan devoluciones ni cambios en medicamentos o en insumos de la salud.</p>
       </div>
 
       <script>
