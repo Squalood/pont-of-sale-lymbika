@@ -3,21 +3,22 @@
 import { CartItem as CartItemType } from "@/types/product";
 import { ServiceCartItem } from "@/components/cart/service-cart-item";
 import { ProductCartItem } from "@/components/cart/product-cart-item";
+import type { PriceMode } from "@/lib/pricing";
 
 interface CartItemProps {
   item: CartItemType;
-  isMember: boolean;
+  priceMode: PriceMode;
   onUpdateQuantity: (itemKey: string, delta: number) => void;
   onRemoveItem: (itemKey: string) => void;
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
 }
 
-export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem, onUpdatePrice }: CartItemProps) {
+export function CartItem({ item, priceMode, onUpdateQuantity, onRemoveItem, onUpdatePrice }: CartItemProps) {
   if (item.type === "service") {
     return (
       <ServiceCartItem
         item={item}
-        isMember={isMember}
+        priceMode={priceMode}
         onUpdateQuantity={onUpdateQuantity}
         onRemoveItem={onRemoveItem}
         onUpdatePrice={onUpdatePrice}
@@ -28,7 +29,7 @@ export function CartItem({ item, isMember, onUpdateQuantity, onRemoveItem, onUpd
   return (
     <ProductCartItem
       item={item}
-      isMember={isMember}
+      priceMode={priceMode}
       onUpdateQuantity={onUpdateQuantity}
       onRemoveItem={onRemoveItem}
       onUpdatePrice={onUpdatePrice}

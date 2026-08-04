@@ -1,3 +1,5 @@
+import { MANAGEMENT_FEE_RATE } from "@/lib/pricing";
+
 export interface ReceiptItem {
   productName: string;
   quantity: number;
@@ -20,6 +22,10 @@ interface ReceiptData {
   fecha?: Date | string;
   pharmacyName?: string;
   isMember?: boolean;
+  /** Management fee, ya incluido en `total`. */
+  managementFee?: number;
+  /** Mercancía a precio de proveedor, antes del fee. */
+  feeBase?: number;
   cardSurcharge?: number;
   montoTarjeta?: number;
   montoTransfe?: number;
@@ -40,6 +46,7 @@ export function printReceipt(data: ReceiptData) {
     received,
     change,
     isMember,
+    managementFee = 0,
     cardSurcharge = 0,
     montoTarjeta = 0,
     montoTransfe = 0,
@@ -233,6 +240,9 @@ export function printReceipt(data: ReceiptData) {
           return rows.join("");
         })()}
         ${isMember ? `<div class="row member-note"><span>&#9733; Precio Health Pass</span></div>` : ""}
+        ${managementFee > 0 ? `
+        <div class="row member-note"><span>&#9670; Precio de proveedor</span></div>
+        <div class="row"><span>Management fee (${MANAGEMENT_FEE_RATE * 100}%)</span><span>+$${managementFee.toFixed(2)}</span></div>` : ""}
         ${cardSurcharge > 0 ? `<div class="row"><span>Cargo tarjeta (3%)</span><span>+$${cardSurcharge.toFixed(2)}</span></div>` : ""}
         <div class="row total">
           <span>TOTAL</span>

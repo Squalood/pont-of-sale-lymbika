@@ -4,19 +4,20 @@ import { CartItem as CartItemType, cartItemKey } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import { Stethoscope, Trash2 } from "lucide-react";
 import { PriceEditor } from "./price-editor";
+import { isSpecialPrice, itemUnitPrice, type PriceMode } from "@/lib/pricing";
 
 interface ServiceCartItemProps {
   item: Extract<CartItemType, { type: "service" }>;
-  isMember: boolean;
+  priceMode: PriceMode;
   onUpdateQuantity: (itemKey: string, delta: number) => void;
   onRemoveItem: (itemKey: string) => void;
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
 }
 
-export function ServiceCartItem({ item, isMember, onRemoveItem, onUpdatePrice }: ServiceCartItemProps) {
+export function ServiceCartItem({ item, priceMode, onRemoveItem, onUpdatePrice }: ServiceCartItemProps) {
   const key = cartItemKey(item);
   const { serviceRate } = item;
-  const displayPrice = item.overridePrice ?? serviceRate.price;
+  const displayPrice = itemUnitPrice(item, priceMode);
   const hasOverride = item.overridePrice !== undefined;
 
   return (
@@ -47,7 +48,7 @@ export function ServiceCartItem({ item, isMember, onRemoveItem, onUpdatePrice }:
         <PriceEditor
           displayPrice={displayPrice}
           hasOverride={hasOverride}
-          isMember={isMember}
+          specialPrice={isSpecialPrice(priceMode)}
           itemKey={key}
           onUpdatePrice={onUpdatePrice}
           variant="service"

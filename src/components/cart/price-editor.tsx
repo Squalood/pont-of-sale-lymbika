@@ -6,13 +6,14 @@ import { Pencil, X } from "lucide-react";
 interface PriceEditorProps {
   displayPrice: number;
   hasOverride: boolean;
-  isMember: boolean;
+  /** La tarifa no es la de mostrador (Health Pass o proveedor): se resalta el precio. */
+  specialPrice: boolean;
   itemKey: string;
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
   variant: "service" | "product";
 }
 
-export function PriceEditor({ displayPrice, hasOverride, isMember, itemKey, onUpdatePrice, variant }: PriceEditorProps) {
+export function PriceEditor({ displayPrice, hasOverride, specialPrice, itemKey, onUpdatePrice, variant }: PriceEditorProps) {
   const [isEditingPrice, setIsEditingPrice] = useState(false);
   const [draftPrice, setDraftPrice] = useState("");
 
@@ -57,7 +58,7 @@ export function PriceEditor({ displayPrice, hasOverride, isMember, itemKey, onUp
 
   const priceClassName = variant === "service"
     ? `text-sm font-semibold ${hasOverride ? "text-amber-600" : ""}`
-    : `text-xs ${hasOverride ? "text-amber-600" : isMember ? "text-emerald-400" : "text-muted-foreground"}`;
+    : `text-xs ${hasOverride ? "text-amber-600" : specialPrice ? "text-emerald-400" : "text-muted-foreground"}`;
 
   return (
     <div className="flex items-center gap-1">

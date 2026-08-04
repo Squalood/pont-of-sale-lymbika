@@ -4,6 +4,8 @@ import { postVenta } from "@/api/postVenta";
 import { patchProductStock } from "@/api/patchProductStock";
 import { patchLote } from "@/api/patchLote";
 import { printReceipt } from "@/lib/print-receipt";
+import { CARD_SURCHARGE_RATE } from "@/lib/checkout-math";
+import type { PriceMode } from "@/lib/pricing";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
 import type { MetodoPago } from "@/types/venta";
@@ -13,13 +15,13 @@ interface UseCheckoutParams {
   subtotal: number;
   iva: number;
   total: number;
-  isMember: boolean;
+  priceMode: PriceMode;
   ivaRate: 0 | 8 | 16;
   manualIva: number;
+  managementFee: number;
+  feeBase: number;
   getPrice: (item: CartItem) => number;
   onSaleComplete: (items: CartItem[]) => void;
-  onSetMember: (val: boolean) => void;
-  onClear: () => void;
   setCheckoutOpen: (val: boolean) => void;
   setSaleResult: (val: { paymentMethod: MetodoPago; change: number; cardCharge: number } | null) => void;
 }
@@ -29,15 +31,18 @@ export function useCheckout({
   subtotal,
   iva,
   total,
-  isMember,
+  priceMode,
   ivaRate,
   manualIva,
+  managementFee,
+  feeBase,
   getPrice,
   onSaleComplete,
   setCheckoutOpen,
   setSaleResult,
 }: UseCheckoutParams) {
   const { caja, refetchEfectivo } = useCaja();
+  const isMember = priceMode === "member";
 
   async function handleConfirm(
     method: MetodoPago,
@@ -49,7 +54,7 @@ export function useCheckout({
     montoTransfe: number
   ) {
     const cardBase = montoTarjeta;
-    const cardSurcharge = isMember && cardBase > 0 ? cardBase * 0.03 : 0;
+    const cardSurcharge = isMember && cardBase > 0 ? cardBase * CARD_SURCHARGE_RATE : 0;
     const effectiveTotal = total + cardSurcharge;
     const cashNeeded = total - cardBase - montoTransfe;
     const noChangeMethod = method === "tarjeta" || method === "transfe";
@@ -71,6 +76,7 @@ export function useCheckout({
         metodoPago: method,
         montoTarjeta: cardBase,
         montoTransferencia: montoTransfe,
+        recargoTarjeta: cardSurcharge,
         recibido: received,
         cambio: change > 0 ? change : 0,
         recibidoUSD: recibidoUSD ?? 0,
@@ -79,6 +85,8 @@ export function useCheckout({
         operador,
         nota: nota || undefined,
         esMembresia: isMember,
+        esProveedor: priceMode === "proveedor",
+        managementFee,
         pharmacies: caja?.pharmacy?.documentId,
         venta: items.map((item) => {
           if (item.type === "product") {
@@ -174,6 +182,8 @@ export function useCheckout({
       received,
       change: change > 0 ? change : 0,
       isMember,
+      managementFee,
+      feeBase,
       cardSurcharge,
       montoTarjeta: cardBase,
       montoTransfe,

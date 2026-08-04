@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { authFetch } from "@/lib/auth";
+import { ventaCardCharged } from "@/lib/checkout-math";
 
 export interface EfectivoCaja {
   fondoInicial: number;
@@ -36,6 +37,7 @@ export function useEfectivoCaja(fondoInicial: number | null, pharmacyId: string 
           `&fields[0]=metodoPago&fields[1]=recibido&fields[2]=cambio` +
           `&fields[3]=recibidoUSD&fields[4]=tipoCambioUsado` +
           `&fields[5]=montoTarjeta&fields[6]=montoTransferencia&fields[7]=total` +
+          `&fields[8]=recargoTarjeta&fields[9]=esMembresia` +
           `&pagination[pageSize]=5000`
         ),
         authFetch(
@@ -56,6 +58,7 @@ export function useEfectivoCaja(fondoInicial: number | null, pharmacyId: string 
         recibido: number; cambio: number;
         recibidoUSD: number; tipoCambioUsado: number;
         montoTarjeta?: number; montoTransferencia?: number; total: number;
+        recargoTarjeta?: number; esMembresia?: boolean;
       };
       type DevRow = { montoReembolso: number };
 
@@ -75,11 +78,11 @@ export function useEfectivoCaja(fondoInicial: number | null, pharmacyId: string 
           ventasNetoMXN += recibidoMXN - (v.cambio ?? 0);
           efectivoUSD += usd;
         }
-        if (v.metodoPago === "tarjeta") ventasTarjeta += v.total;
-        if (v.metodoPago === "mixto") {
-          ventasTarjeta += v.montoTarjeta ?? 0;
-          ventasTransfe += v.montoTransferencia ?? 0;
+        // base + recargo = lo que pasó por la terminal.
+        if (v.metodoPago === "tarjeta" || v.metodoPago === "mixto") {
+          ventasTarjeta += ventaCardCharged(v);
         }
+        if (v.metodoPago === "mixto") ventasTransfe += v.montoTransferencia ?? 0;
         if (v.metodoPago === "transfe") ventasTransfe += v.total;
       }
 

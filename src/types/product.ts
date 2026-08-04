@@ -1,4 +1,5 @@
 import { ServiceRateType } from "@/types/service";
+import type { PriceMode } from "@/lib/pricing";
 
 export interface Product {
   id: string;
@@ -35,7 +36,8 @@ export type GridItem =
 export type Cart = {
   id: number;
   items: CartItem[];
-  isMember: boolean;
+  /** Tarifa del carrito. Excluyente por construcción: ver PriceMode. */
+  priceMode: PriceMode;
 };
 
 export type ProductType = {

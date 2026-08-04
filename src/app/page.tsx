@@ -45,7 +45,7 @@ export default function Home() {
     carts, activeCartId, setActiveCartId,
     sidebarOpen, setSidebarOpen, sidebarWidth,
     addToCartOf, updateQuantityOf, removeItemOf,
-    updateItemPriceOf, clearCartOf, setMemberOf,
+    updateItemPriceOf, clearCartOf, setPriceModeOf,
     addCart, removeCart, handleSaleComplete,
   } = useMultiCart(setProducts);
 
@@ -178,7 +178,7 @@ export default function Home() {
                 key={cart.id}
                 cartNumber={index + 1}
                 items={cart.items}
-                isMember={cart.isMember}
+                priceMode={cart.priceMode}
                 isActive={cart.id === activeCartId}
                 products={products}
                 onAddProduct={(p) => addProductWithLot(cart.id, p)}
@@ -186,7 +186,7 @@ export default function Home() {
                 onRemoveItem={(key) => removeItemOf(cart.id, key)}
                 onUpdatePrice={(key, price) => updateItemPriceOf(cart.id, key, price)}
                 onClear={() => clearCartOf(cart.id)}
-                onSetMember={(val) => setMemberOf(cart.id, val)}
+                onSetPriceMode={(mode) => setPriceModeOf(cart.id, mode)}
                 onSaleComplete={(items) => handleSaleComplete(cart.id, items)}
                 onClose={carts.length > 1 ? () => removeCart(cart.id) : undefined}
                 onActivate={() => setActiveCartId(cart.id)}

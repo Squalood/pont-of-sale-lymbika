@@ -1,4 +1,5 @@
 import { authFetch } from "@/lib/auth";
+import { ventaCardCharged } from "@/lib/checkout-math";
 
 export interface ProductoResumen {
   nombre: string;
@@ -56,6 +57,8 @@ export async function fetchReporteCierre(pharmacyId: string, fechaCaja?: string)
     metodoPago: string;
     montoTarjeta?: number;
     montoTransferencia?: number;
+    recargoTarjeta?: number;
+    esMembresia?: boolean;
     recibido?: number;
     cambio?: number;
     recibidoUSD?: number;
@@ -87,11 +90,12 @@ export async function fetchReporteCierre(pharmacyId: string, fechaCaja?: string)
       pagos.efectivoMXN += recibidoMXN - (v.cambio ?? 0);
       pagos.efectivoUSD += usd;
     }
-    if (v.metodoPago === "tarjeta") {
-      pagos.tarjeta += v.total;
+    // La terminal cobra base + recargo, así que el cuadre suma ambos. Antes la rama
+    // `mixto` sumaba solo la base y el corte salía corto en ventas Health Pass.
+    if (v.metodoPago === "tarjeta" || v.metodoPago === "mixto") {
+      pagos.tarjeta += ventaCardCharged(v);
     }
     if (v.metodoPago === "mixto") {
-      pagos.tarjeta += v.montoTarjeta ?? 0;
       pagos.transferencia += v.montoTransferencia ?? 0;
     }
     if (v.metodoPago === "transfe") {

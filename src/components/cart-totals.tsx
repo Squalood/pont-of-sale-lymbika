@@ -1,19 +1,21 @@
-import { BadgePercent } from "lucide-react";
+import { BadgePercent, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MANAGEMENT_FEE_RATE, type PriceMode } from "@/lib/pricing";
 
 interface CartTotalsProps {
   subtotal: number;
   iva: number;
   total: number;
   ahorro: number;
-  isMember: boolean;
+  priceMode: PriceMode;
   ivaRate: 0 | 8 | 16;
   manualIva: number;
+  managementFee: number;
   tipoCambio: number;
   onCheckout: () => void;
 }
 
-export function CartTotals({ subtotal, iva, total, ahorro, isMember, ivaRate, manualIva, tipoCambio, onCheckout }: CartTotalsProps) {
+export function CartTotals({ subtotal, iva, total, ahorro, priceMode, ivaRate, manualIva, managementFee, tipoCambio, onCheckout }: CartTotalsProps) {
   const extractedIva = iva - manualIva;
 
   return (
@@ -43,7 +45,18 @@ export function CartTotals({ subtotal, iva, total, ahorro, isMember, ivaRate, ma
           </>
         )}
 
-        {isMember && ahorro > 0 && (
+        {managementFee > 0 && (
+          <>
+            <span className="flex items-center gap-1 text-indigo-600">
+              <Building2 className="h-3 w-3" />
+              Management fee ({MANAGEMENT_FEE_RATE * 100}%)
+            </span>
+            <span className="text-right tabular-nums text-indigo-600">+${managementFee.toFixed(2)}</span>
+            <span className="text-right tabular-nums text-indigo-600">+${(managementFee / tipoCambio).toFixed(2)}</span>
+          </>
+        )}
+
+        {priceMode === "member" && ahorro > 0 && (
           <>
             <span className="flex items-center gap-1 text-emerald-600">
               <BadgePercent className="h-3 w-3" />

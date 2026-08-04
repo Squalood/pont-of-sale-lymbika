@@ -4,13 +4,15 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  CARD_SURCHARGE_RATE,
+  MONEY_EPSILON,
+  computeCharge,
+  type CashCurrency,
+  type CashEntry,
+} from "@/lib/checkout-math";
 
-export type CashCurrency = "MXN" | "USD" | "tarjeta" | "transfe";
-
-export interface CashEntry {
-  amount: number;
-  currency: CashCurrency;
-}
+export type { CashCurrency, CashEntry };
 
 interface CashInputProps {
   total: number;
@@ -20,12 +22,6 @@ interface CashInputProps {
   autoFocus?: boolean;
   allowTarjeta?: boolean;
   isMember?: boolean;
-}
-
-const CARD_SURCHARGE_RATE = 0.03;
-
-function entryToMXN(entry: CashEntry, tipoCambio: number): number {
-  return entry.currency === "USD" ? entry.amount * tipoCambio : entry.amount;
 }
 
 export function CashInput({
@@ -40,31 +36,29 @@ export function CashInput({
   const [currentAmount, setCurrentAmount] = useState("");
   const [currency, setCurrency] = useState<CashCurrency>("MXN");
 
-  const receivedTotal = entries.reduce((sum, e) => sum + entryToMXN(e, tipoCambio), 0);
-  const tarjetaFromEntries = entries.reduce(
-    (sum, e) => sum + (e.currency === "tarjeta" ? e.amount : 0),
-    0
-  );
-  const transfeFromEntries = entries.reduce(
-    (sum, e) => sum + (e.currency === "transfe" ? e.amount : 0),
-    0
-  );
-  // Tarjeta entry = monto que se pasa en la terminal (incluye recargo si aplica).
-  // base = swipe / 1.03 para miembros; surcharge = swipe - base.
-  const cardSurcharge = isMember
-    ? tarjetaFromEntries - tarjetaFromEntries / (1 + CARD_SURCHARGE_RATE)
-    : 0;
-  const effectiveTotal = total + cardSurcharge;
-  const remaining = effectiveTotal - receivedTotal;
-  const change = receivedTotal - effectiveTotal;
+  const charge = computeCharge(entries, total, isMember, tipoCambio);
+  const { receivedTotal, remaining, change, isCovered } = charge;
 
   const parsedAmount = parseFloat(currentAmount);
   const hasValidAmount = !!parsedAmount && parsedAmount > 0;
   const isNonCash = currency === "tarjeta" || currency === "transfe";
+
+  // Lo no-efectivo puede cubrir como máximo el total de la venta. Se compara en
+  // *base* (sin recargo) porque el monto tecleado en tarjeta ya lo trae dentro:
+  // comparar el swipe contra el total impedía capturar el 103 de una venta de 100.
+  const nonCashBase = charge.cardBase + charge.transfeBase;
+  const prospective = hasValidAmount
+    ? computeCharge([...entries, { amount: parsedAmount, currency }], total, isMember, tipoCambio)
+    : charge;
   const nonCashOverflow =
     isNonCash &&
     hasValidAmount &&
-    tarjetaFromEntries + transfeFromEntries + parsedAmount > effectiveTotal + 0.001;
+    prospective.cardBase + prospective.transfeBase > total + MONEY_EPSILON;
+
+  // Tope del monto que se puede teclear en la moneda actual, en sus propios términos.
+  const nonCashCapBase = Math.max(0, total - nonCashBase);
+  const nonCashCap =
+    currency === "tarjeta" && isMember ? nonCashCapBase * (1 + CARD_SURCHARGE_RATE) : nonCashCapBase;
 
   function addEntry() {
     if (!hasValidAmount || nonCashOverflow) return;
@@ -168,7 +162,8 @@ export function CashInput({
 
       {nonCashOverflow && (
         <p className="text-xs text-destructive">
-          El monto de {currency === "tarjeta" ? "tarjeta" : "transferencia"} no puede superar ${total.toFixed(2)}
+          El monto de {currency === "tarjeta" ? "tarjeta" : "transferencia"} no puede superar $
+          {nonCashCap.toFixed(2)}
         </p>
       )}
 
@@ -279,14 +274,14 @@ export function CashInput({
         </div>
       )}
 
-      {/* Remaining or Change */}
-      {receivedTotal > 0 && remaining > 0 && (
+      {/* Falta o Cambio — mutuamente excluyentes: ambos se derivan de isCovered. */}
+      {receivedTotal > 0 && !isCovered && (
         <div className="flex justify-between rounded-lg bg-amber-50 px-4 py-2 text-amber-700">
           <span className="text-sm font-medium">Falta</span>
           <span className="text-sm font-bold">${remaining.toFixed(2)}</span>
         </div>
       )}
-      {receivedTotal >= total && receivedTotal > 0 && (
+      {receivedTotal > 0 && isCovered && (
         <div className="flex justify-between rounded-lg bg-green-50 px-4 py-2 text-green-700">
           <span className="text-sm font-medium">Cambio</span>
           <span className="text-sm font-bold">${change.toFixed(2)}</span>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Cart, CartItem, ProductType, cartItemKey } from "@/types/product";
+import type { PriceMode } from "@/lib/pricing";
 
 export const CART_VW = 25;
 export const MAX_CARTS = 4;
@@ -18,7 +19,7 @@ function lotCap(item: CartItem): number {
 export function useMultiCart(
   setProducts: React.Dispatch<React.SetStateAction<ProductType[]>>
 ) {
-  const [carts, setCarts] = useState<Cart[]>([{ id: 1, items: [], isMember: false }]);
+  const [carts, setCarts] = useState<Cart[]>([{ id: 1, items: [], priceMode: "regular" }]);
   const [nextCartId, setNextCartId] = useState(2);
   const [activeCartId, setActiveCartId] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -80,16 +81,18 @@ export function useMultiCart(
     );
   }
 
-  function setMemberOf(cartId: number, val: boolean) {
+  // Un switch en `on` define la tarifa; apagarlo vuelve a mostrador. Al encender uno el
+  // otro queda apagado solo, porque el carrito guarda una tarifa y no dos banderas.
+  function setPriceModeOf(cartId: number, mode: PriceMode) {
     setCarts((prev) =>
-      prev.map((cart) => cart.id !== cartId ? cart : { ...cart, isMember: val })
+      prev.map((cart) => cart.id !== cartId ? cart : { ...cart, priceMode: mode })
     );
   }
 
   function addCart() {
     if (carts.length >= MAX_CARTS) return;
     const id = nextCartId;
-    setCarts((prev) => [...prev, { id, items: [], isMember: false }]);
+    setCarts((prev) => [...prev, { id, items: [], priceMode: "regular" }]);
     setNextCartId(id + 1);
     setActiveCartId(id);
     if (carts.length + 1 === MAX_CARTS) setSidebarOpen(false);
@@ -150,7 +153,7 @@ export function useMultiCart(
     removeItemOf,
     updateItemPriceOf,
     clearCartOf,
-    setMemberOf,
+    setPriceModeOf,
     addCart,
     removeCart,
     handleSaleComplete,

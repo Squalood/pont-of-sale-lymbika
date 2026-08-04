@@ -8,12 +8,13 @@ import { CartTotals } from "@/components/cart-totals";
 import { CheckoutDialog } from "@/components/checkout-dialog";
 import { SaleCompleteDialog } from "@/components/sale-complete-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ShoppingCart, BadgePercent, ScanBarcode, Receipt } from "lucide-react";
+import { ShoppingCart, BadgePercent, ScanBarcode, Receipt, Building2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useCaja } from "@/lib/caja-context";
 import { useCartTotals } from "@/hooks/useCartTotals";
 import { useCheckout } from "@/hooks/useCheckout";
+import { MANAGEMENT_FEE_RATE, type PriceMode } from "@/lib/pricing";
 import type { MetodoPago } from "@/types/venta";
 
 interface CartPanelProps {
@@ -25,8 +26,8 @@ interface CartPanelProps {
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
   onClear: () => void;
   onSaleComplete: (items: CartItemType[]) => void;
-  isMember: boolean;
-  onSetMember: (val: boolean) => void;
+  priceMode: PriceMode;
+  onSetPriceMode: (mode: PriceMode) => void;
   isActive: boolean;
   onActivate: () => void;
   onClose?: () => void;
@@ -43,8 +44,8 @@ export function CartPanel({
   onUpdatePrice,
   onClear,
   onSaleComplete,
-  isMember,
-  onSetMember,
+  priceMode,
+  onSetPriceMode,
   isActive,
   onActivate,
   onClose,
@@ -59,20 +60,21 @@ export function CartPanel({
   const [barcodeInput, setBarcodeInput] = useState("");
   const [ivaRate, setIvaRate] = useState<0 | 8 | 16>(0);
 
-  const { total, subtotal, iva, ahorro, getPrice, manualIva } = useCartTotals(items, isMember, ivaRate);
+  const { total, subtotal, iva, ahorro, getPrice, manualIva, managementFee, feeBase } =
+    useCartTotals(items, priceMode, ivaRate);
 
   const { handleConfirm } = useCheckout({
     items,
     subtotal,
     iva,
     total,
-    isMember,
+    priceMode,
     ivaRate,
     manualIva,
+    managementFee,
+    feeBase,
     getPrice,
     onSaleComplete,
-    onSetMember,
-    onClear,
     setCheckoutOpen,
     setSaleResult,
   });
@@ -133,7 +135,7 @@ export function CartPanel({
                 <CartItem
                   key={cartItemKey(item)}
                   item={item}
-                  isMember={isMember}
+                  priceMode={priceMode}
                   onUpdateQuantity={onUpdateQuantity}
                   onRemoveItem={onRemoveItem}
                   onUpdatePrice={onUpdatePrice}
@@ -147,7 +149,26 @@ export function CartPanel({
               <BadgePercent className="h-4 w-4 text-emerald-500" />
               <span className="text-sm font-medium">Precio Health Pass</span>
             </div>
-            <Switch checked={isMember} onCheckedChange={onSetMember} />
+            <Switch
+              checked={priceMode === "member"}
+              onCheckedChange={(v) => onSetPriceMode(v ? "member" : "regular")}
+            />
+          </div>
+
+          <div className="flex items-center justify-between border-t px-4 py-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-indigo-500" />
+              <div>
+                <span className="text-sm font-medium">Precio de proveedor</span>
+                <p className="text-xs text-muted-foreground">
+                  Incluye management fee del {MANAGEMENT_FEE_RATE * 100}%
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={priceMode === "proveedor"}
+              onCheckedChange={(v) => onSetPriceMode(v ? "proveedor" : "regular")}
+            />
           </div>
 
           <div className="flex items-center justify-between border-t px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -178,9 +199,10 @@ export function CartPanel({
             iva={iva}
             total={total}
             ahorro={ahorro}
-            isMember={isMember}
+            priceMode={priceMode}
             ivaRate={ivaRate}
             manualIva={manualIva}
+            managementFee={managementFee}
             tipoCambio={tipoCambio}
             onCheckout={() => setCheckoutOpen(true)}
           />
@@ -192,7 +214,7 @@ export function CartPanel({
         paymentMethod={saleResult?.paymentMethod ?? "efectivo"}
         change={saleResult?.change ?? 0}
         cardCharge={saleResult?.cardCharge ?? 0}
-        onClose={() => { setSaleResult(null); onSetMember(false); setIvaRate(0); onClear(); }}
+        onClose={() => { setSaleResult(null); onSetPriceMode("regular"); setIvaRate(0); onClear(); }}
       />
 
       <CheckoutDialog
@@ -200,7 +222,9 @@ export function CartPanel({
         onClose={() => setCheckoutOpen(false)}
         total={total}
         tipoCambio={tipoCambio}
-        isMember={isMember}
+        isMember={priceMode === "member"}
+        managementFee={managementFee}
+        feeBase={feeBase}
         onConfirm={handleConfirm}
       />
     </aside>

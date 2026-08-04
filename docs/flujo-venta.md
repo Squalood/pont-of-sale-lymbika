@@ -41,10 +41,16 @@ mutar el stock localmente al vender.
   Solo los de tipo `product` descuentan stock.
 - Se agrega al carrito haciendo click en la grilla ([page.tsx:81-87](../src/app/page.tsx#L81-L87))
   o escaneando código de barras ([cart-panel.tsx:80-87](../src/components/cart-panel.tsx#L80-L87)).
-- El precio por línea sale de [`useCartTotals.getPrice`](../src/hooks/useCartTotals.ts#L7-L11):
+- Cada carrito tiene una **tarifa** (`priceMode`): `regular`, `member` (Health Pass) o
+  `proveedor` ([pricing.ts](../src/lib/pricing.ts)). Es un solo valor, así que los dos
+  switches del panel no pueden quedar encendidos a la vez.
+- El precio por línea sale de [`itemUnitPrice`](../src/lib/pricing.ts):
   1. `overridePrice` si el cajero editó el precio manualmente, si no
-  2. `priceMember` si el carrito es Health Pass (`isMember`), si no
+  2. `priceMember` si la tarifa es `member` o `proveedor`, si no
   3. `price` regular.
+- La tarifa `proveedor` agrega automáticamente un **management fee del 10%** sobre la
+  mercancía ([useCartTotals.ts](../src/hooks/useCartTotals.ts)). No hay switch aparte para
+  el fee: es consecuencia de la tarifa. El fee queda fuera de la base del IVA manual.
 
 > Nota: en este punto **no** se valida que haya stock suficiente. Se puede agregar más
 > cantidad de la que existe en `stock_central`.

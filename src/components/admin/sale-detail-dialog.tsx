@@ -18,10 +18,12 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Printer, RotateCcw, NotebookPen, BadgePercent, FileText } from "lucide-react";
+import { Printer, RotateCcw, NotebookPen, BadgePercent, FileText, Building2 } from "lucide-react";
 import { VentaType } from "@/types/venta";
 import { ProductType } from "@/types/product";
 import { printReceipt } from "@/lib/print-receipt";
+import { ventaCardCharged, ventaCardSurcharge } from "@/lib/checkout-math";
+import { MANAGEMENT_FEE_RATE } from "@/lib/pricing";
 import { ReturnDialog } from "@/components/admin/return-dialog";
 import { InvoiceFromSaleDialog } from "@/components/admin/invoice-from-sale-dialog";
 
@@ -43,13 +45,13 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
   const subtotal = venta.subtotal ?? venta.total / 1.08;
   const iva = venta.iva ?? venta.total - subtotal;
 
+  // El recargo se lee del guardado (tasa vigente el día de la venta), no se re-deriva.
+  const cardSurcharge = ventaCardSurcharge(venta);
+  const managementFee = venta.managementFee ?? 0;
   const cardBase =
-    venta.metodoPago === "tarjeta"
-      ? venta.total / (venta.esMembresia ? 1.03 : 1)
-      : venta.metodoPago === "mixto"
-        ? venta.montoTarjeta ?? 0
-        : 0;
-  const cardSurcharge = venta.esMembresia && cardBase > 0 ? cardBase * 0.03 : 0;
+    venta.metodoPago === "tarjeta" || venta.metodoPago === "mixto"
+      ? ventaCardCharged(venta) - cardSurcharge
+      : 0;
   const baseTotal = venta.total - cardSurcharge;
   const transfeBase =
     venta.metodoPago === "transfe"
@@ -77,6 +79,7 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
       change: venta!.cambio,
       fecha: venta!.fecha,
       isMember: venta!.esMembresia ?? false,
+      managementFee,
       cardSurcharge,
       montoTarjeta: cardBase,
       montoTransfe: transfeBase,
@@ -135,6 +138,12 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
                 <div className="col-span-2 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
                   <BadgePercent className="h-4 w-4 shrink-0" />
                   <span className="text-sm font-medium">Venta con Health Pass</span>
+                </div>
+              )}
+              {venta.esProveedor && (
+                <div className="col-span-2 flex items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-indigo-700">
+                  <Building2 className="h-4 w-4 shrink-0" />
+                  <span className="text-sm font-medium">Venta a precio de proveedor</span>
                 </div>
               )}
               {venta.metodoPago === "mixto" && cardBase > 0 && (
@@ -220,6 +229,12 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
                 <div className="flex justify-between text-muted-foreground">
                   <span>IVA (8%)</span>
                   <span>${iva.toFixed(2)}</span>
+                </div>
+              )}
+              {managementFee > 0 && (
+                <div className="flex justify-between text-indigo-700">
+                  <span>Management fee ({MANAGEMENT_FEE_RATE * 100}%)</span>
+                  <span>+${managementFee.toFixed(2)}</span>
                 </div>
               )}
               {cardSurcharge > 0 && (

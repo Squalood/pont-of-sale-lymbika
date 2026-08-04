@@ -43,8 +43,11 @@ export interface VentaType {
   iva: number;
   total: number;
   metodoPago: MetodoPago;
+  /** Base cubierta con tarjeta, sin recargo. */
   montoTarjeta?: number;
   montoTransferencia?: number;
+  /** Recargo Health Pass cobrado en la terminal. Ausente en ventas previas al campo. */
+  recargoTarjeta?: number;
   recibido: number;
   cambio: number;
   recibidoUSD: number;
@@ -53,6 +56,9 @@ export interface VentaType {
   operador: string;
   nota?: string;
   esMembresia?: boolean;
+  esProveedor?: boolean;
+  /** Management fee cobrado. `total` ya lo incluye. Ausente en ventas previas al campo. */
+  managementFee?: number;
   venta: VentaItemType[];
   pharmacies?: PharmacyType[] | null;
 }
@@ -63,8 +69,11 @@ export interface VentaPayload {
   iva: number;
   total: number;
   metodoPago: MetodoPago;
+  /** Base cubierta con tarjeta, sin recargo. */
   montoTarjeta?: number;
   montoTransferencia?: number;
+  /** Recargo Health Pass cobrado en la terminal. `total` ya lo incluye. */
+  recargoTarjeta?: number;
   recibido: number;
   cambio: number;
   recibidoUSD: number;
@@ -73,6 +82,9 @@ export interface VentaPayload {
   operador: string;
   nota?: string;
   esMembresia?: boolean;
+  esProveedor?: boolean;
+  /** Management fee cobrado. `total` ya lo incluye. */
+  managementFee?: number;
   venta: VentaItem[];
   pharmacies?: string;
 }

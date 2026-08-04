@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CashInput, CashEntry } from "@/components/cash-input";
+import { CashInput } from "@/components/cash-input";
+import { computeCharge, type CashEntry } from "@/lib/checkout-math";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { TotalBanner } from "@/components/checkout/total-banner";
 import { MemberInfo } from "@/components/checkout/member-info";
+import { ProveedorInfo } from "@/components/checkout/proveedor-info";
 import { NoteInput } from "@/components/checkout/note-input";
 import { CheckoutActions } from "@/components/checkout/checkout-actions";
 import type { PaymentMethod } from "@/components/checkout/types";
@@ -20,6 +22,10 @@ interface CheckoutDialogProps {
   total: number;
   tipoCambio: number;
   isMember?: boolean;
+  /** Mercancía a precio de proveedor, antes del fee. */
+  feeBase?: number;
+  /** Management fee ya incluido en `total`. 0 cuando la tarifa no es de proveedor. */
+  managementFee?: number;
   onConfirm: (
     method: PaymentMethod,
     received: number,
@@ -31,55 +37,15 @@ interface CheckoutDialogProps {
   ) => Promise<void>;
 }
 
-export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onConfirm }: CheckoutDialogProps) {
+export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, feeBase = 0, managementFee = 0, onConfirm }: CheckoutDialogProps) {
   const [entries, setEntries] = useState<CashEntry[]>([]);
   const [nota, setNota] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const CARD_SURCHARGE_RATE = 0.03;
+  const charge = computeCharge(entries, total, !!isMember, tipoCambio);
+  const { method, cardBase, transfeBase, cardSurcharge, effectiveTotal, receivedTotal } = charge;
 
-  const tarjetaFromEntries = entries.reduce(
-    (sum, e) => sum + (e.currency === "tarjeta" ? e.amount : 0),
-    0
-  );
-  const transfeFromEntries = entries.reduce(
-    (sum, e) => sum + (e.currency === "transfe" ? e.amount : 0),
-    0
-  );
-  const cashFromEntries = entries.reduce(
-    (sum, e) =>
-      sum + (e.currency === "MXN" ? e.amount : e.currency === "USD" ? e.amount * tipoCambio : 0),
-    0
-  );
-  const usdFromEntries = entries.reduce(
-    (sum, e) => sum + (e.currency === "USD" ? e.amount : 0),
-    0
-  );
-  const receivedTotal = cashFromEntries + tarjetaFromEntries + transfeFromEntries;
-
-  const hasCash = entries.some((e) => e.currency === "MXN" || e.currency === "USD");
-  const hasCard = entries.some((e) => e.currency === "tarjeta");
-  const hasTransfe = entries.some((e) => e.currency === "transfe");
-  const kindCount = [hasCash, hasCard, hasTransfe].filter(Boolean).length;
-  const method: PaymentMethod =
-    kindCount > 1
-      ? "mixto"
-      : hasCard
-        ? "tarjeta"
-        : hasTransfe
-          ? "transfe"
-          : "efectivo";
-
-  // Tarjeta entry = monto cobrado en terminal (incluye recargo si es miembro).
-  // Base (lo que cubre del total) = swipe / 1.03 para miembros.
-  const cardBase = isMember
-    ? tarjetaFromEntries / (1 + CARD_SURCHARGE_RATE)
-    : tarjetaFromEntries;
-  const transfeBase = transfeFromEntries;
-  const cardSurcharge = tarjetaFromEntries - cardBase;
-  const effectiveTotal = total + cardSurcharge;
-
-  const canConfirm = entries.length > 0 && receivedTotal + 0.001 >= effectiveTotal;
+  const canConfirm = entries.length > 0 && charge.isCovered;
 
   function resetState() {
     setEntries([]);
@@ -95,9 +61,9 @@ export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onC
           : method === "transfe"
             ? total
             : method === "mixto"
-              ? cashFromEntries
+              ? charge.cash
               : receivedTotal;
-      await onConfirm(method, received, usdFromEntries, tipoCambio, nota, cardBase, transfeBase);
+      await onConfirm(method, received, charge.usd, tipoCambio, nota, cardBase, transfeBase);
     } finally {
       setIsLoading(false);
       resetState();
@@ -117,6 +83,8 @@ export function CheckoutDialog({ open, onClose, total, tipoCambio, isMember, onC
         </DialogHeader>
 
         <TotalBanner total={effectiveTotal} />
+
+        <ProveedorInfo feeBase={feeBase} managementFee={managementFee} />
 
         <MemberInfo
           isMember={!!isMember}

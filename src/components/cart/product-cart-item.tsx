@@ -6,21 +6,22 @@ import { Layers, ShieldCheck, Trash2 } from "lucide-react";
 import { PriceEditor } from "./price-editor";
 import { QuantityControls } from "./quantity-controls";
 import { SENTINEL_EXPIRATION } from "@/lib/lotes";
+import { isSpecialPrice, itemUnitPrice, type PriceMode } from "@/lib/pricing";
 
 interface ProductCartItemProps {
   item: Extract<CartItemType, { type: "product" }>;
-  isMember: boolean;
+  priceMode: PriceMode;
   onUpdateQuantity: (itemKey: string, delta: number) => void;
   onRemoveItem: (itemKey: string) => void;
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
 }
 
-export function ProductCartItem({ item, isMember, onUpdateQuantity, onRemoveItem, onUpdatePrice }: ProductCartItemProps) {
+export function ProductCartItem({ item, priceMode, onUpdateQuantity, onRemoveItem, onUpdatePrice }: ProductCartItemProps) {
   const key = cartItemKey(item);
   const { product, quantity } = item;
-  const price = (isMember ? product.priceMember : product.price) ?? 0;
-  const displayPrice = item.overridePrice ?? price;
+  const displayPrice = itemUnitPrice(item, priceMode);
   const hasOverride = item.overridePrice !== undefined;
+  const specialPrice = isSpecialPrice(priceMode);
   const imageUrl = product.images?.[0]?.url;
   const lot = item.selectedLot;
   const showCaducidad = lot?.expirationDate && lot.expirationDate < SENTINEL_EXPIRATION;
@@ -76,7 +77,7 @@ export function ProductCartItem({ item, isMember, onUpdateQuantity, onRemoveItem
         <PriceEditor
           displayPrice={displayPrice}
           hasOverride={hasOverride}
-          isMember={isMember}
+          specialPrice={specialPrice}
           itemKey={key}
           onUpdatePrice={onUpdatePrice}
           variant="product"
@@ -86,7 +87,7 @@ export function ProductCartItem({ item, isMember, onUpdateQuantity, onRemoveItem
           itemKey={key}
           onUpdateQuantity={onUpdateQuantity}
         />
-        <span className={`text-sm font-semibold ${hasOverride ? "text-amber-600" : isMember ? "text-emerald-400" : ""}`}>
+        <span className={`text-sm font-semibold ${hasOverride ? "text-amber-600" : specialPrice ? "text-emerald-400" : ""}`}>
           ${(displayPrice * quantity).toFixed(2)}
         </span>
       </div>
