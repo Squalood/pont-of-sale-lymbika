@@ -6,17 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2 } from "lucide-react";
 import { ProductType } from "@/types/product";
-import { LocalItem } from "./types";
+import { LocalPurchaseItem } from "./types";
+import { itemQuantity, itemTotalLine, comprasTotal } from "./helpers";
 
 interface ItemsStepProps {
   products: ProductType[];
-  items: LocalItem[];
+  items: LocalPurchaseItem[];
   onAddProduct: (product: ProductType) => void;
-  onChangeQty: (idx: number, value: string) => void;
   onChangeCosto: (idx: number, value: string) => void;
-  onChangeLote: (idx: number, value: string) => void;
-  onChangeCaducidad: (idx: number, value: string) => void;
   onChangeIva: (idx: number, value: "iva8" | "iva16" | "exento") => void;
+  onAddLote: (idx: number) => void;
+  onRemoveLote: (itemIdx: number, loteIdx: number) => void;
+  onChangeLoteNumero: (itemIdx: number, loteIdx: number, value: string) => void;
+  onChangeLoteCantidad: (itemIdx: number, loteIdx: number, value: string) => void;
+  onChangeLoteCaducidad: (itemIdx: number, loteIdx: number, value: string) => void;
   onRemoveItem: (idx: number) => void;
   onNext: () => void;
   onBack: () => void;
@@ -34,11 +37,13 @@ export function ItemsStep({
   products,
   items,
   onAddProduct,
-  onChangeQty,
   onChangeCosto,
-  onChangeLote,
-  onChangeCaducidad,
   onChangeIva,
+  onAddLote,
+  onRemoveLote,
+  onChangeLoteNumero,
+  onChangeLoteCantidad,
+  onChangeLoteCaducidad,
   onRemoveItem,
   onNext,
   onBack,
@@ -58,7 +63,7 @@ export function ItemsStep({
       .slice(0, 8);
   }, [products, search]);
 
-  const total = items.reduce((sum, i) => sum + i.totalLine, 0);
+  const total = comprasTotal(items);
 
   function handleAdd(product: ProductType) {
     setSearch("");
@@ -67,7 +72,7 @@ export function ItemsStep({
 
   return (
     <>
-      <div className="space-y-3">
+      <div className="min-w-0 space-y-3">
         <div className="relative">
           <Input
             placeholder="Buscar producto por nombre o sal..."
@@ -84,7 +89,7 @@ export function ItemsStep({
                   className="w-full min-w-0 px-3 py-2 text-left text-sm hover:bg-muted flex items-center justify-between gap-2"
                   onClick={() => handleAdd(p)}
                 >
-                  <span className="flex-1 truncate">{p.productName}</span>
+                  <span className="min-w-0 flex-1 truncate">{p.productName}</span>
                   <span className="text-xs text-muted-foreground shrink-0">
                     Stock: {p.stock_central}
                   </span>
@@ -100,12 +105,21 @@ export function ItemsStep({
             Busca y agrega productos a esta compra
           </p>
         ) : (
-          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
             {items.map((item, idx) => (
-              <div key={idx} className="rounded-lg border px-3 py-2 space-y-1.5">
-                {/* Nombre + eliminar */}
+              <div key={idx} className="rounded-lg border px-3 py-2 space-y-2">
+                {/* Nombre + total + eliminar */}
                 <div className="flex items-center gap-2 min-w-0">
-                  <p className="flex-1 truncate text-sm font-medium">{item.productName}</p>
+                  <p
+                    title={item.productName}
+                    className="min-w-0 flex-1 truncate text-sm font-medium"
+                  >
+                    {item.productName}
+                  </p>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    x{itemQuantity(item)}
+                    {item.costoUnitario > 0 && ` · $${fmt(itemTotalLine(item))}`}
+                  </span>
                   <button
                     type="button"
                     onClick={() => onRemoveItem(idx)}
@@ -114,18 +128,9 @@ export function ItemsStep({
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-                {/* Cant + Precio + IVA */}
+
+                {/* Precio + IVA (por producto) */}
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">Cant</span>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={item.quantity}
-                      onChange={(e) => onChangeQty(idx, e.target.value)}
-                      className="h-7 w-16 text-center text-sm"
-                    />
-                  </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">Precio</span>
                     <Input
@@ -157,32 +162,58 @@ export function ItemsStep({
                       ))}
                     </div>
                   </div>
-                  {item.costoUnitario > 0 && (
-                    <span className="ml-auto text-xs text-muted-foreground shrink-0">
-                      ${fmt(item.totalLine)}
-                    </span>
-                  )}
                 </div>
-                {/* Lote + Caducidad */}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">Lote</span>
-                    <Input
-                      value={item.numeroLote ?? ""}
-                      onChange={(e) => onChangeLote(idx, e.target.value)}
-                      placeholder="Nº lote"
-                      className="h-7 w-28 text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">Caduca</span>
-                    <Input
-                      type="date"
-                      value={item.fechaCaducidad ?? ""}
-                      onChange={(e) => onChangeCaducidad(idx, e.target.value)}
-                      className="h-7 w-36 text-sm"
-                    />
-                  </div>
+
+                {/* Lotes (renglones) */}
+                <div className="space-y-1.5 border-t pt-2">
+                  {item.lotes.map((lote, li) => (
+                    <div key={li} className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">Cant</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          value={lote.cantidad}
+                          onChange={(e) => onChangeLoteCantidad(idx, li, e.target.value)}
+                          className="h-7 w-14 text-center text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">Lote</span>
+                        <Input
+                          value={lote.numeroLote}
+                          onChange={(e) => onChangeLoteNumero(idx, li, e.target.value)}
+                          placeholder="Nº lote"
+                          className="h-7 w-24 text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">Caduca</span>
+                        <Input
+                          type="date"
+                          value={lote.fechaCaducidad ?? ""}
+                          onChange={(e) => onChangeLoteCaducidad(idx, li, e.target.value)}
+                          className="h-7 w-36 text-sm"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveLote(idx, li)}
+                        title="Quitar lote"
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => onAddLote(idx)}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Agregar lote
+                  </button>
                 </div>
               </div>
             ))}

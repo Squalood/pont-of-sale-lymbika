@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { ProductType } from "@/types/product";
 import { ProveedorType } from "@/types/proveedor";
+import { CompraItem } from "@/types/compra";
 import { useGetProveedores } from "@/api/getProveedores";
 import { postUpload } from "@/api/postUpload";
 import { postCompra } from "@/api/postCompra";
@@ -16,7 +17,8 @@ import { patchProductStock } from "@/api/patchProductStock";
 import { patchProductMemberPrice } from "@/api/patchProductMemberPrice";
 import { postLote } from "@/api/postLote";
 import { getUser } from "@/lib/auth";
-import { LocalItem } from "./purchase/types";
+import { LocalPurchaseItem } from "./purchase/types";
+import { itemQuantity, ivaMultiplier, comprasTotal } from "./purchase/helpers";
 import { SupplierStep } from "./purchase/supplier-step";
 import { ItemsStep } from "./purchase/items-step";
 import { ConfirmStep } from "./purchase/confirm-step";
@@ -45,7 +47,7 @@ export function NewPurchaseDialog({
   const [localProveedores, setLocalProveedores] = useState<ProveedorType[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [notas, setNotas] = useState("");
-  const [items, setItems] = useState<LocalItem[]>([]);
+  const [items, setItems] = useState<LocalPurchaseItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +58,7 @@ export function NewPurchaseDialog({
 
   const selectedProveedor = allProveedores.find((p) => p.documentId === proveedorDocId) ?? null;
 
-  const total = items.reduce((sum, i) => sum + i.totalLine, 0);
+  const total = comprasTotal(items);
 
   function resetDialog() {
     setStep("proveedor");
@@ -74,78 +76,78 @@ export function NewPurchaseDialog({
     onClose();
   }
 
-  function ivaMultiplier(iva?: "iva8" | "iva16" | "exento") {
-    if (iva === "iva8") return 1.08;
-    if (iva === "iva16") return 1.16;
-    return 1;
+  function updateItem(idx: number, patch: Partial<LocalPurchaseItem>) {
+    setItems((prev) => prev.map((item, i) => (i !== idx ? item : { ...item, ...patch })));
   }
 
+  // Agrega el producto (con 1 renglón de lote vacío). Si ya existe, agrega otro renglón.
   function handleAddProduct(product: ProductType) {
-    const existing = items.findIndex((i) => i.productId === product.id);
-    if (existing !== -1) {
-      setItems((prev) =>
-        prev.map((item, idx) => {
-          if (idx !== existing) return item;
-          const quantity = item.quantity + 1;
-          return { ...item, quantity, totalLine: quantity * item.costoUnitario * ivaMultiplier(item.iva) };
-        })
-      );
-      return;
-    }
-    const costoUnitario = product.priceMember ?? 0;
-    setItems((prev) => [
-      ...prev,
-      {
-        productId: product.id,
-        product: product.documentId,
-        productName: product.productName,
-        quantity: 1,
-        costoUnitario,
-        iva: "exento" as const,
-        totalLine: costoUnitario,
-      },
-    ]);
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.productId === product.id);
+      if (idx !== -1) {
+        return prev.map((item, i) =>
+          i !== idx ? item : { ...item, lotes: [...item.lotes, { numeroLote: "", cantidad: 1 }] }
+        );
+      }
+      return [
+        ...prev,
+        {
+          productId: product.id,
+          product: product.documentId,
+          productName: product.productName,
+          costoUnitario: product.priceMember ?? 0,
+          iva: "exento" as const,
+          lotes: [{ numeroLote: "", cantidad: 1 }],
+        },
+      ];
+    });
   }
 
-  function handleItemQty(idx: number, value: string) {
-    const quantity = Math.max(1, parseInt(value) || 1);
+  function handleChangeCosto(idx: number, value: string) {
+    updateItem(idx, { costoUnitario: Math.max(0, parseFloat(value) || 0) });
+  }
+
+  function handleChangeIva(idx: number, value: "iva8" | "iva16" | "exento") {
+    updateItem(idx, { iva: value });
+  }
+
+  function handleAddLote(idx: number) {
     setItems((prev) =>
-      prev.map((item, i) => {
-        if (i !== idx) return item;
-        return { ...item, quantity, totalLine: quantity * item.costoUnitario * ivaMultiplier(item.iva) };
+      prev.map((item, i) => (i !== idx ? item : { ...item, lotes: [...item.lotes, { numeroLote: "", cantidad: 1 }] }))
+    );
+  }
+
+  // Quita un renglón; si era el último del producto, quita el producto.
+  function handleRemoveLote(itemIdx: number, loteIdx: number) {
+    setItems((prev) =>
+      prev.flatMap((item, i) => {
+        if (i !== itemIdx) return [item];
+        const lotes = item.lotes.filter((_, li) => li !== loteIdx);
+        return lotes.length === 0 ? [] : [{ ...item, lotes }];
       })
     );
   }
 
-  function handleItemCosto(idx: number, value: string) {
-    const costoUnitario = Math.max(0, parseFloat(value) || 0);
+  function updateLote(itemIdx: number, loteIdx: number, patch: Partial<LocalPurchaseItem["lotes"][number]>) {
     setItems((prev) =>
-      prev.map((item, i) => {
-        if (i !== idx) return item;
-        return { ...item, costoUnitario, totalLine: item.quantity * costoUnitario * ivaMultiplier(item.iva) };
-      })
+      prev.map((item, i) =>
+        i !== itemIdx
+          ? item
+          : { ...item, lotes: item.lotes.map((l, li) => (li !== loteIdx ? l : { ...l, ...patch })) }
+      )
     );
   }
 
-  function handleItemIva(idx: number, value: "iva8" | "iva16" | "exento") {
-    setItems((prev) =>
-      prev.map((item, i) => {
-        if (i !== idx) return item;
-        return { ...item, iva: value, totalLine: item.quantity * item.costoUnitario * ivaMultiplier(value) };
-      })
-    );
+  function handleChangeLoteNumero(itemIdx: number, loteIdx: number, value: string) {
+    updateLote(itemIdx, loteIdx, { numeroLote: value });
   }
 
-  function handleItemLote(idx: number, value: string) {
-    setItems((prev) =>
-      prev.map((item, i) => (i !== idx ? item : { ...item, numeroLote: value }))
-    );
+  function handleChangeLoteCantidad(itemIdx: number, loteIdx: number, value: string) {
+    updateLote(itemIdx, loteIdx, { cantidad: Math.max(1, parseInt(value) || 1) });
   }
 
-  function handleItemCaducidad(idx: number, value: string) {
-    setItems((prev) =>
-      prev.map((item, i) => (i !== idx ? item : { ...item, fechaCaducidad: value }))
-    );
+  function handleChangeLoteCaducidad(itemIdx: number, loteIdx: number, value: string) {
+    updateLote(itemIdx, loteIdx, { fechaCaducidad: value || undefined });
   }
 
   function handleRemoveItem(idx: number) {
@@ -163,6 +165,20 @@ export function NewPurchaseDialog({
         uploadId = await postUpload(file);
       }
 
+      // Aplanar: un CompraItem por renglón de lote.
+      const compraItems: CompraItem[] = items.flatMap((item) =>
+        item.lotes.map((lote) => ({
+          product: item.product,
+          productName: item.productName,
+          quantity: lote.cantidad,
+          costoUnitario: item.costoUnitario,
+          iva: item.iva,
+          totalLine: lote.cantidad * item.costoUnitario * ivaMultiplier(item.iva),
+          ...(lote.numeroLote.trim() ? { numeroLote: lote.numeroLote.trim() } : {}),
+          ...(lote.fechaCaducidad ? { fechaCaducidad: lote.fechaCaducidad } : {}),
+        }))
+      );
+
       const compraDocId = await postCompra(
         {
           fecha: new Date().toISOString(),
@@ -171,33 +187,33 @@ export function NewPurchaseDialog({
           estado: "registrada",
           ...(notas.trim() ? { notas: notas.trim() } : {}),
           ...(proveedorDocId ? { proveedor: proveedorDocId } : {}),
-          items: items.map(({ productId: _pid, ...rest }) => rest),
+          items: compraItems,
         },
         uploadId
       );
 
       const updatedItems: { productId: number; quantity: number }[] = [];
       for (const item of items) {
-        if (!item.productId) continue;
         const product = products.find((p) => p.id === item.productId);
         if (!product) continue;
-        await patchProductStock(
-          product.documentId,
-          product.stock_central + item.quantity
-        );
+        const totalQty = itemQuantity(item);
+
+        await patchProductStock(product.documentId, product.stock_central + totalQty);
         if (item.costoUnitario > 0) {
           await patchProductMemberPrice(product.documentId, item.costoUnitario);
         }
-        if (item.numeroLote?.trim()) {
+        // Un inventory-lot por cada renglón que traiga número de lote.
+        for (const lote of item.lotes) {
+          if (!lote.numeroLote.trim()) continue;
           await postLote({
             product: product.documentId,
-            numeroLote: item.numeroLote.trim(),
-            fechaCaducidad: item.fechaCaducidad,
-            cantidadInicial: item.quantity,
+            numeroLote: lote.numeroLote.trim(),
+            fechaCaducidad: lote.fechaCaducidad,
+            cantidadInicial: lote.cantidad,
             compraDocId,
           });
         }
-        updatedItems.push({ productId: item.productId, quantity: item.quantity });
+        updatedItems.push({ productId: item.productId, quantity: totalQty });
       }
 
       onCompraComplete(updatedItems);
@@ -211,7 +227,10 @@ export function NewPurchaseDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="sm:max-w-xl" aria-describedby={undefined}>
+      <DialogContent
+        className="grid-cols-[minmax(0,1fr)] sm:max-w-xl"
+        aria-describedby={undefined}
+      >
         <DialogHeader>
           <DialogTitle>Nueva Compra</DialogTitle>
         </DialogHeader>
@@ -240,11 +259,13 @@ export function NewPurchaseDialog({
             products={products}
             items={items}
             onAddProduct={handleAddProduct}
-            onChangeQty={handleItemQty}
-            onChangeCosto={handleItemCosto}
-            onChangeLote={handleItemLote}
-            onChangeCaducidad={handleItemCaducidad}
-            onChangeIva={handleItemIva}
+            onChangeCosto={handleChangeCosto}
+            onChangeIva={handleChangeIva}
+            onAddLote={handleAddLote}
+            onRemoveLote={handleRemoveLote}
+            onChangeLoteNumero={handleChangeLoteNumero}
+            onChangeLoteCantidad={handleChangeLoteCantidad}
+            onChangeLoteCaducidad={handleChangeLoteCaducidad}
             onRemoveItem={handleRemoveItem}
             onNext={() => setStep("confirm")}
             onBack={() => setStep("proveedor")}

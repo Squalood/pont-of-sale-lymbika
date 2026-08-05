@@ -53,7 +53,7 @@ export function SupplierStep({
 
   return (
     <>
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         <div className="space-y-1.5">
           <Label>Proveedor</Label>
           {loadingProveedores ? (
@@ -98,7 +98,7 @@ export function SupplierStep({
           {file ? (
             <div className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
               <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className="flex-1 truncate">{file.name}</span>
+              <span className="min-w-0 flex-1 truncate">{file.name}</span>
               <button
                 type="button"
                 onClick={() => {

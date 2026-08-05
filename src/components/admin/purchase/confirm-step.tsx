@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { ProveedorType } from "@/types/proveedor";
-import { LocalItem } from "./types";
+import { LocalPurchaseItem } from "./types";
+import { itemQuantity, itemTotalLine } from "./helpers";
 
 interface ConfirmStepProps {
   selectedProveedor: ProveedorType | null;
   file: File | null;
   notas: string;
-  items: LocalItem[];
+  items: LocalPurchaseItem[];
   total: number;
   loading: boolean;
   error: string | null;
@@ -34,7 +35,7 @@ export function ConfirmStep({
 }: ConfirmStepProps) {
   return (
     <>
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
             <span className="text-muted-foreground">Proveedor</span>
@@ -54,19 +55,29 @@ export function ConfirmStep({
 
         <div className="divide-y rounded-lg border text-sm max-h-56 overflow-y-auto">
           {items.map((item, i) => (
-            <div key={i} className="flex items-center justify-between px-3 py-2 gap-2">
-              <span className="truncate flex-1 font-medium">{item.productName}</span>
-              <Badge variant="outline" className="text-xs shrink-0">x{item.quantity}</Badge>
-              {item.iva && item.iva !== "exento" && (
-                <Badge variant="secondary" className="text-xs shrink-0">
-                  IVA {item.iva === "iva8" ? "8%" : "16%"}
-                </Badge>
-              )}
-              {item.costoUnitario > 0 && (
-                <span className="text-xs text-muted-foreground shrink-0 w-20 text-right">
-                  ${fmt(item.totalLine)}
-                </span>
-              )}
+            <div key={i} className="px-3 py-2 space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate flex-1 font-medium">{item.productName}</span>
+                <Badge variant="outline" className="text-xs shrink-0">x{itemQuantity(item)}</Badge>
+                {item.iva && item.iva !== "exento" && (
+                  <Badge variant="secondary" className="text-xs shrink-0">
+                    IVA {item.iva === "iva8" ? "8%" : "16%"}
+                  </Badge>
+                )}
+                {item.costoUnitario > 0 && (
+                  <span className="text-xs text-muted-foreground shrink-0 w-20 text-right">
+                    ${fmt(itemTotalLine(item))}
+                  </span>
+                )}
+              </div>
+              <ul className="pl-3 text-xs text-muted-foreground space-y-0.5">
+                {item.lotes.map((lote, li) => (
+                  <li key={li}>
+                    {lote.numeroLote.trim() ? `Lote ${lote.numeroLote.trim()}` : "Sin lote"} · x{lote.cantidad}
+                    {lote.fechaCaducidad ? ` · Cad: ${lote.fechaCaducidad}` : ""}
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>
