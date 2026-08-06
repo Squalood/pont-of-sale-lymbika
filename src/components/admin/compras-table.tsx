@@ -19,8 +19,48 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Paperclip, Download, Plus } from "lucide-react";
-import { CompraType } from "@/types/compra";
+import { Paperclip, Download, Plus, Layers, CalendarClock } from "lucide-react";
+import { CompraType, CompraItemType } from "@/types/compra";
+
+// Agrupa las líneas de la compra (aplanadas, una por lote) de vuelta por producto.
+interface GroupedCompraItem {
+  key: string;
+  productName: string;
+  costoUnitario: number;
+  iva?: "iva8" | "iva16" | "exento";
+  totalQty: number;
+  totalLine: number;
+  lotes: { numeroLote?: string; fechaCaducidad?: string; quantity: number; totalLine: number }[];
+}
+
+function groupCompraItems(items: CompraItemType[]): GroupedCompraItem[] {
+  const map = new Map<string, GroupedCompraItem>();
+  for (const it of items) {
+    const key = it.product?.documentId ?? it.productName;
+    let g = map.get(key);
+    if (!g) {
+      g = {
+        key,
+        productName: it.productName,
+        costoUnitario: it.costoUnitario,
+        iva: it.iva,
+        totalQty: 0,
+        totalLine: 0,
+        lotes: [],
+      };
+      map.set(key, g);
+    }
+    g.totalQty += it.quantity;
+    g.totalLine += it.totalLine;
+    g.lotes.push({
+      numeroLote: it.numeroLote,
+      fechaCaducidad: it.fechaCaducidad,
+      quantity: it.quantity,
+      totalLine: it.totalLine,
+    });
+  }
+  return [...map.values()];
+}
 
 interface ComprasTableProps {
   compras: CompraType[];
@@ -98,7 +138,7 @@ export function ComprasTable({ compras, onNuevaCompra }: ComprasTableProps) {
             <TableRow>
               <TableHead>Fecha / Hora</TableHead>
               <TableHead>Proveedor</TableHead>
-              <TableHead className="text-center"># Items</TableHead>
+              <TableHead className="text-center">Productos</TableHead>
               <TableHead>Operador</TableHead>
               <TableHead className="text-center">Estado</TableHead>
               <TableHead className="text-center">Factura</TableHead>
@@ -132,7 +172,7 @@ export function ComprasTable({ compras, onNuevaCompra }: ComprasTableProps) {
                       {compra.proveedor?.name ?? <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-center text-muted-foreground">
-                      {compra.items?.length ?? 0}
+                      {new Set((compra.items ?? []).map((i) => i.product?.documentId ?? i.productName)).size}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {compra.operador ?? "—"}
@@ -206,8 +246,8 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
   const fmtIva = (iva?: "iva8" | "iva16" | "exento") =>
     iva === "iva8" ? "8%" : iva === "iva16" ? "16%" : "—";
   const items = compra.items ?? [];
+  const grouped = groupCompraItems(items);
   const showCosts = compra.total > 0;
-  const showLotes = items.some((i) => i.numeroLote);
   const showIva = items.some((i) => i.iva && i.iva !== "exento");
 
   return (
@@ -248,7 +288,7 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
             </div>
             <div>
               <p className="text-muted-foreground">Productos</p>
-              <p className="font-medium">{items.length} {items.length === 1 ? "ítem" : "ítems"}</p>
+              <p className="font-medium">{grouped.length} {grouped.length === 1 ? "producto" : "productos"}</p>
             </div>
             {showCosts && (
               <div>
@@ -284,55 +324,51 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
             )}
           </div>
 
-          {/* Items */}
+          {/* Items agrupados por producto, con sus lotes */}
           <div className="rounded-lg border overflow-hidden">
-            <div className="overflow-x-auto max-h-72 overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="min-w-40">Producto</TableHead>
-                    <TableHead className="text-center w-16">Cant</TableHead>
-                    {showCosts && <TableHead className="text-right w-28">Precio unit.</TableHead>}
-                    {showIva && <TableHead className="text-center w-16">IVA</TableHead>}
-                    {showCosts && <TableHead className="text-right w-24">Subtotal</TableHead>}
-                    {showLotes && <TableHead className="w-28">Lote</TableHead>}
-                    {showLotes && <TableHead className="w-28">Caduca</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-medium">{item.productName}</TableCell>
-                      <TableCell className="text-center">{item.quantity}</TableCell>
+            <div className="max-h-80 overflow-y-auto divide-y">
+              {grouped.map((g) => (
+                <div key={g.key} className="px-3 py-2.5 space-y-2">
+                  {/* Cabecera del producto */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate" title={g.productName}>{g.productName}</p>
                       {showCosts && (
-                        <TableCell className="text-right text-muted-foreground">
-                          ${fmt(item.costoUnitario)}
-                        </TableCell>
+                        <p className="text-xs text-muted-foreground">
+                          ${fmt(g.costoUnitario)} c/u{showIva && g.iva && g.iva !== "exento" ? ` · IVA ${fmtIva(g.iva)}` : ""}
+                        </p>
                       )}
-                      {showIva && (
-                        <TableCell className="text-center text-muted-foreground">
-                          {fmtIva(item.iva)}
-                        </TableCell>
-                      )}
-                      {showCosts && (
-                        <TableCell className="text-right font-medium">
-                          ${fmt(item.totalLine)}
-                        </TableCell>
-                      )}
-                      {showLotes && (
-                        <TableCell className="text-muted-foreground">
-                          {item.numeroLote ?? "—"}
-                        </TableCell>
-                      )}
-                      {showLotes && (
-                        <TableCell className="text-muted-foreground">
-                          {item.fechaCaducidad ? fmtDate(item.fechaCaducidad) : "—"}
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant="outline" className="text-xs">x{g.totalQty}</Badge>
+                      {showCosts && <span className="text-sm font-medium w-20 text-right">${fmt(g.totalLine)}</span>}
+                    </div>
+                  </div>
+
+                  {/* Lotes del producto */}
+                  <div className="rounded-md bg-muted/40 divide-y text-xs">
+                    {g.lotes.map((l, li) => (
+                      <div key={li} className="flex items-center justify-between gap-2 px-2 py-1.5">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <Layers className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">
+                            {l.numeroLote?.trim() ? `Lote ${l.numeroLote.trim()}` : "Sin lote"}
+                          </span>
+                          {l.fechaCaducidad && (
+                            <span className="flex items-center gap-1 text-muted-foreground shrink-0">
+                              <CalendarClock className="h-3 w-3" />
+                              {fmtDate(l.fechaCaducidad)}
+                            </span>
+                          )}
+                        </span>
+                        <span className="shrink-0 text-muted-foreground">
+                          x{l.quantity}{showCosts ? ` · $${fmt(l.totalLine)}` : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
             {showCosts && (
               <div className="flex justify-end border-t px-4 py-2 bg-muted/30">

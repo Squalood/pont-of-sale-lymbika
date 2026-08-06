@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -215,6 +216,16 @@ export function NewPurchaseDialog({
         }
         updatedItems.push({ productId: item.productId, quantity: totalQty });
       }
+
+      const totalUnidades = updatedItems.reduce((sum, i) => sum + i.quantity, 0);
+      const lotesCreados = items.reduce(
+        (sum, i) => sum + i.lotes.filter((l) => l.numeroLote.trim()).length,
+        0
+      );
+      toast.success("Compra registrada", {
+        description: `${updatedItems.length} producto(s) · ${totalUnidades} unidad(es)` +
+          (lotesCreados > 0 ? ` · ${lotesCreados} lote(s)` : ""),
+      });
 
       onCompraComplete(updatedItems);
       handleClose();
