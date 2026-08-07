@@ -53,6 +53,10 @@ export function ServiceCartItem({ item, priceMode, onRemoveItem, onUpdatePrice }
           onUpdatePrice={onUpdatePrice}
           variant="service"
         />
+        {/* Los servicios médicos son exentos por ley: etiqueta fija, no editable. */}
+        <span className="mt-1 inline-block rounded-md border border-dashed px-1.5 text-xs text-muted-foreground">
+          Exento
+        </span>
       </div>
     </div>
   );

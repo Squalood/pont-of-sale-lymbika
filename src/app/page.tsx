@@ -45,7 +45,7 @@ export default function Home() {
     carts, activeCartId, setActiveCartId,
     sidebarOpen, setSidebarOpen, sidebarWidth,
     addToCartOf, updateQuantityOf, removeItemOf,
-    updateItemPriceOf, clearCartOf, setPriceModeOf,
+    updateItemPriceOf, updateItemImpuestoOf, clearCartOf, setPriceModeOf,
     addCart, removeCart, handleSaleComplete,
   } = useMultiCart(setProducts);
 
@@ -185,6 +185,7 @@ export default function Home() {
                 onUpdateQuantity={(key, delta) => updateQuantityOf(cart.id, key, delta)}
                 onRemoveItem={(key) => removeItemOf(cart.id, key)}
                 onUpdatePrice={(key, price) => updateItemPriceOf(cart.id, key, price)}
+                onUpdateImpuesto={(key, impuesto) => updateItemImpuestoOf(cart.id, key, impuesto)}
                 onClear={() => clearCartOf(cart.id)}
                 onSetPriceMode={(mode) => setPriceModeOf(cart.id, mode)}
                 onSaleComplete={(items) => handleSaleComplete(cart.id, items)}

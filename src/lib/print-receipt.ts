@@ -1,4 +1,5 @@
-import { MANAGEMENT_FEE_RATE } from "@/lib/pricing";
+import { MANAGEMENT_FEE_RATE, impuestoLabel } from "@/lib/pricing";
+import type { IvaBreakdown } from "@/lib/tax";
 
 export interface ReceiptItem {
   productName: string;
@@ -31,8 +32,12 @@ interface ReceiptData {
   montoTransfe?: number;
   recibidoUSD?: number;
   tipoCambioUsado?: number;
-  ivaRate?: 0 | 8 | 16;
-  manualIva?: number;
+  /**
+   * Desglose por tasa, cerrado en centavos. Solo existe en la venta viva: el backend no
+   * guarda el impuesto por línea, así que al reimprimir desde el admin llega `undefined`
+   * y se imprime una sola fila con el `iva` agregado.
+   */
+  ivaBreakdown?: IvaBreakdown;
 }
 
 export function printReceipt(data: ReceiptData) {
@@ -55,6 +60,9 @@ export function printReceipt(data: ReceiptData) {
     pharmacyName,
   } = data;
   const effectiveTotal = total + cardSurcharge;
+  // El recargo se imprime como residuo entre los dos totales redondeados, para que la
+  // columna del ticket sume exacto sin importar cómo redondeen las filas de arriba.
+  const surchargeCents = Math.round(effectiveTotal * 100) - Math.round(total * 100);
   const now = data.fecha ? new Date(data.fecha) : new Date();
   const date = now.toLocaleDateString("es-MX", {
     year: "numeric",
@@ -232,18 +240,25 @@ export function printReceipt(data: ReceiptData) {
           <span>$${subtotal.toFixed(2)}</span>
         </div>
         ${(() => {
-          const manualIva = data.manualIva ?? 0;
-          const extractedIva = data.iva - manualIva;
-          const rows = [];
-          if (extractedIva > 0) rows.push(`<div class="row"><span>IVA incluído (8%)</span><span>$${extractedIva.toFixed(2)}</span></div>`);
-          if (manualIva > 0) rows.push(`<div class="row"><span>IVA (${data.ivaRate}%)</span><span>$${manualIva.toFixed(2)}</span></div>`);
+          const rows: string[] = [];
+          if (data.ivaBreakdown) {
+            // Venta viva: una fila por tasa presente, ya cerradas contra el total.
+            for (const row of data.ivaBreakdown.rows) {
+              rows.push(
+                `<div class="row"><span>${impuestoLabel(row.impuesto)} incluido</span><span>$${(row.amountCents / 100).toFixed(2)}</span></div>`
+              );
+            }
+          } else if (data.iva > 0) {
+            // Reimpresión: el impuesto por línea no se persiste, solo el agregado.
+            rows.push(`<div class="row"><span>IVA incluido</span><span>$${data.iva.toFixed(2)}</span></div>`);
+          }
           return rows.join("");
         })()}
         ${isMember ? `<div class="row member-note"><span>&#9733; Precio Health Pass</span></div>` : ""}
         ${managementFee > 0 ? `
         <div class="row member-note"><span>&#9670; Precio de proveedor</span></div>
         <div class="row"><span>Management fee (${MANAGEMENT_FEE_RATE * 100}%)</span><span>+$${managementFee.toFixed(2)}</span></div>` : ""}
-        ${cardSurcharge > 0 ? `<div class="row"><span>Cargo tarjeta (3%)</span><span>+$${cardSurcharge.toFixed(2)}</span></div>` : ""}
+        ${surchargeCents > 0 ? `<div class="row"><span>Cargo tarjeta (3%)</span><span>+$${(surchargeCents / 100).toFixed(2)}</span></div>` : ""}
         <div class="row total">
           <span>TOTAL</span>
           <span>$${effectiveTotal.toFixed(2)}</span>

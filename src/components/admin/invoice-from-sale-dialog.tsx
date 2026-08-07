@@ -147,6 +147,9 @@ export function InvoiceFromSaleDialog({ venta, open, onClose }: InvoiceFromSaleD
     }
   }, [venta]);
 
+  // TODO: sembrar `impuesto` desde el impuesto de la venta requiere ANTES cambiar esta
+  // matemática de agregar a extraer. `precioUnitario` viene del POS con el IVA ya incluido,
+  // así que sumarle la tasa encima produce una factura mayor a lo que pagó el cliente.
   const { subtotal, ivaAmount16, ivaAmount8, total } = useMemo(() => {
     const subtotal = lines.reduce((s, l) => s + l.cantidad * l.precioUnitario, 0);
     const ivaBase16 = lines.filter((l) => l.impuesto === "iva16").reduce((s, l) => s + l.cantidad * l.precioUnitario, 0);

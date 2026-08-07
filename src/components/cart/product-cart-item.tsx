@@ -6,7 +6,8 @@ import { Layers, ShieldCheck, Trash2 } from "lucide-react";
 import { PriceEditor } from "./price-editor";
 import { QuantityControls } from "./quantity-controls";
 import { SENTINEL_EXPIRATION } from "@/lib/lotes";
-import { isSpecialPrice, itemUnitPrice, type PriceMode } from "@/lib/pricing";
+import { isSpecialPrice, itemImpuesto, itemUnitPrice, type ImpuestoLinea, type PriceMode } from "@/lib/pricing";
+import { TaxChip } from "./tax-chip";
 
 interface ProductCartItemProps {
   item: Extract<CartItemType, { type: "product" }>;
@@ -14,9 +15,10 @@ interface ProductCartItemProps {
   onUpdateQuantity: (itemKey: string, delta: number) => void;
   onRemoveItem: (itemKey: string) => void;
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
+  onUpdateImpuesto: (itemKey: string, impuesto: ImpuestoLinea | undefined) => void;
 }
 
-export function ProductCartItem({ item, priceMode, onUpdateQuantity, onRemoveItem, onUpdatePrice }: ProductCartItemProps) {
+export function ProductCartItem({ item, priceMode, onUpdateQuantity, onRemoveItem, onUpdatePrice, onUpdateImpuesto }: ProductCartItemProps) {
   const key = cartItemKey(item);
   const { product, quantity } = item;
   const displayPrice = itemUnitPrice(item, priceMode);
@@ -90,6 +92,16 @@ export function ProductCartItem({ item, priceMode, onUpdateQuantity, onRemoveIte
         <span className={`text-sm font-semibold ${hasOverride ? "text-amber-600" : specialPrice ? "text-emerald-400" : ""}`}>
           ${(displayPrice * quantity).toFixed(2)}
         </span>
+      </div>
+
+      {/* Fila propia: la de arriba ya va apretada a 260px de panel. */}
+      <div className="mt-1 pl-12">
+        <TaxChip
+          impuesto={itemImpuesto(item)}
+          hasOverride={item.overrideImpuesto !== undefined}
+          itemKey={key}
+          onUpdateImpuesto={onUpdateImpuesto}
+        />
       </div>
     </div>
   );

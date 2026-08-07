@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Cart, CartItem, ProductType, cartItemKey } from "@/types/product";
-import type { PriceMode } from "@/lib/pricing";
+import type { ImpuestoLinea, PriceMode } from "@/lib/pricing";
 
 export const CART_VW = 25;
 export const MAX_CARTS = 4;
@@ -70,6 +70,24 @@ export function useMultiCart(
         cart.id !== cartId ? cart : {
           ...cart,
           items: cart.items.map((item) => cartItemKey(item) === itemKey ? { ...item, overridePrice: newPrice } : item),
+        }
+      )
+    );
+  }
+
+  // Corrige el impuesto de una línea solo para esta venta (hay productos con el campo sin
+  // actualizar). `undefined` restaura el del producto. Solo aplica a líneas de producto:
+  // los servicios son exentos y no se editan, por eso hay que estrechar el union.
+  function updateItemImpuestoOf(cartId: number, itemKey: string, impuesto: ImpuestoLinea | undefined) {
+    setCarts((prev) =>
+      prev.map((cart) =>
+        cart.id !== cartId ? cart : {
+          ...cart,
+          items: cart.items.map((item) =>
+            item.type === "product" && cartItemKey(item) === itemKey
+              ? { ...item, overrideImpuesto: impuesto }
+              : item
+          ),
         }
       )
     );
@@ -152,6 +170,7 @@ export function useMultiCart(
     updateQuantityOf,
     removeItemOf,
     updateItemPriceOf,
+    updateItemImpuestoOf,
     clearCartOf,
     setPriceModeOf,
     addCart,

@@ -1,5 +1,5 @@
 import { ServiceRateType } from "@/types/service";
-import type { PriceMode } from "@/lib/pricing";
+import type { ImpuestoLinea, PriceMode } from "@/lib/pricing";
 
 export interface Product {
   id: string;
@@ -19,7 +19,16 @@ export type SelectedLot = {
 
 export type CartItem =
   // selectedLot es opcional: un producto aún sin lotes capturados se vende solo por stock_central.
-  | { type: "product"; product: ProductType; quantity: number; overridePrice?: number; selectedLot?: SelectedLot }
+  // overrideImpuesto corrige el impuesto solo para esta venta; no existe en la rama service
+  // porque los servicios son exentos y no se editan.
+  | {
+      type: "product";
+      product: ProductType;
+      quantity: number;
+      overridePrice?: number;
+      overrideImpuesto?: ImpuestoLinea;
+      selectedLot?: SelectedLot;
+    }
   | { type: "service"; serviceRate: ServiceRateType; quantity: number; overridePrice?: number };
 
 export function cartItemKey(item: CartItem): string {
@@ -48,6 +57,9 @@ export type ProductType = {
   active: boolean;
   price: number | null;
   priceMember: number | null;
+  /** Enum de Strapi ["iva0","iva8","iva16"]. Sin tipar a propósito: dato crudo de la API
+   *  que se valida en `itemImpuesto`. Nulo en productos previos al campo. */
+  impuesto?: string | null;
   tipo: string;
   images: {
     id: number;

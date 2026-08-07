@@ -3,7 +3,7 @@
 import { CartItem as CartItemType } from "@/types/product";
 import { ServiceCartItem } from "@/components/cart/service-cart-item";
 import { ProductCartItem } from "@/components/cart/product-cart-item";
-import type { PriceMode } from "@/lib/pricing";
+import type { ImpuestoLinea, PriceMode } from "@/lib/pricing";
 
 interface CartItemProps {
   item: CartItemType;
@@ -11,9 +11,10 @@ interface CartItemProps {
   onUpdateQuantity: (itemKey: string, delta: number) => void;
   onRemoveItem: (itemKey: string) => void;
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
+  onUpdateImpuesto: (itemKey: string, impuesto: ImpuestoLinea | undefined) => void;
 }
 
-export function CartItem({ item, priceMode, onUpdateQuantity, onRemoveItem, onUpdatePrice }: CartItemProps) {
+export function CartItem({ item, priceMode, onUpdateQuantity, onRemoveItem, onUpdatePrice, onUpdateImpuesto }: CartItemProps) {
   if (item.type === "service") {
     return (
       <ServiceCartItem
@@ -33,6 +34,7 @@ export function CartItem({ item, priceMode, onUpdateQuantity, onRemoveItem, onUp
       onUpdateQuantity={onUpdateQuantity}
       onRemoveItem={onRemoveItem}
       onUpdatePrice={onUpdatePrice}
+      onUpdateImpuesto={onUpdateImpuesto}
     />
   );
 }

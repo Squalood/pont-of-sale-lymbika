@@ -8,13 +8,13 @@ import { CartTotals } from "@/components/cart-totals";
 import { CheckoutDialog } from "@/components/checkout-dialog";
 import { SaleCompleteDialog } from "@/components/sale-complete-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ShoppingCart, BadgePercent, ScanBarcode, Receipt, Building2 } from "lucide-react";
+import { ShoppingCart, BadgePercent, ScanBarcode, Building2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useCaja } from "@/lib/caja-context";
 import { useCartTotals } from "@/hooks/useCartTotals";
 import { useCheckout } from "@/hooks/useCheckout";
-import { MANAGEMENT_FEE_RATE, type PriceMode } from "@/lib/pricing";
+import { MANAGEMENT_FEE_RATE, type ImpuestoLinea, type PriceMode } from "@/lib/pricing";
 import type { MetodoPago } from "@/types/venta";
 
 interface CartPanelProps {
@@ -24,6 +24,7 @@ interface CartPanelProps {
   onUpdateQuantity: (itemKey: string, delta: number) => void;
   onRemoveItem: (itemKey: string) => void;
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
+  onUpdateImpuesto: (itemKey: string, impuesto: ImpuestoLinea | undefined) => void;
   onClear: () => void;
   onSaleComplete: (items: CartItemType[]) => void;
   priceMode: PriceMode;
@@ -42,6 +43,7 @@ export function CartPanel({
   onUpdateQuantity,
   onRemoveItem,
   onUpdatePrice,
+  onUpdateImpuesto,
   onClear,
   onSaleComplete,
   priceMode,
@@ -58,10 +60,9 @@ export function CartPanel({
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [saleResult, setSaleResult] = useState<{ paymentMethod: MetodoPago; change: number; cardCharge: number } | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
-  const [ivaRate, setIvaRate] = useState<0 | 8 | 16>(0);
 
-  const { total, subtotal, iva, ahorro, getPrice, manualIva, managementFee, feeBase } =
-    useCartTotals(items, priceMode, ivaRate);
+  const { total, subtotal, iva, ahorro, getPrice, ivaBreakdown, managementFee, feeBase } =
+    useCartTotals(items, priceMode);
 
   const { handleConfirm } = useCheckout({
     items,
@@ -69,8 +70,7 @@ export function CartPanel({
     iva,
     total,
     priceMode,
-    ivaRate,
-    manualIva,
+    ivaBreakdown,
     managementFee,
     feeBase,
     getPrice,
@@ -139,6 +139,7 @@ export function CartPanel({
                   onUpdateQuantity={onUpdateQuantity}
                   onRemoveItem={onRemoveItem}
                   onUpdatePrice={onUpdatePrice}
+                  onUpdateImpuesto={onUpdateImpuesto}
                 />
               ))}
             </div>
@@ -171,38 +172,12 @@ export function CartPanel({
             />
           </div>
 
-          <div className="flex items-center justify-between border-t px-4 py-3" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-2">
-              <Receipt className="h-4 w-4 text-blue-500" />
-              <span className="text-sm font-medium">IVA</span>
-            </div>
-            <div className="flex overflow-hidden rounded-md border text-xs">
-              {([0, 8, 16] as const).map((rate) => (
-                <button
-                  key={rate}
-                  onClick={() => setIvaRate(rate)}
-                  className={cn(
-                    "px-2.5 py-1 font-medium transition-colors",
-                    ivaRate === rate
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  {rate === 0 ? "Sin IVA adicional" : `${rate}%`}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <CartTotals
             subtotal={subtotal}
-            iva={iva}
             total={total}
             ahorro={ahorro}
             priceMode={priceMode}
-            ivaRate={ivaRate}
-            manualIva={manualIva}
-            managementFee={managementFee}
+            ivaBreakdown={ivaBreakdown}
             tipoCambio={tipoCambio}
             onCheckout={() => setCheckoutOpen(true)}
           />
@@ -214,7 +189,7 @@ export function CartPanel({
         paymentMethod={saleResult?.paymentMethod ?? "efectivo"}
         change={saleResult?.change ?? 0}
         cardCharge={saleResult?.cardCharge ?? 0}
-        onClose={() => { setSaleResult(null); onSetPriceMode("regular"); setIvaRate(0); onClear(); }}
+        onClose={() => { setSaleResult(null); onSetPriceMode("regular"); onClear(); }}
       />
 
       <CheckoutDialog

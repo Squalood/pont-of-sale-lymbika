@@ -1,22 +1,22 @@
+import { Fragment } from "react";
 import { BadgePercent, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MANAGEMENT_FEE_RATE, type PriceMode } from "@/lib/pricing";
+import { MANAGEMENT_FEE_RATE, impuestoLabel, type PriceMode } from "@/lib/pricing";
+import type { IvaBreakdown } from "@/lib/tax";
 
 interface CartTotalsProps {
   subtotal: number;
-  iva: number;
   total: number;
   ahorro: number;
   priceMode: PriceMode;
-  ivaRate: 0 | 8 | 16;
-  manualIva: number;
-  managementFee: number;
+  /** Desglose cerrado en centavos: las filas suman exacto el total. */
+  ivaBreakdown: IvaBreakdown;
   tipoCambio: number;
   onCheckout: () => void;
 }
 
-export function CartTotals({ subtotal, iva, total, ahorro, priceMode, ivaRate, manualIva, managementFee, tipoCambio, onCheckout }: CartTotalsProps) {
-  const extractedIva = iva - manualIva;
+export function CartTotals({ subtotal, total, ahorro, priceMode, ivaBreakdown, tipoCambio, onCheckout }: CartTotalsProps) {
+  const managementFee = ivaBreakdown.feeCents / 100;
 
   return (
     <div className="border-t px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -29,21 +29,16 @@ export function CartTotals({ subtotal, iva, total, ahorro, priceMode, ivaRate, m
         <span className="text-right tabular-nums">${subtotal.toFixed(2)}</span>
         <span className="text-right tabular-nums text-green-600">${(subtotal / tipoCambio).toFixed(2)}</span>
 
-        {extractedIva > 0 && (
-          <>
-            <span className="text-muted-foreground">IVA (8%)</span>
-            <span className="text-right tabular-nums">${extractedIva.toFixed(2)}</span>
-            <span className="text-right tabular-nums text-green-600">${(extractedIva / tipoCambio).toFixed(2)}</span>
-          </>
-        )}
-
-        {manualIva > 0 && (
-          <>
-            <span className="text-muted-foreground">IVA ({ivaRate}%)</span>
-            <span className="text-right tabular-nums">${manualIva.toFixed(2)}</span>
-            <span className="text-right tabular-nums text-green-600">${(manualIva / tipoCambio).toFixed(2)}</span>
-          </>
-        )}
+        {ivaBreakdown.rows.map((row) => {
+          const amount = row.amountCents / 100;
+          return (
+            <Fragment key={row.impuesto}>
+              <span className="text-muted-foreground">{impuestoLabel(row.impuesto)} incl.</span>
+              <span className="text-right tabular-nums">${amount.toFixed(2)}</span>
+              <span className="text-right tabular-nums text-green-600">${(amount / tipoCambio).toFixed(2)}</span>
+            </Fragment>
+          );
+        })}
 
         {managementFee > 0 && (
           <>

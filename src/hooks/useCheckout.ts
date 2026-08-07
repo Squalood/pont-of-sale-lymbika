@@ -6,6 +6,7 @@ import { patchLote } from "@/api/patchLote";
 import { printReceipt } from "@/lib/print-receipt";
 import { CARD_SURCHARGE_RATE } from "@/lib/checkout-math";
 import type { PriceMode } from "@/lib/pricing";
+import type { IvaBreakdown } from "@/lib/tax";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
 import type { MetodoPago } from "@/types/venta";
@@ -16,8 +17,7 @@ interface UseCheckoutParams {
   iva: number;
   total: number;
   priceMode: PriceMode;
-  ivaRate: 0 | 8 | 16;
-  manualIva: number;
+  ivaBreakdown: IvaBreakdown;
   managementFee: number;
   feeBase: number;
   getPrice: (item: CartItem) => number;
@@ -32,8 +32,7 @@ export function useCheckout({
   iva,
   total,
   priceMode,
-  ivaRate,
-  manualIva,
+  ivaBreakdown,
   managementFee,
   feeBase,
   getPrice,
@@ -61,6 +60,15 @@ export function useCheckout({
     const change = noChangeMethod ? 0 : received - cashNeeded;
     const operador = getUser()?.username ?? "desconocido";
 
+    // Importes que se persisten, cerrados en centavos. `subtotal` e `iva` ya vienen
+    // cerrados de useCartTotals; el fee sale del mismo desglose y el recargo se guarda
+    // como residuo, para que el registro cumpla exacto
+    // total = subtotal + iva + managementFee + recargoTarjeta.
+    const money = (n: number) => Math.round(n * 100) / 100;
+    const feeAmount = ivaBreakdown.feeCents / 100;
+    const totalCobrado = money(effectiveTotal);
+    const recargoPersistido = money(totalCobrado - subtotal - iva - feeAmount);
+
     const productLines = items.filter(
       (i): i is Extract<CartItem, { type: "product" }> => i.type === "product"
     );
@@ -72,11 +80,11 @@ export function useCheckout({
         fecha: new Date().toISOString(),
         subtotal,
         iva,
-        total: effectiveTotal,
+        total: totalCobrado,
         metodoPago: method,
-        montoTarjeta: cardBase,
-        montoTransferencia: montoTransfe,
-        recargoTarjeta: cardSurcharge,
+        montoTarjeta: money(cardBase),
+        montoTransferencia: money(montoTransfe),
+        recargoTarjeta: recargoPersistido,
         recibido: received,
         cambio: change > 0 ? change : 0,
         recibidoUSD: recibidoUSD ?? 0,
@@ -86,7 +94,7 @@ export function useCheckout({
         nota: nota || undefined,
         esMembresia: isMember,
         esProveedor: priceMode === "proveedor",
-        managementFee,
+        managementFee: feeAmount,
         pharmacies: caja?.pharmacy?.documentId,
         venta: items.map((item) => {
           if (item.type === "product") {
@@ -176,13 +184,12 @@ export function useCheckout({
       subtotal,
       iva,
       total,
-      ivaRate,
-      manualIva,
+      ivaBreakdown,
       paymentMethod: method,
       received,
       change: change > 0 ? change : 0,
       isMember,
-      managementFee,
+      managementFee: feeAmount,
       feeBase,
       cardSurcharge,
       montoTarjeta: cardBase,

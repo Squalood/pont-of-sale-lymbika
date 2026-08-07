@@ -42,8 +42,10 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
   if (!venta) return null;
 
   const fecha = new Date(venta.fecha);
-  const subtotal = venta.subtotal ?? venta.total / 1.08;
-  const iva = venta.iva ?? venta.total - subtotal;
+  // Sin fallback inventado: `venta.total / 1.08` asumía que toda venta vieja fue 8%
+  // gravada, lo cual nunca fue cierto y con tasas mixtas es peor.
+  const subtotal = venta.subtotal ?? venta.total;
+  const iva = venta.iva ?? 0;
 
   // El recargo se lee del guardado (tasa vigente el día de la venta), no se re-deriva.
   const cardSurcharge = ventaCardSurcharge(venta);
@@ -227,7 +229,8 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
               </div>
               {iva > 0 && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>IVA (8%)</span>
+                  {/* Agregado, sin tasa: el impuesto por línea no se persiste. */}
+                  <span>IVA incluido</span>
                   <span>${iva.toFixed(2)}</span>
                 </div>
               )}
