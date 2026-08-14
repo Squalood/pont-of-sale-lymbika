@@ -25,7 +25,8 @@ export function itemNetPrice(item: CartItem, mode: PriceMode): number {
     // Un precio tecleado a mano es lo que paga el cliente, así que de ahí se extrae.
     return item.overridePrice / (1 + taxRate(itemImpuesto(item)));
   }
-  if (item.type === "service") return item.serviceRate.price;
+  // La tarifa del servicio también trae su impuesto dentro.
+  if (item.type === "service") return item.serviceRate.price / (1 + taxRate(SERVICE_IMPUESTO));
   const listado = productUnitPrice(item.product, mode);
   return listado / (1 + taxRate(productImpuesto(item.product)));
 }
@@ -66,8 +67,19 @@ const IMPUESTO_VALUES = ["iva0", "iva8", "iva16", "exento"] as const;
 
 export type ImpuestoLinea = (typeof IMPUESTO_VALUES)[number];
 
-/** Códigos que el cajero puede elegir por línea de producto. */
+/**
+ * Códigos válidos para un producto, y las opciones que se pueden elegir en la UI. `exento`
+ * queda fuera a propósito: es solo para servicios, y el enum de Strapi no lo acepta.
+ */
 export const IMPUESTO_OPTIONS = ["iva0", "iva8", "iva16"] as const satisfies readonly ImpuestoLinea[];
+
+export type ImpuestoProducto = (typeof IMPUESTO_OPTIONS)[number];
+
+/**
+ * Impuesto de los servicios médicos. Fijo y no editable: el backend no lo manda y el precio
+ * de la tarifa ya lo trae dentro, así que solo se desglosa para mostrarlo.
+ */
+export const SERVICE_IMPUESTO: ImpuestoLinea = "iva8";
 
 const IVA_RATES: Record<ImpuestoLinea, number> = {
   iva0: 0,
@@ -76,12 +88,12 @@ const IVA_RATES: Record<ImpuestoLinea, number> = {
   exento: 0,
 };
 
-// TODO: quitar tras el backfill de `impuesto` en Strapi. Los productos creados antes del
-// campo llegan con `impuesto: null`, y sin este fallback perderían su 8% en silencio.
-const LEGACY_IVA8_SLUGS = ["cuidado-belleza", "suplementos"];
-
 function isImpuestoLinea(value: unknown): value is ImpuestoLinea {
   return typeof value === "string" && (IMPUESTO_VALUES as readonly string[]).includes(value);
+}
+
+function isImpuestoProducto(value: unknown): value is ImpuestoProducto {
+  return typeof value === "string" && (IMPUESTO_OPTIONS as readonly string[]).includes(value);
 }
 
 /**
@@ -107,17 +119,19 @@ export function impuestoLabel(impuesto: ImpuestoLinea): string {
 }
 
 /**
- * Impuesto que el precio de lista del producto trae dentro. Es el divisor con el que se
- * despeja la base, así que nunca considera la corrección del cajero.
+ * Impuesto que el precio de lista del producto trae dentro, según el backend. Es el divisor
+ * con el que se despeja la base, así que nunca considera la corrección del cajero.
+ *
+ * El backend es la única autoridad: no hay inferencia por categoría. Un producto sin
+ * `impuesto` capturado se cobra sin IVA, y se corrige en Strapi (o con el chip, para esa
+ * venta).
  */
-export function productImpuesto(product: ProductType): ImpuestoLinea {
-  if (isImpuestoLinea(product.impuesto)) return product.impuesto;
-  return LEGACY_IVA8_SLUGS.includes(product.category?.slug ?? "") ? "iva8" : "iva0";
+export function productImpuesto(product: ProductType): ImpuestoProducto {
+  return isImpuestoProducto(product.impuesto) ? product.impuesto : "iva0";
 }
 
 /** Impuesto que se cobra en la línea: corrección del cajero > el del producto. */
 export function itemImpuesto(item: CartItem): ImpuestoLinea {
-  // Los servicios médicos son exentos por ley y no tienen el campo en Strapi.
-  if (item.type === "service") return "exento";
+  if (item.type === "service") return SERVICE_IMPUESTO;
   return item.overrideImpuesto ?? productImpuesto(item.product);
 }

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { ProductType } from "@/types/product";
 import { patchProduct } from "@/api/patchProduct";
+import { IMPUESTO_OPTIONS, impuestoLabel, productImpuesto, type ImpuestoProducto } from "@/lib/pricing";
 import {
   Table,
   TableBody,
@@ -57,6 +58,7 @@ type RowDraft = {
   price: string;
   priceMember: string;
   stock_central: string;
+  impuesto: ImpuestoProducto;
   active: boolean;
 };
 
@@ -121,6 +123,8 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
       price: product.price != null ? String(product.price) : "",
       priceMember: product.priceMember != null ? String(product.priceMember) : "",
       stock_central: product.stock_central != null ? String(product.stock_central) : "",
+      // Un producto sin el campo capturado arranca en iva0, igual que lo interpreta el POS.
+      impuesto: productImpuesto(product),
       active: product.active,
     });
     setRowError(null);
@@ -137,7 +141,13 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
     setRowSaving(true);
     setRowError(null);
 
-    const fields: { price?: number; priceMember?: number; stock_central?: number; active?: boolean } = {};
+    const fields: {
+      price?: number;
+      priceMember?: number;
+      stock_central?: number;
+      impuesto?: ImpuestoProducto;
+      active?: boolean;
+    } = {};
     const newPrice = parseFloat(draft.price);
     const newPriceMember = parseFloat(draft.priceMember);
     const newStock = parseFloat(draft.stock_central);
@@ -145,6 +155,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
     if (!isNaN(newPrice)) fields.price = newPrice;
     if (!isNaN(newPriceMember)) fields.priceMember = newPriceMember;
     if (!isNaN(newStock)) fields.stock_central = newStock;
+    fields.impuesto = draft.impuesto;
     fields.active = draft.active;
 
     try {
@@ -254,6 +265,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               <TableHead className="text-right">Precio</TableHead>
               <TableHead className="text-right">Health Pass</TableHead>
               <TableHead className="text-right">Stock</TableHead>
+              <TableHead className="text-center">IVA</TableHead>
               <TableHead className="text-center">Activo</TableHead>
               <TableHead className="w-16"></TableHead>
             </TableRow>
@@ -261,7 +273,7 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
           <TableBody>
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
+                <TableCell colSpan={10} className="text-center text-muted-foreground py-10">
                   Sin resultados
                 </TableCell>
               </TableRow>
@@ -359,6 +371,38 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
                       <span className="text-sm">
                         {product.stock_central != null ? product.stock_central.toLocaleString("es-AR") : "—"}
                       </span>
+                    )}
+                  </TableCell>
+
+                  {/* IVA incluido en el precio */}
+                  <TableCell className="text-center">
+                    {isEditing && draft ? (
+                      <Select
+                        value={draft.impuesto}
+                        onValueChange={(v) =>
+                          setDraft((d) => d ? { ...d, impuesto: v as ImpuestoProducto } : d)
+                        }
+                      >
+                        <SelectTrigger size="sm" className="mx-auto h-7 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {IMPUESTO_OPTIONS.map((opt) => (
+                            <SelectItem key={opt} value={opt} className="text-xs">
+                              {impuestoLabel(opt)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : product.impuesto == null ? (
+                      // Sin capturar: el POS lo cobra sin IVA, así que conviene que resalte.
+                      <Badge variant="outline" className="border-amber-300 text-amber-600 font-normal">
+                        Sin capturar
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="font-normal">
+                        {impuestoLabel(productImpuesto(product))}
+                      </Badge>
                     )}
                   </TableCell>
 

@@ -4,7 +4,13 @@ import { CartItem as CartItemType, cartItemKey } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import { Stethoscope, Trash2 } from "lucide-react";
 import { PriceEditor } from "./price-editor";
-import { isSpecialPrice, itemUnitPrice, type PriceMode } from "@/lib/pricing";
+import {
+  SERVICE_IMPUESTO,
+  impuestoLabel,
+  isSpecialPrice,
+  itemUnitPrice,
+  type PriceMode,
+} from "@/lib/pricing";
 
 interface ServiceCartItemProps {
   item: Extract<CartItemType, { type: "service" }>;
@@ -53,9 +59,9 @@ export function ServiceCartItem({ item, priceMode, onRemoveItem, onUpdatePrice }
           onUpdatePrice={onUpdatePrice}
           variant="service"
         />
-        {/* Los servicios médicos son exentos por ley: etiqueta fija, no editable. */}
+        {/* Fijo y no editable: el precio de la tarifa ya trae el impuesto dentro. */}
         <span className="mt-1 inline-block rounded-md border border-dashed px-1.5 text-xs text-muted-foreground">
-          Exento
+          {impuestoLabel(SERVICE_IMPUESTO)}
         </span>
       </div>
     </div>

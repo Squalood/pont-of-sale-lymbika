@@ -2,7 +2,7 @@ import { authFetch } from "@/lib/auth";
 import { ProductType } from "@/types/product";
 
 type PatchableProductFields = Partial<
-  Pick<ProductType, "price" | "priceMember" | "stock_central" | "active">
+  Pick<ProductType, "price" | "priceMember" | "stock_central" | "active" | "impuesto">
 >;
 
 export async function patchProduct(
