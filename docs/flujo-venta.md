@@ -44,16 +44,76 @@ mutar el stock localmente al vender.
 - Cada carrito tiene una **tarifa** (`priceMode`): `regular`, `member` (Health Pass) o
   `proveedor` ([pricing.ts](../src/lib/pricing.ts)). Es un solo valor, así que los dos
   switches del panel no pueden quedar encendidos a la vez.
-- El precio por línea sale de [`itemUnitPrice`](../src/lib/pricing.ts):
+- El precio de lista de la línea sale de esta prelación:
   1. `overridePrice` si el cajero editó el precio manualmente, si no
   2. `priceMember` si la tarifa es `member` o `proveedor`, si no
   3. `price` regular.
+
+  Sobre ese precio de lista actúa después el impuesto de la línea (ver 3.1).
 - La tarifa `proveedor` agrega automáticamente un **management fee del 10%** sobre la
   mercancía ([useCartTotals.ts](../src/hooks/useCartTotals.ts)). No hay switch aparte para
-  el fee: es consecuencia de la tarifa. El fee queda fuera de la base del IVA manual.
+  el fee: es consecuencia de la tarifa. Se cobra sin IVA trasladado (entra al desglose a
+  tasa 0), que es decisión contable a revisar si algún día la factura se siembra desde el
+  impuesto de línea.
 
 > Nota: en este punto **no** se valida que haya stock suficiente. Se puede agregar más
 > cantidad de la que existe en `stock_central`.
+
+---
+
+## 3.1. IVA por línea
+
+El precio de lista trae su impuesto dentro. **La base sin impuesto es el invariante**: se
+despeja una vez con el impuesto que el producto tiene marcado, y la tasa efectiva decide
+qué se cobra encima de esa base.
+
+```
+base  = precioLista / (1 + tasa(product.impuesto))
+cobra = base × (1 + tasa(tasa efectiva de la línea))
+```
+
+Un producto de $100 marcado `iva8` tiene base 92.59, así que:
+
+| Corregido a | Cobra |
+|---|---|
+| `iva0` | 92.59 |
+| `iva8` (sin tocar) | 100.00 |
+| `iva16` | 107.41 |
+
+Sin correcciones el cobro es **el precio de lista tal cual** — [`itemUnitPrice`](../src/lib/pricing.ts)
+corta el cálculo en ese caso para que sea bit-exacto y no aparezca deriva de
+`precio / 1.08 × 1.08`.
+
+- La tasa efectiva sale de [`itemImpuesto`](../src/lib/pricing.ts): corrección del cajero,
+  si no la del producto ([`productImpuesto`](../src/lib/pricing.ts)).
+- `productImpuesto` es el divisor con el que se despeja la base, así que **nunca** mira la
+  corrección. Lee `product.impuesto` y nada más: **el backend es la única autoridad**, no
+  hay inferencia por categoría. Un producto sin el campo capturado se cobra sin IVA; se
+  corrige en Strapi, o con el chip si es solo para esa venta.
+- Un precio editado a mano gana sobre todo: es lo que paga el cliente, y de ahí se extrae
+  la base con la tasa efectiva.
+- Los **servicios médicos** son siempre **8%**, fijo y no editable
+  ([`SERVICE_IMPUESTO`](../src/lib/pricing.ts)). El backend no manda impuesto para las
+  tarifas y su precio ya lo trae dentro, así que el 8% solo se desglosa para mostrarlo: el
+  total no se mueve, únicamente aparece la base y el importe del impuesto.
+- El cajero corrige la tasa desde el chip de cada línea
+  ([tax-chip.tsx](../src/components/cart/tax-chip.tsx)). El override vive **solo durante
+  la venta**: no se persiste por línea, solo el agregado `venta.iva`. Por eso el ticket
+  de la venta viva imprime una fila por tasa, y una reimpresión desde el admin imprime
+  una sola fila `IVA incluido` con el agregado.
+
+### Regla de redondeo
+
+[`computeIvaBreakdown`](../src/lib/tax.ts) devuelve los importes **cerrados en centavos**:
+`subtotal + Σ filas de IVA + fee === total`, exacto. Es necesario porque con dos tasas en
+el mismo carrito, redondear cada fila por separado descuadra el ticket — con 149.00 al 8%
+y 99.00 al 16% las filas independientes suman 248.01 contra un total de 248.00. El residuo
+se absorbe en la fila de impuesto más grande. Carrito, ticket y detalle de venta renderizan
+del mismo conjunto cerrado, así no pueden contradecirse entre sí.
+
+> El selector general de IVA 0/8/16 del carrito **se eliminó**. El impuesto es por
+> artículo, no por carrito. Además calculaba `manualIva` sobre una base que ya incluía
+> IVA, así que un suplemento en un carrito con el selector en 16% pagaba IVA dos veces.
 
 ---
 
