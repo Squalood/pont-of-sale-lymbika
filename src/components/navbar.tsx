@@ -101,7 +101,7 @@ export function Navbar() {
             </Button>
           )}
           {!isForbidden && (
-            <Link href="/admin">
+            <Link href="/admin/dashboard">
               <Button
                 variant="ghost"
                 size="sm"

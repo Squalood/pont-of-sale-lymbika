@@ -6,7 +6,7 @@ import { LayoutDashboard, Receipt, Package, ArrowLeft, LogOut, Settings, RotateC
 import { clearAuth } from "@/lib/auth";
 
 const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/ventas", label: "Historial de Ventas", icon: Receipt },
   { href: "/admin/devoluciones", label: "Devoluciones", icon: RotateCcw },
   { href: "/admin/cajas", label: "Historial de Cajas", icon: Vault },
