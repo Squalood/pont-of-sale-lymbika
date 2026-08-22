@@ -14,12 +14,11 @@ import { CompraItem } from "@/types/compra";
 import { useGetProveedores } from "@/api/getProveedores";
 import { postUpload } from "@/api/postUpload";
 import { postCompra } from "@/api/postCompra";
-import { patchProductStock } from "@/api/patchProductStock";
-import { patchProductMemberPrice } from "@/api/patchProductMemberPrice";
+import { patchProduct } from "@/api/patchProduct";
 import { postLote } from "@/api/postLote";
 import { getUser } from "@/lib/auth";
 import { LocalPurchaseItem } from "./purchase/types";
-import { itemQuantity, ivaMultiplier, comprasTotal } from "./purchase/helpers";
+import { itemQuantity, ivaMultiplier, comprasTotal, ivaToImpuestoProducto } from "./purchase/helpers";
 import { SupplierStep } from "./purchase/supplier-step";
 import { ItemsStep } from "./purchase/items-step";
 import { ConfirmStep } from "./purchase/confirm-step";
@@ -199,10 +198,13 @@ export function NewPurchaseDialog({
         if (!product) continue;
         const totalQty = itemQuantity(item);
 
-        await patchProductStock(product.documentId, product.stock_central + totalQty);
-        if (item.costoUnitario > 0) {
-          await patchProductMemberPrice(product.documentId, item.costoUnitario);
-        }
+        // Un solo PUT por producto: stock, costo y tasa de IVA quedan en la misma escritura.
+        // El costo solo se manda si se capturó; la tasa siempre, y sobrescribe la que hubiera.
+        await patchProduct(product.documentId, {
+          stock_central: product.stock_central + totalQty,
+          ...(item.costoUnitario > 0 ? { priceMember: item.costoUnitario } : {}),
+          impuesto: ivaToImpuestoProducto(item.iva),
+        });
         // Un inventory-lot por cada renglón que traiga número de lote.
         for (const lote of item.lotes) {
           if (!lote.numeroLote.trim()) continue;

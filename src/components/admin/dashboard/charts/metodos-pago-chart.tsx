@@ -61,7 +61,7 @@ export function MetodosPagoChart({ pagos, className }: MetodosPagoChartProps) {
           <SinDatos height={200} />
         ) : (
           <>
-            <ChartContainer config={pagosConfig} className="aspect-auto h-[56px] w-full">
+            <ChartContainer config={pagosConfig} className="aspect-auto h-14 w-full">
               <BarChart
                 layout="vertical"
                 data={chartData}
