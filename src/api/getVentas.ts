@@ -5,7 +5,22 @@ import { VentaType } from "@/types/venta";
 import { authFetch } from "@/lib/auth";
 
 export function useGetVentas() {
-  const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ventas-pos?populate=*&sort=fecha:desc&pagination[pageSize]=5000`;
+  // populate=* NO puebla relaciones dentro de componentes: hay que pedir explícitamente
+  // el `product`/`service_rate` de cada línea `venta` para que la devolución sepa a qué
+  // producto devolver el stock. Los campos escalares del componente (incl. lotDocumentId)
+  // siguen viniendo automáticamente.
+  const params = [
+    "populate[venta][populate][product][fields][0]=id",
+    "populate[venta][populate][product][fields][1]=documentId",
+    "populate[venta][populate][product][fields][2]=productName",
+    "populate[venta][populate][service_rate][fields][0]=id",
+    "populate[venta][populate][service_rate][fields][1]=documentId",
+    "populate[pharmacies][fields][0]=documentId",
+    "populate[pharmacies][fields][1]=nombre",
+    "sort=fecha:desc",
+    "pagination[pageSize]=5000",
+  ].join("&");
+  const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ventas-pos?${params}`;
   const [result, setResult] = useState<VentaType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

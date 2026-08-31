@@ -143,14 +143,27 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
         await patchVentaEstado(venta.documentId, "cancelada");
       }
 
-      // 3. Update stock locally and in Strapi for each returned item
-      const returnedItems: { productId: number; quantity: number }[] = [];
+      // 3. Restaurar stock_central en Strapi, AGREGADO por producto: un producto puede venir
+      //    en varias líneas (varios lotes), así que se suma una sola vez sobre el stock base
+      //    para no sobrescribir el patch anterior (mismo patrón [A3] de la venta).
+      const perProduct = new Map<number, { documentId: string; baseStock: number; qty: number }>();
       for (const row of selectedRows) {
         if (!row.product) continue;
         const product = products.find((p) => p.id === row.product!.id);
         if (!product) continue;
-        await patchProductStock(product.documentId, product.stock_central + row.returnQty);
-        returnedItems.push({ productId: row.product.id, quantity: row.returnQty });
+        const cur = perProduct.get(row.product.id) ?? {
+          documentId: product.documentId,
+          baseStock: product.stock_central,
+          qty: 0,
+        };
+        cur.qty += row.returnQty;
+        perProduct.set(row.product.id, cur);
+      }
+
+      const returnedItems: { productId: number; quantity: number }[] = [];
+      for (const [productId, info] of perProduct) {
+        await patchProductStock(info.documentId, info.baseStock + info.qty);
+        returnedItems.push({ productId, quantity: info.qty });
       }
 
       // 4. Update local state
