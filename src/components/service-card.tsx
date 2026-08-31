@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Stethoscope, Clock, UserRound, Info } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { urlImagen } from "@/lib/media";
 
 interface ServiceCardProps {
   service: ServiceRateType;
@@ -19,7 +20,7 @@ interface ServiceCardProps {
 }
 
 export function ServiceCard({ service, onClick }: ServiceCardProps) {
-  const imageUrl = service.medical_service?.image?.url;
+  const imageUrl = urlImagen(service.medical_service?.image?.url, 128);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [descOpen, setDescOpen] = useState(false);
 

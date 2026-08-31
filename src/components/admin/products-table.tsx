@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { ProductType } from "@/types/product";
 import { patchProduct } from "@/api/patchProduct";
 import { IMPUESTO_OPTIONS, impuestoLabel, productImpuesto, type ImpuestoProducto } from "@/lib/pricing";
+import { urlImagen } from "@/lib/media";
 import {
   Table,
   TableBody,
@@ -34,7 +35,6 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 const PAGE_SIZE = 20;
 
 function getPageNumbers(current: number, total: number): (number | "…")[] {
@@ -47,11 +47,6 @@ function getPageNumbers(current: number, total: number): (number | "…")[] {
   if (current < total - 2) pages.push("…");
   pages.push(total);
   return pages;
-}
-
-function resolveImageUrl(url: string): string {
-  if (url.startsWith("http")) return url;
-  return `${BACKEND_URL}${url}`;
 }
 
 type RowDraft = {
@@ -279,9 +274,8 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               </TableRow>
             )}
             {paginated.map((product) => {
-              const imgUrl = product.images?.[0]?.url
-                ? resolveImageUrl(product.images[0].url)
-                : null;
+              // 36 px en pantalla: se pide la variante más pequeña.
+              const imgUrl = urlImagen(product.images?.[0]?.url, 128) ?? null;
               const isEditing = editingRow === product.documentId;
 
               return (

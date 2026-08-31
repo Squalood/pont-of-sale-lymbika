@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { ExternalLink, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { urlImagen } from "@/lib/media";
 
 interface ProductCardProps {
   product: ProductType;
@@ -14,7 +15,9 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onClick }: ProductCardProps) {
-  const imageUrl = product.images?.[0]?.url;
+  // Se muestra a 40 px: la variante de 128 cubre pantallas de alta densidad
+  // y pesa ~2.5 KB en lugar de los ~75 KB del original.
+  const imageUrl = urlImagen(product.images?.[0]?.url, 128);
   const [imageLoaded, setImageLoaded] = useState(false);
 
   return (

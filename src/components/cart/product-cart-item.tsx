@@ -3,6 +3,7 @@
 import { CartItem as CartItemType, cartItemKey } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import { Layers, ShieldCheck, Trash2 } from "lucide-react";
+import { urlImagen } from "@/lib/media";
 import { PriceEditor } from "./price-editor";
 import { QuantityControls } from "./quantity-controls";
 import { SENTINEL_EXPIRATION } from "@/lib/lotes";
@@ -24,7 +25,7 @@ export function ProductCartItem({ item, priceMode, onUpdateQuantity, onRemoveIte
   const displayPrice = itemUnitPrice(item, priceMode);
   const hasOverride = item.overridePrice !== undefined;
   const specialPrice = isSpecialPrice(priceMode);
-  const imageUrl = product.images?.[0]?.url;
+  const imageUrl = urlImagen(product.images?.[0]?.url, 128);
   const lot = item.selectedLot;
   const showCaducidad = lot?.expirationDate && lot.expirationDate < SENTINEL_EXPIRATION;
 
