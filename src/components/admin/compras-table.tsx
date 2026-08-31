@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/table";
 import { Paperclip, Download, Plus, Layers, CalendarClock } from "lucide-react";
 import { CompraType, CompraItemType } from "@/types/compra";
+import { toast } from "sonner";
+import { urlOriginal } from "@/lib/media";
 
 // Agrupa las líneas de la compra (aplanadas, una por lote) de vuelta por producto.
 interface GroupedCompraItem {
@@ -220,10 +222,15 @@ interface CompraDetailDialogProps {
 function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) {
   const [downloading, setDownloading] = useState(false);
 
+  // Se descarga a traves de /api/descargar y no directo del CDN: CloudFront no
+  // manda cabeceras CORS, asi que un fetch desde el navegador falla con
+  // NetworkError. Pedirlo al propio servidor evita CORS y conserva el nombre.
   const handleDownload = useCallback(async (url: string, name: string) => {
     setDownloading(true);
     try {
-      const res = await fetch(url);
+      const ruta = `/api/descargar?url=${encodeURIComponent(url)}&nombre=${encodeURIComponent(name)}`;
+      const res = await fetch(ruta);
+      if (!res.ok) throw new Error(`el servidor respondio ${res.status}`);
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -231,6 +238,9 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
       a.download = name;
       a.click();
       URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("descarga del adjunto:", error);
+      toast.error("No se pudo descargar el archivo. Intenta de nuevo.");
     } finally {
       setDownloading(false);
     }
@@ -239,7 +249,6 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
   if (!compra) return null;
 
   const fecha = new Date(compra.fecha);
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 
   const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
   const fmtDate = (s: string) => new Date(s).toLocaleDateString("es-MX");
@@ -309,10 +318,7 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
                   type="button"
                   disabled={downloading}
                   onClick={() => {
-                    const url = compra.archivo!.url.startsWith("http")
-                      ? compra.archivo!.url
-                      : `${backendUrl}${compra.archivo!.url}`;
-                    handleDownload(url, compra.archivo!.name);
+                    handleDownload(urlOriginal(compra.archivo!.url), compra.archivo!.name);
                   }}
                   className="inline-flex items-center gap-1.5 text-primary underline-offset-4 hover:underline disabled:opacity-50"
                 >
