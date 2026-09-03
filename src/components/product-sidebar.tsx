@@ -4,6 +4,14 @@ import { Search } from "lucide-react";
 import { SearchBar } from "@/components/search-bar";
 import { CategoryFilter } from "@/components/category-filter";
 import { ProductGrid } from "@/components/product-grid";
+import { SortMenu } from "@/components/sort-menu";
+import { Stethoscope } from "lucide-react";
+import {
+  PRODUCT_SORT_OPTIONS,
+  SERVICE_SORT_OPTIONS,
+  SIN_ORDEN,
+  type SortState,
+} from "@/lib/grid-sort";
 import {
   Sidebar,
   SidebarContent,
@@ -31,6 +39,10 @@ interface ProductSidebarProps {
   selectedCategory: string;
   onSelectCategory: (value: string) => void;
   onItemClick: (item: GridItem) => void;
+  productSort: SortState;
+  onProductSortChange: (next: SortState) => void;
+  serviceSort: SortState;
+  onServiceSortChange: (next: SortState) => void;
 }
 
 export function ProductSidebar({
@@ -47,6 +59,10 @@ export function ProductSidebar({
   selectedCategory,
   onSelectCategory,
   onItemClick,
+  productSort,
+  onProductSortChange,
+  serviceSort,
+  onServiceSortChange,
 }: ProductSidebarProps) {
   const { toggleSidebar } = useSidebar();
 
@@ -103,6 +119,33 @@ export function ProductSidebar({
           loading={loading}
           error={error}
           onItemClick={onItemClick}
+          filterKey={`${search}|${barcode}|${selectedCategory}`}
+          controls={
+            <>
+              <SortMenu
+                defaultLabel="Mezclado"
+                defaultItemLabel="Mezclado con consultas"
+                sortedPrefix="Solo productos"
+                options={PRODUCT_SORT_OPTIONS}
+                value={productSort}
+                onChange={onProductSortChange}
+              />
+              {/* Fuera de "Todos" y "Consultas" no hay servicios en pantalla, y
+                  un orden que no ordena nada visible solo confunde. */}
+              {(selectedCategory === "todos" || selectedCategory === "consultas") &&
+                productSort.field === SIN_ORDEN && (
+                  <SortMenu
+                    defaultLabel="Consultas"
+                    defaultItemLabel="Sin ordenar"
+                    sortedPrefix="Consultas"
+                    options={SERVICE_SORT_OPTIONS}
+                    value={serviceSort}
+                    onChange={onServiceSortChange}
+                    icon={<Stethoscope className="h-3.5 w-3.5" />}
+                  />
+                )}
+            </>
+          }
         />
       </SidebarContent>
     </Sidebar>

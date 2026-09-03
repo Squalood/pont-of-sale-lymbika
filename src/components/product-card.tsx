@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { ProductType } from "@/types/product";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ExternalLink, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 import { urlImagen } from "@/lib/media";
 
 interface ProductCardProps {
@@ -18,7 +16,6 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
   // Se muestra a 40 px: la variante de 128 cubre pantallas de alta densidad
   // y pesa ~2.5 KB en lugar de los ~75 KB del original.
   const imageUrl = urlImagen(product.images?.[0]?.url, 128);
-  const [imageLoaded, setImageLoaded] = useState(false);
 
   return (
     <Card
@@ -27,19 +24,20 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
     >
       <div className="flex items-start justify-between">
         {imageUrl ? (
-          <div className="relative h-10 w-10">
-            {!imageLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center rounded bg-muted">
-                <Spinner className="size-6 text-muted-foreground" />
-              </div>
-            )}
-            <img
-              src={imageUrl}
-              alt={product.productName}
-              className={`h-10 w-10 rounded object-cover transition-opacity ${imageLoaded ? "opacity-100" : "opacity-0"}`}
-              onLoad={() => setImageLoaded(true)}
-            />
-          </div>
+          // `lazy` es lo que evita que abrir el POS dispare una petición por
+          // cada producto del catálogo: solo cargan las tarjetas visibles. Por
+          // eso tampoco hay spinner propio — una imagen fuera de pantalla no
+          // carga nunca, y el spinner giraría para siempre. El hueco lo ocupa
+          // el bg-muted hasta que la imagen pinta.
+          <img
+            src={imageUrl}
+            alt={product.productName}
+            width={40}
+            height={40}
+            loading="lazy"
+            decoding="async"
+            className="h-10 w-10 rounded bg-muted object-cover"
+          />
         ) : (
           <div className="flex h-10 w-10 items-center justify-center rounded bg-muted text-lg">
             💊

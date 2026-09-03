@@ -1,14 +1,12 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useGetProducts } from "@/api/getProducts";
 import { useGetFacturas } from "@/api/getFacturas";
 import { InvoiceForm } from "@/components/admin/invoice-form";
 import { FacturasTable } from "@/components/admin/facturas-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function FacturasPage() {
-  const { result: products } = useGetProducts();
   const { result: facturas, loading, error } = useGetFacturas();
   const [tab, setTab] = useState("nueva");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -34,7 +32,7 @@ export default function FacturasPage() {
         </TabsList>
 
         <TabsContent value="nueva" className="flex-1 min-h-0 flex flex-col mt-4">
-          <InvoiceForm products={products} onSaved={handleSaved} />
+          <InvoiceForm onSaved={handleSaved} />
         </TabsContent>
 
         <TabsContent value="historial" className="flex-1 min-h-0 overflow-y-auto mt-4">

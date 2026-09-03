@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ProductType } from "@/types/product";
+import { useSearchProducts } from "@/api/searchProducts";
 import { printInvoice } from "@/lib/print-invoice";
 import { postFactura } from "@/api/postFactura";
 import { useCaja } from "@/lib/caja-context";
@@ -100,27 +100,15 @@ function makeInitialState(): InvoiceState {
 interface LineRowProps {
   line: InvoiceLine;
   idx: number;
-  products: ProductType[];
   onChange: (idx: number, patch: Partial<InvoiceLine>) => void;
   onRemove: (idx: number) => void;
 }
 
-function LineRow({ line, idx, products, onChange, onRemove }: LineRowProps) {
+function LineRow({ line, idx, onChange, onRemove }: LineRowProps) {
   const [search, setSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
 
-  const filteredProducts = useMemo(() => {
-    if (!search.trim()) return [];
-    const q = search.toLowerCase();
-    return products
-      .filter(
-        (p) =>
-          p.productName.toLowerCase().includes(q) ||
-          (p.sal ?? "").toLowerCase().includes(q) ||
-          (p.sku ?? "").toLowerCase().includes(q)
-      )
-      .slice(0, 8);
-  }, [products, search]);
+  const { results: filteredProducts, loading: searching } = useSearchProducts(search);
 
   const importe = line.cantidad * line.precioUnitario;
 
@@ -169,8 +157,15 @@ function LineRow({ line, idx, products, onChange, onRemove }: LineRowProps) {
                   placeholder="Buscar producto..."
                   className="h-8 text-sm"
                 />
-                {showDropdown && filteredProducts.length > 0 && (
+                {showDropdown && search.trim() && (
                   <div className="absolute z-20 left-0 right-0 top-full mt-1 rounded-md border bg-background shadow-md max-h-44 overflow-y-auto">
+                    {/* Los resultados previos siguen a la vista mientras llega la
+                        siguiente búsqueda: así el desplegable no parpadea. */}
+                    {filteredProducts.length === 0 && (
+                      <p className="px-3 py-2 text-xs text-muted-foreground">
+                        {searching ? "Buscando…" : "Sin resultados"}
+                      </p>
+                    )}
                     {filteredProducts.map((p) => (
                       <button
                         key={p.id}
@@ -326,11 +321,10 @@ function DatePickerField({ value, onChange, placeholder = "Seleccionar fecha" }:
 // ── InvoiceForm ───────────────────────────────────────────────────────────────
 
 interface InvoiceFormProps {
-  products: ProductType[];
   onSaved?: () => void;
 }
 
-export function InvoiceForm({ products, onSaved }: InvoiceFormProps) {
+export function InvoiceForm({ onSaved }: InvoiceFormProps) {
   const [invoice, setInvoice] = useState<InvoiceState>(makeInitialState);
   const [saving, setSaving] = useState(false);
   const { pharmacyId, caja } = useCaja();
@@ -645,7 +639,6 @@ export function InvoiceForm({ products, onSaved }: InvoiceFormProps) {
                     key={line.id}
                     line={line}
                     idx={idx}
-                    products={products}
                     onChange={handleLineChange}
                     onRemove={handleRemoveLine}
                   />

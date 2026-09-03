@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2 } from "lucide-react";
 import { ProductType } from "@/types/product";
+import { useSearchProducts } from "@/api/searchProducts";
 import { LocalPurchaseItem } from "./types";
 import { itemQuantity, itemTotalLine, comprasTotal } from "./helpers";
 
 interface ItemsStepProps {
-  products: ProductType[];
   items: LocalPurchaseItem[];
   onAddProduct: (product: ProductType) => void;
   onChangeCosto: (idx: number, value: string) => void;
@@ -34,7 +34,6 @@ const IVA_OPTIONS = [
 ] as const;
 
 export function ItemsStep({
-  products,
   items,
   onAddProduct,
   onChangeCosto,
@@ -49,19 +48,7 @@ export function ItemsStep({
   onBack,
 }: ItemsStepProps) {
   const [search, setSearch] = useState("");
-
-  const searchResults = useMemo(() => {
-    if (!search.trim()) return [];
-    const q = search.toLowerCase();
-    return products
-      .filter(
-        (p) =>
-          p.productName.toLowerCase().includes(q) ||
-          (p.sal ?? "").toLowerCase().includes(q) ||
-          (p.barCode ?? "").toLowerCase().includes(q)
-      )
-      .slice(0, 8);
-  }, [products, search]);
+  const { results: searchResults, loading: searching } = useSearchProducts(search);
 
   const total = comprasTotal(items);
 
@@ -80,8 +67,15 @@ export function ItemsStep({
             onChange={(e) => setSearch(e.target.value)}
             autoFocus
           />
-          {searchResults.length > 0 && (
+          {search.trim() && (
             <div className="absolute z-10 left-0 right-0 top-full mt-1 rounded-lg border bg-background shadow-md max-h-48 overflow-y-auto">
+              {/* Los resultados anteriores siguen a la vista mientras llega la
+                  siguiente búsqueda: así el desplegable no parpadea al teclear. */}
+              {searchResults.length === 0 && (
+                <p className="px-3 py-2 text-sm text-muted-foreground">
+                  {searching ? "Buscando…" : "Sin resultados"}
+                </p>
+              )}
               {searchResults.map((p) => (
                 <button
                   key={p.id}

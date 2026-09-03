@@ -26,8 +26,7 @@ import { ConfirmStep } from "./purchase/confirm-step";
 interface NewPurchaseDialogProps {
   open: boolean;
   onClose: () => void;
-  products: ProductType[];
-  onCompraComplete: (items: { productId: number; quantity: number }[]) => void;
+  onCompraComplete: () => void;
 }
 
 type Step = "proveedor" | "items" | "confirm";
@@ -35,7 +34,6 @@ type Step = "proveedor" | "items" | "confirm";
 export function NewPurchaseDialog({
   open,
   onClose,
-  products,
   onCompraComplete,
 }: NewPurchaseDialogProps) {
   const { result: proveedores, loading: loadingProveedores } = useGetProveedores();
@@ -95,6 +93,7 @@ export function NewPurchaseDialog({
           productId: product.id,
           product: product.documentId,
           productName: product.productName,
+          stockActual: product.stock_central ?? 0,
           costoUnitario: product.priceMember ?? 0,
           iva: "exento" as const,
           lotes: [{ numeroLote: "", cantidad: 1 }],
@@ -194,14 +193,12 @@ export function NewPurchaseDialog({
 
       const updatedItems: { productId: number; quantity: number }[] = [];
       for (const item of items) {
-        const product = products.find((p) => p.id === item.productId);
-        if (!product) continue;
         const totalQty = itemQuantity(item);
 
         // Un solo PUT por producto: stock, costo y tasa de IVA quedan en la misma escritura.
         // El costo solo se manda si se capturó; la tasa siempre, y sobrescribe la que hubiera.
-        await patchProduct(product.documentId, {
-          stock_central: product.stock_central + totalQty,
+        await patchProduct(item.product, {
+          stock_central: item.stockActual + totalQty,
           ...(item.costoUnitario > 0 ? { priceMember: item.costoUnitario } : {}),
           impuesto: ivaToImpuestoProducto(item.iva),
         });
@@ -209,7 +206,7 @@ export function NewPurchaseDialog({
         for (const lote of item.lotes) {
           if (!lote.numeroLote.trim()) continue;
           await postLote({
-            product: product.documentId,
+            product: item.product,
             numeroLote: lote.numeroLote.trim(),
             fechaCaducidad: lote.fechaCaducidad,
             cantidadInicial: lote.cantidad,
@@ -229,7 +226,7 @@ export function NewPurchaseDialog({
           (lotesCreados > 0 ? ` · ${lotesCreados} lote(s)` : ""),
       });
 
-      onCompraComplete(updatedItems);
+      onCompraComplete();
       handleClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al registrar la compra");
@@ -269,7 +266,6 @@ export function NewPurchaseDialog({
 
         {step === "items" && (
           <ItemsStep
-            products={products}
             items={items}
             onAddProduct={handleAddProduct}
             onChangeCosto={handleChangeCosto}

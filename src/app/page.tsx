@@ -12,6 +12,11 @@ import { useGetProducts } from "@/api/getProducts";
 import { useGetCategories } from "@/api/getCategories";
 import { useGetServiceRates } from "@/api/getServiceRates";
 import { ProductType, GridItem } from "@/types/product";
+
+// Cada bloque contiene una sola variante de GridItem; el tipo estrecho es lo que
+// deja ordenarlos con su comparador sin comprobar el discriminante en cada paso.
+type ProductGridItem = Extract<GridItem, { type: "product" }>;
+type ServiceGridItem = Extract<GridItem, { type: "service" }>;
 import { Unauthorized } from "@/components/unauthorized";
 import { useForbidden } from "@/lib/forbidden-context";
 import { getUser } from "@/lib/auth";
@@ -20,6 +25,14 @@ import { AperturaCajaDialog } from "@/components/apertura-caja-dialog";
 import { ResumenCierreScreen } from "@/components/resumen-cierre-screen";
 import { Loader2 } from "lucide-react";
 import { useMultiCart, MAX_CARTS } from "@/hooks/useMultiCart";
+import { normalize } from "@/lib/search";
+import {
+  compareProducts,
+  compareServices,
+  DEFAULT_SORT,
+  SIN_ORDEN,
+  type SortState,
+} from "@/lib/grid-sort";
 
 export default function Home() {
   const router = useRouter();
@@ -40,6 +53,8 @@ export default function Home() {
   const [barcode, setBarcode] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("todos");
   const [pendingLot, setPendingLot] = useState<{ cartId: number; product: ProductType } | null>(null);
+  const [productSort, setProductSort] = useState<SortState>(DEFAULT_SORT);
+  const [serviceSort, setServiceSort] = useState<SortState>(DEFAULT_SORT);
 
   const {
     carts, activeCartId, setActiveCartId,
@@ -49,38 +64,80 @@ export default function Home() {
     addCart, removeCart, handleSaleComplete,
   } = useMultiCart(setProducts);
 
-  const filteredItems = useMemo((): GridItem[] => {
-    const normalize = (s: string) =>
-      s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const term = normalize(search);
+  // Índice de búsqueda del catálogo. Se construye sobre `fetchedProducts` y no
+  // sobre `products`: vender solo cambia el stock, los nombres no, así que el
+  // índice sobrevive a cada venta en lugar de rehacerse.
+  const productSearchIndex = useMemo(() => {
+    const index = new Map<number, { nombre: string; sal: string; barcode: string }>();
+    for (const p of fetchedProducts) {
+      index.set(p.id, {
+        nombre: normalize(p.productName),
+        sal: normalize(p.sal ?? ""),
+        barcode: (p.barCode ?? "").toLowerCase(),
+      });
+    }
+    return index;
+  }, [fetchedProducts]);
 
-    const productItems: GridItem[] = selectedCategory === "consultas"
+  const serviceSearchIndex = useMemo(() => {
+    const index = new Map<number, { nombre: string; doctor: string }>();
+    for (const sr of serviceRates) {
+      if (!sr.medical_service) continue;
+      index.set(sr.id, {
+        nombre: normalize(sr.medical_service.name),
+        doctor: normalize(sr.doctor?.doctorName ?? ""),
+      });
+    }
+    return index;
+  }, [serviceRates]);
+
+  const filteredItems = useMemo((): GridItem[] => {
+    // Lo único que se normaliza por pulsación es el término tecleado.
+    const term = normalize(search);
+    const barcodeTerm = barcode.toLowerCase();
+
+    const productItems: ProductGridItem[] = selectedCategory === "consultas"
       ? []
       : products
           .filter((p) => {
+            const idx = productSearchIndex.get(p.id);
             const matchesSearch =
-              normalize(p.productName).includes(term) ||
-              (p.sal ? normalize(p.sal).includes(term) : false);
+              !term || !!idx && (idx.nombre.includes(term) || idx.sal.includes(term));
             const matchesBarcode =
-              !barcode || p.barCode?.toLowerCase().includes(barcode.toLowerCase());
+              !barcodeTerm || !!idx && idx.barcode.includes(barcodeTerm);
             const matchesCategory =
               selectedCategory === "todos" || p.category?.slug === selectedCategory;
             return matchesSearch && matchesBarcode && matchesCategory;
           })
           .map((p) => ({ type: "product" as const, data: p }));
 
-    const serviceItems: GridItem[] = selectedCategory === "todos" || selectedCategory === "consultas"
+    // Elegir un orden de productos es pedir "solo productos": las consultas no
+    // tienen stock ni fecha, mezclarlas en ese orden no significaría nada.
+    const soloProductos = productSort.field !== SIN_ORDEN;
+    if (soloProductos) {
+      productItems.sort((a, b) => compareProducts(a.data, b.data, productSort));
+    }
+
+    const serviceItems: ServiceGridItem[] = !soloProductos && (selectedCategory === "todos" || selectedCategory === "consultas")
       ? serviceRates
           .filter((sr) => {
             if (!sr.medical_service) return false;
             if (selectedCategory === "consultas" && sr.medical_service.type !== "consultation") return false;
-            return !term || normalize(sr.medical_service.name).includes(term) || (sr.doctor ? normalize(sr.doctor.doctorName).includes(term) : false);
+            const idx = serviceSearchIndex.get(sr.id);
+            return !term || !!idx && (idx.nombre.includes(term) || idx.doctor.includes(term));
           })
           .map((sr) => ({ type: "service" as const, data: sr }))
       : [];
 
+    if (serviceSort.field !== SIN_ORDEN) {
+      serviceItems.sort((a, b) => compareServices(a.data, b.data, serviceSort));
+    }
+
+    // Los medicamentos mandan: las consultas van siempre detrás. Para llegar a
+    // ellas se teclea el término completo ("dr " con espacio, "consulta"), que
+    // deja pocos productos casando y las sube a la primera página.
     return [...productItems, ...serviceItems];
-  }, [products, serviceRates, search, barcode, selectedCategory]);
+  }, [products, serviceRates, search, barcode, selectedCategory, productSearchIndex, serviceSearchIndex, productSort, serviceSort]);
 
   // Selección condicional de lote al agregar:
   //  - 0 lotes vendibles → agregar directo, se vende solo por stock_central (producto aún sin lotear).
@@ -169,6 +226,10 @@ export default function Home() {
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
           onItemClick={handleItemClick}
+          productSort={productSort}
+          onProductSortChange={setProductSort}
+          serviceSort={serviceSort}
+          onServiceSortChange={setServiceSort}
         />
 
         <SidebarInset>

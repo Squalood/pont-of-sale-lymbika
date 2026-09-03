@@ -1,8 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { ProductType } from "@/types/product";
 import { patchProduct } from "@/api/patchProduct";
+import {
+  useGetProductsPage,
+  sortExcludesEmpty,
+  type ProductsQuery,
+  type SortField,
+  type SortDir,
+} from "@/api/getProductsPage";
+import { useGetCategoryNames } from "@/api/getCategories";
 import { IMPUESTO_OPTIONS, impuestoLabel, productImpuesto, type ImpuestoProducto } from "@/lib/pricing";
 import { urlImagen } from "@/lib/media";
 import {
@@ -17,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -24,7 +33,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, SquarePen, Save, CircleX } from "lucide-react";
+import { Loader2, SquarePen, Save, CircleX, ArrowUpDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Pagination,
   PaginationContent,
@@ -35,7 +53,34 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [20, 50, 100];
+
+/** Sin esperar, cada tecla del buscador dispara una consulta al catálogo. */
+const SEARCH_DEBOUNCE_MS = 300;
+
+/** Cada campo nombra sus dos sentidos: "A → Z" dice más que "ascendente". */
+const SORT_OPTIONS: {
+  field: SortField;
+  label: string;
+  asc: string;
+  desc: string;
+}[] = [
+  { field: "productName", label: "Nombre", asc: "A → Z", desc: "Z → A" },
+  { field: "price", label: "Precio", asc: "Menor a mayor", desc: "Mayor a menor" },
+  { field: "stock_central", label: "Stock", asc: "Menor a mayor", desc: "Mayor a menor" },
+  { field: "createdAt", label: "Fecha de alta", asc: "Más antiguos", desc: "Más recientes" },
+];
+
+const INITIAL_QUERY: ProductsQuery = {
+  page: 1,
+  pageSize: PAGE_SIZE_OPTIONS[0],
+  search: "",
+  category: "all",
+  active: "all",
+  // El orden que ya traía la tabla: lo último capturado primero.
+  sortField: "createdAt",
+  sortDir: "desc",
+};
 
 function getPageNumbers(current: number, total: number): (number | "…")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -57,54 +102,50 @@ type RowDraft = {
   active: boolean;
 };
 
-interface ProductsTableProps {
-  initialProducts: ProductType[];
-}
-
-export function ProductsTable({ initialProducts }: ProductsTableProps) {
-  const [products, setProducts] = useState<ProductType[]>(initialProducts);
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [activeFilter, setActiveFilter] = useState("all");
-  const [page, setPage] = useState(1);
+export function ProductsTable() {
+  const [query, setQuery] = useState<ProductsQuery>(INITIAL_QUERY);
+  const [searchInput, setSearchInput] = useState("");
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [draft, setDraft] = useState<RowDraft | null>(null);
   const [rowSaving, setRowSaving] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
 
-  const categories = useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const p of initialProducts) {
-      if (p.category?.categoryName) {
-        seen.set(p.category.categoryName, p.category.categoryName);
-      }
+  const { result, total, pageCount, loading, error } = useGetProductsPage(query);
+  const categories = useGetCategoryNames();
+
+  // Copia local de la página, para que una edición se vea sin volver a pedirla.
+  const [products, setProducts] = useState<ProductType[]>([]);
+
+  useEffect(() => {
+    if (searchInput === query.search) return;
+    const timer = setTimeout(() => {
+      setQuery((q) => ({ ...q, search: searchInput, page: 1 }));
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput, query.search]);
+
+  useEffect(() => {
+    // Llegó otra página: la fila que se estaba editando ya no está en pantalla.
+    setProducts(result);
+    setEditingRow(null);
+    setDraft(null);
+    setRowError(null);
+  }, [result]);
+
+  useEffect(() => {
+    // El filtro pudo dejar menos páginas de las que había al pulsar el número.
+    if (!loading && query.page > pageCount) {
+      setQuery((q) => ({ ...q, page: pageCount }));
     }
-    return Array.from(seen.values()).sort();
-  }, [initialProducts]);
+  }, [loading, pageCount, query.page]);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return products.filter((p) => {
-      const matchSearch =
-        !q ||
-        p.productName.toLowerCase().includes(q) ||
-        (p.sal ?? "").toLowerCase().includes(q);
-      const matchCategory =
-        categoryFilter === "all" ||
-        p.category?.categoryName === categoryFilter;
-      const matchActive =
-        activeFilter === "all" ||
-        (activeFilter === "active" ? p.active : !p.active);
-      return matchSearch && matchCategory && matchActive;
-    });
-  }, [products, search, categoryFilter, activeFilter]);
+  function applyFilter(patch: Partial<ProductsQuery>) {
+    setQuery((q) => ({ ...q, ...patch, page: 1 }));
+  }
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  function handleSearch(val: string) { setSearch(val); setPage(1); }
-  function handleCategoryFilter(val: string) { setCategoryFilter(val); setPage(1); }
-  function handleActiveFilter(val: string) { setActiveFilter(val); setPage(1); }
+  function goToPage(n: number) {
+    setQuery((q) => ({ ...q, page: Math.min(Math.max(1, n), pageCount) }));
+  }
 
   function updateLocal(documentId: string, fields: Partial<ProductType>) {
     setProducts((prev) =>
@@ -165,17 +206,22 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
     }
   }
 
+  const sort = SORT_OPTIONS.find((o) => o.field === query.sortField) ?? SORT_OPTIONS[0];
+  const firstLoad = loading && products.length === 0;
+  const from = total === 0 ? 0 : (query.page - 1) * query.pageSize + 1;
+  const to = Math.min(query.page * query.pageSize, total);
+
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4">
-      {/* Filtros + paginación */}
+      {/* Filtros */}
       <div className="shrink-0 flex flex-wrap items-center gap-3">
         <Input
           placeholder="Buscar por nombre o sustancia activa..."
-          value={search}
-          onChange={(e) => handleSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           className="max-w-xs"
         />
-        <Select value={categoryFilter} onValueChange={handleCategoryFilter}>
+        <Select value={query.category} onValueChange={(v) => applyFilter({ category: v })}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Categoría" />
           </SelectTrigger>
@@ -188,7 +234,10 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
             ))}
           </SelectContent>
         </Select>
-        <Select value={activeFilter} onValueChange={handleActiveFilter}>
+        <Select
+          value={query.active}
+          onValueChange={(v) => applyFilter({ active: v as ProductsQuery["active"] })}
+        >
           <SelectTrigger className="w-36">
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
@@ -198,55 +247,60 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
             <SelectItem value="inactive">Inactivos</SelectItem>
           </SelectContent>
         </Select>
-        <span className="text-sm text-muted-foreground">
-          {filtered.length} producto{filtered.length !== 1 ? "s" : ""}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="gap-2 font-normal">
+              <ArrowUpDown className="h-4 w-4" />
+              {sort.label}
+              <span className="text-muted-foreground">
+                {query.sortDir === "asc" ? sort.asc : sort.desc}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-52">
+            <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={query.sortField}
+              onValueChange={(v) => applyFilter({ sortField: v as SortField })}
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <DropdownMenuRadioItem key={opt.field} value={opt.field}>
+                  {opt.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            {/* Los sentidos se nombran según el campo elegido. */}
+            <DropdownMenuRadioGroup
+              value={query.sortDir}
+              onValueChange={(v) => applyFilter({ sortDir: v as SortDir })}
+            >
+              <DropdownMenuRadioItem value="asc">{sort.asc}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="desc">{sort.desc}</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <span className="flex items-center gap-2 text-sm text-muted-foreground">
+          {loading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            `${total.toLocaleString("es-AR")} producto${total !== 1 ? "s" : ""}`
+          )}
         </span>
 
-        {totalPages > 1 && (
-          <div className="ml-auto flex items-center gap-1">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              Pág. {page} / {totalPages}
-            </span>
-            <Pagination className="w-auto mx-0">
-              <PaginationContent className="gap-0">
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)); }}
-                    aria-disabled={page === 1}
-                    className={page === 1 ? "pointer-events-none opacity-50" : undefined}
-                  />
-                </PaginationItem>
-                {getPageNumbers(page, totalPages).map((n, i) =>
-                  n === "…" ? (
-                    <PaginationItem key={`ellipsis-${i}`}>
-                      <PaginationEllipsis />
-                    </PaginationItem>
-                  ) : (
-                    <PaginationItem key={n}>
-                      <PaginationLink
-                        href="#"
-                        isActive={n === page}
-                        onClick={(e) => { e.preventDefault(); setPage(n); }}
-                      >
-                        {n}
-                      </PaginationLink>
-                    </PaginationItem>
-                  )
-                )}
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(totalPages, p + 1)); }}
-                    aria-disabled={page === totalPages}
-                    className={page === totalPages ? "pointer-events-none opacity-50" : undefined}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
+        {sortExcludesEmpty(query.sortField) && (
+          <span className="text-xs text-muted-foreground">
+            (los productos sin {sort.label.toLowerCase()} quedan fuera de este orden)
+          </span>
         )}
       </div>
+
+      {error && (
+        <p className="shrink-0 text-sm text-destructive">
+          Error al cargar productos: {error}
+        </p>
+      )}
 
       {/* Tabla */}
       <div className="flex-1 min-h-0 overflow-auto rounded-md border">
@@ -265,15 +319,25 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
               <TableHead className="w-16"></TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {filtered.length === 0 && (
+          <TableBody className={loading && !firstLoad ? "opacity-50" : undefined}>
+            {firstLoad &&
+              Array.from({ length: 8 }).map((_, i) => (
+                <TableRow key={`skeleton-${i}`}>
+                  <TableCell colSpan={10}>
+                    <Skeleton className="h-8 w-full" />
+                  </TableCell>
+                </TableRow>
+              ))}
+
+            {!firstLoad && products.length === 0 && (
               <TableRow>
                 <TableCell colSpan={10} className="text-center text-muted-foreground py-10">
                   Sin resultados
                 </TableCell>
               </TableRow>
             )}
-            {paginated.map((product) => {
+
+            {products.map((product) => {
               // 36 px en pantalla: se pide la variante más pequeña.
               const imgUrl = urlImagen(product.images?.[0]?.url, 128) ?? null;
               const isEditing = editingRow === product.documentId;
@@ -462,6 +526,80 @@ export function ProductsTable({ initialProducts }: ProductsTableProps) {
             })}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Paginación */}
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-3">
+        <span className="text-sm text-muted-foreground">
+          {total === 0
+            ? "Sin productos"
+            : `Mostrando ${from.toLocaleString("es-AR")}–${to.toLocaleString("es-AR")} de ${total.toLocaleString("es-AR")}`}
+        </span>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              Filas por página
+            </span>
+            <Select
+              value={String(query.pageSize)}
+              onValueChange={(v) => applyFilter({ pageSize: Number(v) })}
+            >
+              <SelectTrigger size="sm" className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            Pág. {query.page} / {pageCount}
+          </span>
+
+          <Pagination className="w-auto mx-0">
+            <PaginationContent className="gap-0">
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); goToPage(query.page - 1); }}
+                  aria-disabled={query.page === 1}
+                  className={query.page === 1 ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+              {getPageNumbers(query.page, pageCount).map((n, i) =>
+                n === "…" ? (
+                  <PaginationItem key={`ellipsis-${i}`}>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                ) : (
+                  <PaginationItem key={n}>
+                    <PaginationLink
+                      href="#"
+                      isActive={n === query.page}
+                      onClick={(e) => { e.preventDefault(); goToPage(n); }}
+                    >
+                      {n}
+                    </PaginationLink>
+                  </PaginationItem>
+                )
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => { e.preventDefault(); goToPage(query.page + 1); }}
+                  aria-disabled={query.page === pageCount}
+                  className={query.page === pageCount ? "pointer-events-none opacity-50" : undefined}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
       </div>
     </div>
   );

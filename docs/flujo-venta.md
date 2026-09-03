@@ -16,8 +16,10 @@ recargar. **La venta NO descuenta lotes** (`lote`); los lotes solo se afectan en
 
 ## 2. Carga inicial de productos
 
-- Hook: [`useGetProducts`](../src/api/getProducts.ts) — hace `GET /api/products?populate=*`
-  (hasta 5000 items) y devuelve `result: ProductType[]`.
+- Hook: [`useGetProducts`](../src/api/getProducts.ts) — hace `GET /api/products` con
+  `fields` y `populate` explícitos (hasta 5000 items) y devuelve `result: ProductType[]`.
+  Pedía `populate=*` hasta el 3-sep-2026; ver [optimización del catálogo](optimizacion-catalogo.md).
+  Los `inventory_lots` se piden explícitos, así que siguen llegando.
 - Cada producto trae su stock en `stock_central` ([product.ts:53](../src/types/product.ts#L53)).
 - En [`page.tsx`](../src/app/page.tsx#L28-L30) los productos se copian a un **state local**
   `products`, que es la fuente de verdad de stock durante la sesión de caja:

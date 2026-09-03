@@ -1,33 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useGetCompras } from "@/api/getCompras";
-import { useGetProducts } from "@/api/getProducts";
-import { ProductType } from "@/types/product";
 import { ComprasTable } from "@/components/admin/compras-table";
 import { NewPurchaseDialog } from "@/components/admin/new-purchase-dialog";
 
 export default function ComprasPage() {
   const { result: compras, loading, error, refetch } = useGetCompras();
-  const { result: fetchedProducts } = useGetProducts();
-  const [products, setProducts] = useState<ProductType[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
-
-  useEffect(() => {
-    setProducts(fetchedProducts);
-  }, [fetchedProducts]);
-
-  function handleCompraComplete(items: { productId: number; quantity: number }[]) {
-    setProducts((prev) =>
-      prev.map((p) => {
-        const comprado = items.find((i) => i.productId === p.id);
-        if (comprado) return { ...p, stock_central: p.stock_central + comprado.quantity };
-        return p;
-      })
-    );
-    refetch();
-  }
 
   return (
     <div className="space-y-6 flex-1 min-h-0 overflow-y-auto">
@@ -48,11 +29,12 @@ export default function ComprasPage() {
         />
       )}
 
+      {/* El diálogo busca sus productos en el backend y ya patcheó el stock al
+          confirmar: aquí solo queda recargar el historial. */}
       <NewPurchaseDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        products={products}
-        onCompraComplete={handleCompraComplete}
+        onCompraComplete={refetch}
       />
     </div>
   );

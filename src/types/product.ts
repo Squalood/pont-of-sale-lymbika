@@ -60,7 +60,8 @@ export type ProductType = {
   /** Enum de Strapi ["iva0","iva8","iva16"]. Sin tipar a propósito: dato crudo de la API
    *  que se valida en `itemImpuesto`. Nulo en productos previos al campo. */
   impuesto?: string | null;
-  tipo: string;
+  /** Solo lo pide `useGetProductsPage` (tabla de admin). Ningún componente lo lee hoy. */
+  tipo?: string;
   images: {
     id: number;
     url: string;
@@ -72,9 +73,12 @@ export type ProductType = {
   };
   sal: string;
   conReceta: boolean;
-  sku: string;
+  /** Ausente en el catálogo del POS: solo lo pide `useGetProductsPage`. */
+  sku?: string;
   barCode: string;
   stock_central: number;
+  /** Solo para ordenar por antigüedad en el POS; no se muestra en ninguna tarjeta. */
+  createdAt?: string;
   inventory_lots?: InventoryLotOnProduct[];
 };
 

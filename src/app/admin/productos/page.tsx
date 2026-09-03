@@ -2,14 +2,11 @@
 
 import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useGetProducts } from "@/api/getProducts";
 import { ProductsTable } from "@/components/admin/products-table";
 import { ExportProductsButton } from "@/components/admin/export-products-button";
 
 export default function ProductosPage() {
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "";
-  const { result: products, loading, error } = useGetProducts();
 
   const strapiUrl = `${backendUrl}/admin/content-manager/collection-types/api::product.product?page=1&pageSize=10&sort=productName%3AASC`;
 
@@ -28,23 +25,8 @@ export default function ProductosPage() {
         </div>
       </div>
 
-      {loading && (
-        <div className="space-y-3">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full rounded-md" />
-          ))}
-        </div>
-      )}
-
-      {error && (
-        <p className="text-sm text-destructive">
-          Error al cargar productos: {error}
-        </p>
-      )}
-
-      {!loading && !error && (
-        <ProductsTable initialProducts={products} />
-      )}
+      {/* La tabla pide su propia página al backend: carga y errores viven ahí. */}
+      <ProductsTable />
     </div>
   );
 }
