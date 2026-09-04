@@ -7,9 +7,9 @@ import { ProductGrid } from "@/components/product-grid";
 import { SortMenu } from "@/components/sort-menu";
 import { Stethoscope } from "lucide-react";
 import {
+  gridMode,
   PRODUCT_SORT_OPTIONS,
   SERVICE_SORT_OPTIONS,
-  SIN_ORDEN,
   type SortState,
 } from "@/lib/grid-sort";
 import {
@@ -64,6 +64,11 @@ export function ProductSidebar({
   serviceSort,
   onServiceSortChange,
 }: ProductSidebarProps) {
+  const { mostrarMenuProductos, mostrarMenuConsultas } = gridMode(
+    selectedCategory,
+    productSort,
+    serviceSort
+  );
   const { toggleSidebar } = useSidebar();
 
   return (
@@ -122,28 +127,29 @@ export function ProductSidebar({
           filterKey={`${search}|${barcode}|${selectedCategory}`}
           controls={
             <>
-              <SortMenu
-                defaultLabel="Mezclado"
-                defaultItemLabel="Mezclado con consultas"
-                sortedPrefix="Solo productos"
-                options={PRODUCT_SORT_OPTIONS}
-                value={productSort}
-                onChange={onProductSortChange}
-              />
-              {/* Fuera de "Todos" y "Consultas" no hay servicios en pantalla, y
-                  un orden que no ordena nada visible solo confunde. */}
-              {(selectedCategory === "todos" || selectedCategory === "consultas") &&
-                productSort.field === SIN_ORDEN && (
-                  <SortMenu
-                    defaultLabel="Consultas"
-                    defaultItemLabel="Sin ordenar"
-                    sortedPrefix="Consultas"
-                    options={SERVICE_SORT_OPTIONS}
-                    value={serviceSort}
-                    onChange={onServiceSortChange}
-                    icon={<Stethoscope className="h-3.5 w-3.5" />}
-                  />
-                )}
+              {/* Solo se pinta el menú del tipo que está a la vista: un orden
+                  que no ordena nada visible solo confunde. */}
+              {mostrarMenuProductos && (
+                <SortMenu
+                  defaultLabel="Mezclado"
+                  defaultItemLabel="Mezclado con consultas"
+                  sortedPrefix="Solo productos"
+                  options={PRODUCT_SORT_OPTIONS}
+                  value={productSort}
+                  onChange={onProductSortChange}
+                />
+              )}
+              {mostrarMenuConsultas && (
+                <SortMenu
+                  defaultLabel="Consultas"
+                  defaultItemLabel="Mezclado con productos"
+                  sortedPrefix="Solo consultas"
+                  options={SERVICE_SORT_OPTIONS}
+                  value={serviceSort}
+                  onChange={onServiceSortChange}
+                  icon={<Stethoscope className="h-3.5 w-3.5" />}
+                />
+              )}
             </>
           }
         />

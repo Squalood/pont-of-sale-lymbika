@@ -259,8 +259,35 @@ Solo productos, ordenados por
 ● A → Z          ○ Z → A         ← solo si hay campo elegido
 ```
 
-**`🩺 Consultas`** → precio y duración. Solo aparece cuando hay servicios en pantalla
-(modo "Todos" o "Consultas") y no hay orden de productos activo.
+**`🩺 Consultas`** → precio y duración.
+
+Los dos menús son **excluyentes**: elegir un orden restringe la vista a ese tipo y esconde
+el menú del otro. Son tres modos, y para volver al primero cada menú tiene su opción neutra
+arriba:
+
+| Estado | Botones a la vista | Qué se pinta |
+|---|---|---|
+| Nada elegido | `⇅ Mezclado` + `🩺 Consultas` | productos + consultas |
+| Orden de productos | `⇅ Solo productos · A → Z` | solo productos |
+| Orden de consultas | `🩺 Solo consultas · Menor a mayor` | solo consultas |
+
+Hizo falta porque ordenar una lista mezclada no se veía: las consultas quedaban detrás de
+los 1 777 productos, fuera de la primera página, y el orden no servía de nada.
+
+La regla vive en una sola función, `gridMode()`, y no repartida entre `page.tsx` y
+`product-sidebar.tsx`, que necesitan la misma respuesta —uno para armar la lista y el otro
+para saber qué botón pintar—; duplicada se irían separando. Lleva tres guardas contra el
+**callejón sin salida**, que es el riesgo real de este cambio: si los dos órdenes quedan
+activos a la vez, los dos bloques se vacían, y como cada menú se esconde cuando el otro
+manda, no queda ningún control para deshacerlo.
+
+- `soloProductos` no aplica en la categoría "Consultas", donde no hay productos.
+- `soloConsultas` cede ante `soloProductos` y solo cuenta donde hay consultas a la vista.
+- Elegir un orden apaga el del otro tipo, para que no quede uno durmiente que se reactive
+  solo al volver a "Mezclado".
+
+Verificado con los 10 casos, incluidos los tres de "orden olvidado" al cambiar de
+categoría: ninguno deja el grid vacío ni sin controles.
 
 Comparadores y etiquetas viven juntos en [`lib/grid-sort.ts`](../src/lib/grid-sort.ts)
 para que no se separen. **Lo vacío va siempre al final, en ambos sentidos**: un producto
@@ -282,6 +309,28 @@ y contador con paginación). Quedaron en tres:
 - **Los menús de orden se mudaron a la fila del contador**, junto a las flechas de
   paginación.
 
+### El POS solo carga consultas
+
+`medical_service` tiene tres tipos en Strapi —`consultation` (44), `procedure` (27) y
+`study` (1)— pero en el punto de venta solo se cobran consultas. Se filtra **en el
+servidor** ([`getServiceRates.ts`](../src/api/getServiceRates.ts)):
+
+```
+filters[medical_service][type][$eq]=consultation
+```
+
+En el origen y no en cada vista, porque lo que no entra no hay que acordarse de esconderlo
+después. Se estaban descargando los 27 procedimientos y el estudio con toda su metadata
+para descartarlos en pantalla: el payload de tarifas baja de **240 KB a 122 KB (−49 %)**.
+
+El filtro por tipo ya implica que hay `medical_service`, así que sustituye al `$notNull`
+que había. Y deja borrar `excluirProcedimientos` y el `filter()` del contador del chip:
+mezclado, chip 🩺 y "solo consultas" ven ahora las mismas 44 tarifas.
+
+`service.ts` declaraba dos tipos cuando la API devuelve tres; ahora declara los tres, con
+nota de que el POS solo carga el primero. Prometer una unión incompleta es lo que rompe un
+`switch` exhaustivo meses después.
+
 ### Orden de productos y servicios
 
 Los servicios van **siempre detrás** de los productos: los medicamentos son la prioridad.
@@ -300,7 +349,8 @@ casando y las sube a la primera página:
 
 | | Al empezar | Ahora |
 |---|---|---|
-| Payload al abrir | 4.64 MB | **1.11 MB** (−76 %) |
+| Payload al abrir (catálogo) | 4.64 MB | **1.11 MB** (−76 %) |
+| Payload al abrir (tarifas) | 240 KB | **122 KB** (−49 %) |
 | Bitmaps decodificados en RAM | ~113 MB | ~3 MB |
 | Peticiones de imagen al abrir | ~1 774 | solo las visibles |
 | Tarjetas montadas | 1 777 | 48 |
@@ -352,7 +402,12 @@ Por orden de impacto estimado:
 6. **Virtualización del grid** (`@tanstack/react-virtual`), si el catálogo crece mucho.
    Hoy no hace falta: con 48 tarjetas el DOM es trivial.
 
-7. **No hay tests.** Todo lo verificado en este trabajo se comprobó a mano contra el
+7. **La insignia de `service-card.tsx`** dice `type === "consultation" ? "Consulta" :
+   "Procedimiento"`. Con el filtro del servidor la segunda rama es inalcanzable y toda
+   tarjeta muestra "Consulta". Queda lista por si se reactivan los procedimientos, pero
+   hoy es una condición que no decide nada.
+
+8. **No hay tests.** Todo lo verificado en este trabajo se comprobó a mano contra el
    backend real o con scripts desechables. Las comparaciones "vieja vs nueva
    implementación" del buscador son un buen candidato a test de regresión.
 
@@ -365,9 +420,11 @@ consultas reales al backend y comparación de implementaciones, pero no hubo ses
 iniciada en la app.
 
 - ✅ **Selección de lote** — probada y funcionando tras el recorte del payload.
-- ⬜ Los dos menús de orden del POS (clic real).
-- ⬜ El orden de consultas por precio y duración: las 72 tarifas requieren autenticación.
-- ⬜ El paginador del grid y el buscador con acentos en pantalla.
+- ✅ **Los menús de orden** — probados en uso. De ahí salió el fallo de que el orden de
+  consultas no restringía la vista, ya corregido.
+- ⬜ Los tres modos excluyentes tras la corrección, en particular la secuencia que rompía:
+  "Solo consultas" → una categoría → "Todos".
+- ⬜ El carrusel de categorías y el paginador del grid en pantalla.
 
 ---
 

@@ -30,6 +30,7 @@ import {
   compareProducts,
   compareServices,
   DEFAULT_SORT,
+  gridMode,
   SIN_ORDEN,
   type SortState,
 } from "@/lib/grid-sort";
@@ -55,6 +56,19 @@ export default function Home() {
   const [pendingLot, setPendingLot] = useState<{ cartId: number; product: ProductType } | null>(null);
   const [productSort, setProductSort] = useState<SortState>(DEFAULT_SORT);
   const [serviceSort, setServiceSort] = useState<SortState>(DEFAULT_SORT);
+
+  // Elegir un orden apaga el del otro tipo. Sin esto quedaría un orden olvidado
+  // que se reactivaría solo al volver a "Mezclado", cambiando la vista sin que
+  // nadie lo haya pedido.
+  function cambiarOrdenProductos(next: SortState) {
+    setProductSort(next);
+    if (next.field !== SIN_ORDEN) setServiceSort(DEFAULT_SORT);
+  }
+
+  function cambiarOrdenConsultas(next: SortState) {
+    setServiceSort(next);
+    if (next.field !== SIN_ORDEN) setProductSort(DEFAULT_SORT);
+  }
 
   const {
     carts, activeCartId, setActiveCartId,
@@ -96,7 +110,9 @@ export default function Home() {
     const term = normalize(search);
     const barcodeTerm = barcode.toLowerCase();
 
-    const productItems: ProductGridItem[] = selectedCategory === "consultas"
+    const { soloProductos, soloConsultas } = gridMode(selectedCategory, productSort, serviceSort);
+
+    const productItems: ProductGridItem[] = selectedCategory === "consultas" || soloConsultas
       ? []
       : products
           .filter((p) => {
@@ -111,9 +127,6 @@ export default function Home() {
           })
           .map((p) => ({ type: "product" as const, data: p }));
 
-    // Elegir un orden de productos es pedir "solo productos": las consultas no
-    // tienen stock ni fecha, mezclarlas en ese orden no significaría nada.
-    const soloProductos = productSort.field !== SIN_ORDEN;
     if (soloProductos) {
       productItems.sort((a, b) => compareProducts(a.data, b.data, productSort));
     }
@@ -122,7 +135,6 @@ export default function Home() {
       ? serviceRates
           .filter((sr) => {
             if (!sr.medical_service) return false;
-            if (selectedCategory === "consultas" && sr.medical_service.type !== "consultation") return false;
             const idx = serviceSearchIndex.get(sr.id);
             return !term || !!idx && (idx.nombre.includes(term) || idx.doctor.includes(term));
           })
@@ -215,7 +227,7 @@ export default function Home() {
         <ProductSidebar
           products={products}
           filteredItems={filteredItems}
-          serviceRateCount={serviceRates.filter((sr) => sr.medical_service?.type === "consultation").length}
+          serviceRateCount={serviceRates.length}
           categories={categories}
           loading={loadingProducts}
           error={errorProducts}
@@ -227,9 +239,9 @@ export default function Home() {
           onSelectCategory={setSelectedCategory}
           onItemClick={handleItemClick}
           productSort={productSort}
-          onProductSortChange={setProductSort}
+          onProductSortChange={cambiarOrdenProductos}
           serviceSort={serviceSort}
-          onServiceSortChange={setServiceSort}
+          onServiceSortChange={cambiarOrdenConsultas}
         />
 
         <SidebarInset>

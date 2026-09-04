@@ -11,7 +11,8 @@ export type ServiceRateType = {
     slug: string;
     description: string | null;
     image: { id: number; url: string } | null;
-    type: "consultation" | "procedure";
+    /** Enum de Strapi. El POS solo carga "consultation" (ver useGetServiceRates). */
+    type: "consultation" | "procedure" | "study";
   };
   doctor: {
     id: number;

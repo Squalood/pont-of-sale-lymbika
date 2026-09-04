@@ -78,3 +78,38 @@ export function compareServices(a: ServiceRateType, b: ServiceRateType, sort: So
       return 0;
   }
 }
+
+/**
+ * Los dos menús son excluyentes: elegir un orden restringe la vista a ese tipo,
+ * porque ordenar por precio una lista mezclada dejaría igual los medicamentos
+ * delante y el orden no serviría de nada.
+ *
+ * La regla vive aquí y no repartida entre `page.tsx` y `product-sidebar.tsx`,
+ * que necesitan la misma respuesta: uno para armar la lista y el otro para saber
+ * qué botón pintar. Cada guarda evita un callejón sin salida:
+ *
+ * - `soloProductos` no aplica en la categoría "consultas", donde no hay ninguno.
+ * - `soloConsultas` cede ante `soloProductos` y solo cuenta donde hay consultas
+ *   a la vista; si no, un orden olvidado vaciaría la pantalla sin forma de
+ *   deshacerlo, porque su menú estaría escondido.
+ */
+export function gridMode(
+  selectedCategory: string,
+  productSort: SortState,
+  serviceSort: SortState
+) {
+  const categoriaConConsultas =
+    selectedCategory === "todos" || selectedCategory === "consultas";
+
+  const soloProductos =
+    selectedCategory !== "consultas" && productSort.field !== SIN_ORDEN;
+  const soloConsultas =
+    categoriaConConsultas && !soloProductos && serviceSort.field !== SIN_ORDEN;
+
+  return {
+    soloProductos,
+    soloConsultas,
+    mostrarMenuProductos: selectedCategory !== "consultas" && !soloConsultas,
+    mostrarMenuConsultas: categoriaConConsultas && !soloProductos,
+  };
+}
