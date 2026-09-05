@@ -15,7 +15,7 @@ import {
 import {
   exportComprasCSV,
   exportVentasCSV,
-  exportVentasDetalleCSV,
+  exportVentasPorProductoCSV,
   type CsvNaming,
 } from "@/lib/dashboard-csv";
 import { csvStamp } from "@/lib/csv";
@@ -116,10 +116,10 @@ export function DashboardView({
       <VentasSection
         data={data}
         onExport={() => exportVentasCSV(data.ventasFiltradas, naming)}
-        onExportDetalle={() =>
-          exportVentasDetalleCSV(data.ventasFiltradas, productsById, naming)
+        onExportPorProducto={() =>
+          exportVentasPorProductoCSV(data.ventasFiltradas, productsById, naming)
         }
-        detalleDisabled={loadingProducts}
+        porProductoDisabled={loadingProducts}
       />
 
       <ComprasSection

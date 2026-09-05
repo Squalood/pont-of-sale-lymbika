@@ -30,7 +30,27 @@ function operadorSuffix({ operador }: CsvNaming): string {
 const folio = (id: number) => String(id).padStart(5, "0");
 const fecha = (iso: string) => new Date(iso).toLocaleString("es-MX");
 
-/** Una fila por venta. Es el archivo para cuadrar caja. */
+/**
+ * Tarifa con la que se cotizó el ticket. Una sola columna y no dos banderas porque son
+ * excluyentes por construcción: `PriceMode` es un valor, no tres flags, así que Health Pass
+ * y Precio de proveedor no pueden estar activos a la vez.
+ *
+ * Las ventas anteriores a estos campos no traen ninguno y caen en "Mostrador", que es la
+ * lectura correcta: antes de que existiera la tarifa, todo se cobraba a precio de lista.
+ */
+function tarifa(v: { esProveedor?: boolean; esMembresia?: boolean }): string {
+  if (v.esProveedor) return "Proveedor";
+  if (v.esMembresia) return "Health Pass";
+  return "Mostrador";
+}
+
+/**
+ * Una fila por venta. Es el archivo para cuadrar caja.
+ *
+ * Cierra exacto por construcción: Subtotal + IVA + Management fee + Recargo tarjeta = Total.
+ * El management fee solo aparece en tickets de tarifa Proveedor (10% sobre la mercancía) y
+ * el recargo solo en tickets Health Pass pagados con tarjeta.
+ */
 export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
   const sucursal = naming.sucursal ? `_${slug(naming.sucursal)}` : "";
 
@@ -41,17 +61,20 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
       "Folio",
       "Farmacia",
       "Operador",
+      "Tarifa",
       "Método de pago",
+      // Los cuatro componentes van juntos y en orden para que se lea la identidad que el
+      // sistema garantiza: Subtotal + IVA + Management fee + Recargo tarjeta = Total.
       "Subtotal",
       "IVA",
+      "Management fee",
+      "Recargo tarjeta",
       "Total",
       "Efectivo MXN",
       "Efectivo USD",
       "Tipo de cambio",
       "Tarjeta cobrada",
-      "Recargo tarjeta",
       "Transferencia",
-      "Membresía",
       "Artículos",
       "Nota",
     ],
@@ -78,17 +101,18 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
         folio(v.id),
         v.pharmacies?.[0]?.nombre ?? "",
         v.operador,
+        tarifa(v),
         v.metodoPago,
         v.subtotal.toFixed(2),
         v.iva.toFixed(2),
+        (v.managementFee ?? 0).toFixed(2),
+        ventaCardSurcharge(v).toFixed(2),
         v.total.toFixed(2),
         efectivoMXN.toFixed(2),
         usd.toFixed(2),
         tc.toFixed(2),
         tarjeta.toFixed(2),
-        ventaCardSurcharge(v).toFixed(2),
         transferencia.toFixed(2),
-        v.esMembresia ? "Sí" : "No",
         (v.venta ?? []).reduce((s, i) => s + i.quantity, 0),
         v.nota ?? "",
       ];
@@ -97,24 +121,46 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
 }
 
 /**
- * Una fila por línea de producto/servicio, a diferencia de `ventas.csv` que es una fila
- * por venta.
+ * Una fila por producto/servicio vendido, a diferencia de `ventas.csv`, que lleva una fila
+ * por ticket. Se relacionan por la columna `Folio`.
+ *
+ * Bases de impuesto — el punto delicado del archivo. El precio guardado en la venta
+ * (`unitPrice`) YA INCLUYE el IVA, así que las columnas netas se despejan hacia atrás desde
+ * `totalLine` en vez de multiplicar el precio por la cantidad. De lo contrario `Subtotal`
+ * saldría con el impuesto dentro y `Subtotal + Impuestos` cobraría el IVA dos veces, que es
+ * justo el error que ya se corrigió en el cobro. El invariante que sostiene el archivo es:
+ *
+ *     Subtotal + Impuestos = Total = lo que pagó el cliente
+ *
+ * `Costo unitario` en cambio se guarda SIN IVA (la compra aplica el multiplicador aparte,
+ * ver purchase/helpers.ts), así que el margen se calcula contra `Subtotal` y nunca contra
+ * `Total`: son bases distintas.
  *
  * Dos columnas son aproximadas y no un dato histórico exacto, porque el backend no las
  * persiste por línea (ver el commit que metió el IVA editable por artículo: "el impuesto
  * por línea no se persiste"):
- *  - Costo proveedor: el `priceMember` ACTUAL del producto en el catálogo. Es el mismo
- *    campo que se sobrescribe con el costo real al registrar una compra (ver
- *    new-purchase-dialog.tsx), así que es el mejor costo disponible, pero una venta vieja
- *    puede haber costado distinto si hubo compras después.
- *  - IVA cobrado: se recalcula con la tasa ACTUAL del producto (`impuesto`), no la vigente
- *    el día de la venta. El cajero también puede corregir la tasa por línea desde el chip
- *    de IVA en el cobro, y esa corrección no se guarda, así que esta columna puede no
- *    coincidir centavo a centavo con el ticket original.
+ *  - Costo unitario: el `priceMember` ACTUAL del producto. Es el mismo campo que se
+ *    sobrescribe con el costo real al registrar una compra (ver new-purchase-dialog.tsx),
+ *    así que es el mejor costo disponible, pero una venta vieja pudo costar distinto si
+ *    hubo compras después. Va vacío en servicios, que no tienen costo.
+ *  - Impuestos: se recalcula con la tasa ACTUAL del producto (`impuesto`), no la vigente el
+ *    día de la venta. El cajero puede corregir la tasa por línea desde el chip de IVA y esa
+ *    corrección no se guarda, así que puede no coincidir centavo a centavo con el ticket.
  *
- * "Precio pagado" sí es exacto: es el `unitPrice` que quedó grabado en la venta.
+ * `Total` sí es exacto: es el `totalLine` que quedó grabado en la venta.
+ *
+ * Qué suma contra `ventas.csv`, para el mismo folio:
+ *
+ *     Σ Total + Σ Management fee = Total del ticket − Recargo tarjeta
+ *
+ * El recargo se queda fuera a propósito: es un cargo de la forma de pago, no del precio de
+ * la mercancía, y vive en `ventas.csv`. El management fee sí entra porque es parte de lo
+ * que cuesta la tarifa de proveedor.
+ *
+ * `Margen` es solo de mercancía (Subtotal − Costo total) y no incluye el fee, que va en su
+ * propia columna: quien quiera la contribución total suma las dos.
  */
-export function exportVentasDetalleCSV(
+export function exportVentasPorProductoCSV(
   ventas: VentaType[],
   productsById: Map<number, ProductType>,
   naming: CsvNaming
@@ -122,22 +168,33 @@ export function exportVentasDetalleCSV(
   const sucursal = naming.sucursal ? `_${slug(naming.sucursal)}` : "";
 
   downloadCSV(
-    `ventas-detalle_${naming.stamp}${sucursal}${operadorSuffix(naming)}.csv`,
+    `ventas-por-producto_${naming.stamp}${sucursal}${operadorSuffix(naming)}.csv`,
     [
       "Fecha",
       "Folio",
+      "Método de pago",
+      "Tarifa",
       "Producto",
       "Cantidad",
-      "Costo proveedor (unitario)",
-      "Costo proveedor (total)",
-      "Precio pagado (unitario)",
-      "Precio pagado (total)",
-      "IVA cobrado",
+      "Precio de venta",
+      "Costo unitario",
+      "Costo total",
+      "Subtotal",
+      "Impuestos",
+      "Total",
+      "Management fee",
+      "Margen",
     ],
-    ventas.flatMap((v) =>
-      (v.venta ?? []).map((item) => {
+    ventas.flatMap((v) => {
+      // El fee es un 10% plano sobre la misma base que suman las líneas, así que repartirlo
+      // en proporción al total de cada una es exacto, no una estimación. Se prorratea el
+      // monto persistido y no un 10% recalculado, para respetar lo que de verdad se cobró.
+      const baseTicket = (v.venta ?? []).reduce((sum, i) => sum + i.totalLine, 0);
+      const feeTicket = v.managementFee ?? 0;
+      const tarifaTicket = tarifa(v);
+
+      return (v.venta ?? []).map((item) => {
         const product = item.product ? productsById.get(item.product.id) : undefined;
-        const costoUnitario = product?.priceMember ?? null;
 
         const rate =
           item.type === "service"
@@ -145,23 +202,38 @@ export function exportVentasDetalleCSV(
             : product
               ? taxRate(productImpuesto(product))
               : 0;
-        // unitPrice ya incluye el IVA (es lo que se cobró), así que se despeja hacia
-        // atrás: iva = total − total / (1 + tasa).
-        const ivaLinea = rate > 0 ? item.totalLine - item.totalLine / (1 + rate) : 0;
+
+        const total = item.totalLine;
+        const subtotal = total / (1 + rate);
+        const impuestos = total - subtotal;
+        const precioVenta = item.quantity > 0 ? subtotal / item.quantity : 0;
+
+        const costoUnitario = product?.priceMember ?? null;
+        const costoTotal = costoUnitario != null ? costoUnitario * item.quantity : null;
+        // Sin costo no hay margen que reportar: dejarlo vacío en vez de igualarlo al
+        // subtotal, que se leería como una utilidad del 100%.
+        const margen = costoTotal != null ? subtotal - costoTotal : null;
+
+        const feeLinea = baseTicket > 0 ? feeTicket * (total / baseTicket) : 0;
 
         return [
           fecha(v.fecha),
           folio(v.id),
+          v.metodoPago,
+          tarifaTicket,
           item.productName,
           item.quantity,
+          precioVenta.toFixed(2),
           costoUnitario != null ? costoUnitario.toFixed(2) : "",
-          costoUnitario != null ? (costoUnitario * item.quantity).toFixed(2) : "",
-          item.unitPrice.toFixed(2),
-          item.totalLine.toFixed(2),
-          ivaLinea.toFixed(2),
+          costoTotal != null ? costoTotal.toFixed(2) : "",
+          subtotal.toFixed(2),
+          impuestos.toFixed(2),
+          total.toFixed(2),
+          feeLinea.toFixed(2),
+          margen != null ? margen.toFixed(2) : "",
         ];
-      })
-    )
+      });
+    })
   );
 }
 
