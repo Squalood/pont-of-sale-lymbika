@@ -23,6 +23,7 @@ import { VentaType } from "@/types/venta";
 import { ProductType } from "@/types/product";
 import { printReceipt } from "@/lib/print-receipt";
 import { ventaCardCharged, ventaCardSurcharge } from "@/lib/checkout-math";
+import { feeSumaAlTotal } from "@/lib/tax";
 import { MANAGEMENT_FEE_RATE } from "@/lib/pricing";
 import { ReturnDialog } from "@/components/admin/return-dialog";
 import { InvoiceFromSaleDialog } from "@/components/admin/invoice-from-sale-dialog";
@@ -55,6 +56,7 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
       ? ventaCardCharged(venta) - cardSurcharge
       : 0;
   const baseTotal = venta.total - cardSurcharge;
+  const feeEsCargo = feeSumaAlTotal(subtotal, iva, baseTotal, managementFee);
   const transfeBase =
     venta.metodoPago === "transfe"
       ? venta.total
@@ -93,8 +95,8 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
   return (
     <>
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
-          <DialogHeader>
+        <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]" aria-describedby={undefined}>
+          <DialogHeader className="shrink-0">
             <DialogTitle>
               Detalle de venta{" "}
               <span className="text-muted-foreground font-normal">
@@ -103,7 +105,7 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1">
             {/* Info */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
@@ -220,52 +222,56 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
                 ))}
               </TableBody>
             </Table>
+          </div>
 
-            {/* Totals */}
-            <div className="space-y-1 border-t pt-3 text-sm">
+          {/* Totals */}
+          <div className="shrink-0 space-y-1 border-t pt-3 text-sm">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Subtotal</span>
+              <span>${subtotal.toFixed(2)}</span>
+            </div>
+            {iva > 0 && (
               <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                {/* Agregado, sin tasa: el impuesto por línea no se persiste. */}
+                <span>IVA incluido</span>
+                <span>${iva.toFixed(2)}</span>
               </div>
-              {iva > 0 && (
+            )}
+            {managementFee > 0 && (
+              // El fee de una venta nueva ya viene dentro del precio de cada línea; el de una
+              // venta vieja se cobraba aparte. La etiqueta refleja cuál es cada caso.
+              <div className="flex justify-between text-indigo-700">
+                <span>
+                  {feeEsCargo ? "" : "Incluye "}management fee ({MANAGEMENT_FEE_RATE * 100}%)
+                </span>
+                <span>{feeEsCargo ? "+" : ""}${managementFee.toFixed(2)}</span>
+              </div>
+            )}
+            {cardSurcharge > 0 && (
+              <>
                 <div className="flex justify-between text-muted-foreground">
-                  {/* Agregado, sin tasa: el impuesto por línea no se persiste. */}
-                  <span>IVA incluido</span>
-                  <span>${iva.toFixed(2)}</span>
+                  <span>Subtotal Health Pass</span>
+                  <span>${baseTotal.toFixed(2)}</span>
                 </div>
-              )}
-              {managementFee > 0 && (
-                <div className="flex justify-between text-indigo-700">
-                  <span>Management fee ({MANAGEMENT_FEE_RATE * 100}%)</span>
-                  <span>+${managementFee.toFixed(2)}</span>
+                {venta.metodoPago === "mixto" && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Porción en tarjeta</span>
+                    <span>${cardBase.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Cargo tarjeta (3%)</span>
+                  <span>+${cardSurcharge.toFixed(2)}</span>
                 </div>
-              )}
-              {cardSurcharge > 0 && (
-                <>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Subtotal Health Pass</span>
-                    <span>${baseTotal.toFixed(2)}</span>
-                  </div>
-                  {venta.metodoPago === "mixto" && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Porción en tarjeta</span>
-                      <span>${cardBase.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Cargo tarjeta (3%)</span>
-                    <span>+${cardSurcharge.toFixed(2)}</span>
-                  </div>
-                </>
-              )}
-              <div className="flex justify-between text-base font-bold">
-                <span>Total</span>
-                <span>${venta.total.toFixed(2)}</span>
-              </div>
+              </>
+            )}
+            <div className="flex justify-between text-base font-bold">
+              <span>Total</span>
+              <span>${venta.total.toFixed(2)}</span>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={handleReprint}>
               <Printer className="h-4 w-4" />
               Reimprimir

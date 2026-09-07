@@ -61,13 +61,15 @@ export function useCheckout({
     const operador = getUser()?.username ?? "desconocido";
 
     // Importes que se persisten, cerrados en centavos. `subtotal` e `iva` ya vienen
-    // cerrados de useCartTotals; el fee sale del mismo desglose y el recargo se guarda
-    // como residuo, para que el registro cumpla exacto
-    // total = subtotal + iva + managementFee + recargoTarjeta.
+    // cerrados de useCartTotals y el recargo se guarda como residuo, para que el registro
+    // cumpla exacto total = subtotal + iva + recargoTarjeta.
+    //
+    // `managementFee` NO entra en esa suma: el fee va dentro del precio de cada línea, así
+    // que ya está contado en subtotal + iva. Se guarda solo para poder reportarlo.
     const money = (n: number) => Math.round(n * 100) / 100;
-    const feeAmount = ivaBreakdown.feeCents / 100;
+
     const totalCobrado = money(effectiveTotal);
-    const recargoPersistido = money(totalCobrado - subtotal - iva - feeAmount);
+    const recargoPersistido = money(totalCobrado - subtotal - iva);
 
     const productLines = items.filter(
       (i): i is Extract<CartItem, { type: "product" }> => i.type === "product"
@@ -94,7 +96,7 @@ export function useCheckout({
         nota: nota || undefined,
         esMembresia: isMember,
         esProveedor: priceMode === "proveedor",
-        managementFee: feeAmount,
+        managementFee,
         pharmacies: caja?.pharmacy?.documentId,
         venta: items.map((item) => {
           if (item.type === "product") {
@@ -189,8 +191,8 @@ export function useCheckout({
       received,
       change: change > 0 ? change : 0,
       isMember,
-      managementFee: feeAmount,
-      feeBase,
+      managementFee,
+
       cardSurcharge,
       montoTarjeta: cardBase,
       montoTransfe,

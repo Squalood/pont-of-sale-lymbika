@@ -16,7 +16,6 @@ interface CartTotalsProps {
 }
 
 export function CartTotals({ subtotal, total, ahorro, priceMode, ivaBreakdown, tipoCambio, onCheckout }: CartTotalsProps) {
-  const managementFee = ivaBreakdown.feeCents / 100;
 
   return (
     <div className="border-t px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -39,17 +38,6 @@ export function CartTotals({ subtotal, total, ahorro, priceMode, ivaBreakdown, t
             </Fragment>
           );
         })}
-
-        {managementFee > 0 && (
-          <>
-            <span className="flex items-center gap-1 text-indigo-600">
-              <Building2 className="h-3 w-3" />
-              Management fee ({MANAGEMENT_FEE_RATE * 100}%)
-            </span>
-            <span className="text-right tabular-nums text-indigo-600">+${managementFee.toFixed(2)}</span>
-            <span className="text-right tabular-nums text-indigo-600">+${(managementFee / tipoCambio).toFixed(2)}</span>
-          </>
-        )}
 
         {priceMode === "member" && ahorro > 0 && (
           <>

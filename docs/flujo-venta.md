@@ -52,11 +52,18 @@ mutar el stock localmente al vender.
   3. `price` regular.
 
   Sobre ese precio de lista actúa después el impuesto de la línea (ver 3.1).
-- La tarifa `proveedor` agrega automáticamente un **management fee del 10%** sobre la
-  mercancía ([useCartTotals.ts](../src/hooks/useCartTotals.ts)). No hay switch aparte para
-  el fee: es consecuencia de la tarifa. Se cobra sin IVA trasladado (entra al desglose a
-  tasa 0), que es decisión contable a revisar si algún día la factura se siembra desde el
-  impuesto de línea.
+- La tarifa `proveedor` aplica un **management fee del 10% dentro del precio de cada
+  línea**: el precio cobrado es `priceMember × 1.10` ([pricing.ts](../src/lib/pricing.ts)).
+  No hay switch aparte para el fee ni fila de cargo al final del carrito — es consecuencia
+  de la tarifa y ya está aplicado por producto.
+  - Aplica también a los servicios, y **no** a las líneas con precio tecleado a mano: un
+    precio escrito por el cajero es final.
+  - Como el precio incluye IVA, el fee **carga el impuesto de su propia línea**. Un
+    cosmético al 16% declara 10% más de IVA que su precio sin fee. Es la consecuencia
+    directa de meter el fee al precio, y es más coherente que dejarlo a tasa 0.
+  - `managementFee` se sigue guardando en la venta, pero es **informativo**: ya está
+    contenido en `subtotal + iva`, no se suma. Es la porción del precio cobrado que
+    corresponde al fee, con impuesto incluido.
 
 > Nota: en este punto **no** se valida que haya stock suficiente. Se puede agregar más
 > cantidad de la que existe en `stock_central`.
@@ -107,7 +114,7 @@ corta el cálculo en ese caso para que sea bit-exacto y no aparezca deriva de
 ### Regla de redondeo
 
 [`computeIvaBreakdown`](../src/lib/tax.ts) devuelve los importes **cerrados en centavos**:
-`subtotal + Σ filas de IVA + fee === total`, exacto. Es necesario porque con dos tasas en
+`subtotal + Σ filas de IVA === total`, exacto. Es necesario porque con dos tasas en
 el mismo carrito, redondear cada fila por separado descuadra el ticket — con 149.00 al 8%
 y 99.00 al 16% las filas independientes suman 248.01 contra un total de 248.00. El residuo
 se absorbe en la fila de impuesto más grande. Carrito, ticket y detalle de venta renderizan

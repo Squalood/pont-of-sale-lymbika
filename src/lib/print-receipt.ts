@@ -1,5 +1,5 @@
-import { MANAGEMENT_FEE_RATE, impuestoLabel } from "@/lib/pricing";
-import type { IvaBreakdown } from "@/lib/tax";
+import { impuestoLabel } from "@/lib/pricing";
+import { feeSumaAlTotal, type IvaBreakdown } from "@/lib/tax";
 
 export interface ReceiptItem {
   productName: string;
@@ -23,10 +23,8 @@ interface ReceiptData {
   fecha?: Date | string;
   pharmacyName?: string;
   isMember?: boolean;
-  /** Management fee, ya incluido en `total`. */
+  /** Solo marca la venta como de proveedor: el fee ya está dentro del precio de cada línea. */
   managementFee?: number;
-  /** Mercancía a precio de proveedor, antes del fee. */
-  feeBase?: number;
   cardSurcharge?: number;
   montoTarjeta?: number;
   montoTransfe?: number;
@@ -40,7 +38,11 @@ interface ReceiptData {
   ivaBreakdown?: IvaBreakdown;
 }
 
-export function printReceipt(data: ReceiptData) {
+/**
+ * Arma el HTML del ticket. Exportada y pura a propósito: permite verificar en pruebas que
+ * la columna de totales impresa suma exacto, sin abrir una ventana del navegador.
+ */
+export function buildReceiptHtml(data: ReceiptData): string {
   const {
     receiptId,
     operador,
@@ -63,6 +65,9 @@ export function printReceipt(data: ReceiptData) {
   // El recargo se imprime como residuo entre los dos totales redondeados, para que la
   // columna del ticket sume exacto sin importar cómo redondeen las filas de arriba.
   const surchargeCents = Math.round(effectiveTotal * 100) - Math.round(total * 100);
+  // En el flujo actual el fee va dentro del precio de cada línea y no se imprime. Las
+  // ventas viejas sí lo cobraban aparte, así que su reimpresión lo necesita para cuadrar.
+  const feeEsCargo = feeSumaAlTotal(subtotal, data.iva, total, managementFee);
   const now = data.fecha ? new Date(data.fecha) : new Date();
   const date = now.toLocaleDateString("es-MX", {
     year: "numeric",
@@ -255,9 +260,8 @@ export function printReceipt(data: ReceiptData) {
           return rows.join("");
         })()}
         ${isMember ? `<div class="row member-note"><span>&#9733; Precio Health Pass</span></div>` : ""}
-        ${managementFee > 0 ? `
-        <div class="row member-note"><span>&#9670; Precio de proveedor</span></div>
-        <div class="row"><span>Management fee (${MANAGEMENT_FEE_RATE * 100}%)</span><span>+$${managementFee.toFixed(2)}</span></div>` : ""}
+        ${managementFee > 0 ? `<div class="row member-note"><span>&#9670; Precio de proveedor</span></div>` : ""}
+        ${feeEsCargo ? `<div class="row"><span>Management fee</span><span>+$${managementFee.toFixed(2)}</span></div>` : ""}
         ${surchargeCents > 0 ? `<div class="row"><span>Cargo tarjeta (3%)</span><span>+$${(surchargeCents / 100).toFixed(2)}</span></div>` : ""}
         <div class="row total">
           <span>TOTAL</span>
@@ -327,9 +331,13 @@ export function printReceipt(data: ReceiptData) {
     </html>
   `;
 
+  return html;
+}
+
+export function printReceipt(data: ReceiptData) {
   const printWindow = window.open("", "_blank", "width=300,height=600");
   if (printWindow) {
-    printWindow.document.write(html);
+    printWindow.document.write(buildReceiptHtml(data));
     printWindow.document.close();
   }
 }

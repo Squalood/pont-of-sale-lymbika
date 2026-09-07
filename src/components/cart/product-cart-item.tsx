@@ -7,7 +7,15 @@ import { urlImagen } from "@/lib/media";
 import { PriceEditor } from "./price-editor";
 import { QuantityControls } from "./quantity-controls";
 import { SENTINEL_EXPIRATION } from "@/lib/lotes";
-import { isSpecialPrice, itemImpuesto, itemUnitPrice, type ImpuestoLinea, type PriceMode } from "@/lib/pricing";
+import {
+  MANAGEMENT_FEE_RATE,
+  isSpecialPrice,
+  itemFeeAmount,
+  itemImpuesto,
+  itemUnitPrice,
+  type ImpuestoLinea,
+  type PriceMode,
+} from "@/lib/pricing";
 import { TaxChip } from "./tax-chip";
 
 interface ProductCartItemProps {
@@ -25,6 +33,7 @@ export function ProductCartItem({ item, priceMode, onUpdateQuantity, onRemoveIte
   const displayPrice = itemUnitPrice(item, priceMode);
   const hasOverride = item.overridePrice !== undefined;
   const specialPrice = isSpecialPrice(priceMode);
+  const feeAmount = itemFeeAmount(item, priceMode);
   const imageUrl = urlImagen(product.images?.[0]?.url, 128);
   const lot = item.selectedLot;
   const showCaducidad = lot?.expirationDate && lot.expirationDate < SENTINEL_EXPIRATION;
@@ -96,13 +105,22 @@ export function ProductCartItem({ item, priceMode, onUpdateQuantity, onRemoveIte
       </div>
 
       {/* Fila propia: la de arriba ya va apretada a 260px de panel. */}
-      <div className="mt-1 pl-12">
+      <div className="mt-1 flex items-center gap-1.5 pl-12">
         <TaxChip
           impuesto={itemImpuesto(item)}
           hasOverride={item.overrideImpuesto !== undefined}
           itemKey={key}
           onUpdateImpuesto={onUpdateImpuesto}
         />
+        {feeAmount > 0 && (
+          // El fee ya está dentro del precio de arriba; esto solo explica de dónde sale.
+          <span
+            className="rounded-md border border-dashed border-indigo-300 px-1.5 text-xs text-indigo-600"
+            title={`Incluye management fee de $${(feeAmount * quantity).toFixed(2)}`}
+          >
+            +{MANAGEMENT_FEE_RATE * 100}% fee
+          </span>
+        )}
       </div>
     </div>
   );

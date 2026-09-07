@@ -9,42 +9,72 @@ import type { CartItem, ProductType } from "@/types/product";
  */
 export type PriceMode = "regular" | "member" | "proveedor";
 
-/** Management fee que se cobra sobre el subtotal cuando la tarifa es de proveedor. */
+/**
+ * Management fee de la tarifa de proveedor. Va **dentro del precio de cada línea**, no
+ * como cargo aparte al final: el precio cobrado es el de proveedor × 1.10.
+ *
+ * Consecuencia buscada: como el precio incluye IVA, el fee carga el impuesto de su propia
+ * línea. Un cosmético al 16% declara 10% más de IVA que su precio sin fee.
+ */
 export const MANAGEMENT_FEE_RATE = 0.1;
 
 export function productUnitPrice(product: ProductType, mode: PriceMode): number {
   return (mode === "regular" ? product.price : product.priceMember) ?? 0;
 }
 
+/** Precio de lista de la línea, antes del fee: tarifa del producto o del servicio. */
+function listPrice(item: CartItem, mode: PriceMode): number {
+  if (item.type === "service") return item.serviceRate.price;
+  return productUnitPrice(item.product, mode);
+}
+
+/** El fee de proveedor multiplica el precio de la línea, productos y servicios por igual. */
+function withFee(amount: number, mode: PriceMode): number {
+  return mode === "proveedor" ? amount * (1 + MANAGEMENT_FEE_RATE) : amount;
+}
+
+/** Impuesto que el precio de lista de la línea trae dentro. */
+function impuestoIncluido(item: CartItem): ImpuestoLinea {
+  return item.type === "service" ? SERVICE_IMPUESTO : productImpuesto(item.product);
+}
+
 /**
- * Precio **sin impuesto** de una línea. Es el invariante: se despeja del precio de lista
- * con el impuesto que trae el producto, y no se mueve al corregir la tasa en el mostrador.
+ * Precio **sin impuesto** de una línea. Es el invariante: se despeja del precio cobrado
+ * (lista + fee) con el impuesto que ese precio trae dentro, y no se mueve al corregir la
+ * tasa en el mostrador.
  */
 export function itemNetPrice(item: CartItem, mode: PriceMode): number {
   if (item.overridePrice !== undefined) {
     // Un precio tecleado a mano es lo que paga el cliente, así que de ahí se extrae.
     return item.overridePrice / (1 + taxRate(itemImpuesto(item)));
   }
-  // La tarifa del servicio también trae su impuesto dentro.
-  if (item.type === "service") return item.serviceRate.price / (1 + taxRate(SERVICE_IMPUESTO));
-  const listado = productUnitPrice(item.product, mode);
-  return listado / (1 + taxRate(productImpuesto(item.product)));
+  return withFee(listPrice(item, mode), mode) / (1 + taxRate(impuestoIncluido(item)));
 }
 
 /**
  * Precio unitario que se cobra: base sin impuesto × la tasa efectiva.
  *
- * Sin correcciones devuelve el precio de lista tal cual — se corta el cálculo para que sea
- * bit-exacto y no aparezca deriva de `price / 1.08 * 1.08`.
+ * Sin correcciones devuelve el precio cobrado tal cual — se corta el cálculo para que sea
+ * bit-exacto y no aparezca deriva de `precio / 1.08 * 1.08`.
  */
 export function itemUnitPrice(item: CartItem, mode: PriceMode): number {
+  // El precio tecleado a mano es final: no se le agrega el fee.
   if (item.overridePrice !== undefined) return item.overridePrice;
-  if (item.type === "service") return item.serviceRate.price;
+  const cobrado = withFee(listPrice(item, mode), mode);
+  const dentro = impuestoIncluido(item);
   const efectivo = itemImpuesto(item);
-  const delProducto = productImpuesto(item.product);
-  const listado = productUnitPrice(item.product, mode);
-  if (efectivo === delProducto) return listado;
-  return (listado / (1 + taxRate(delProducto))) * (1 + taxRate(efectivo));
+  if (efectivo === dentro) return cobrado;
+  return (cobrado / (1 + taxRate(dentro))) * (1 + taxRate(efectivo));
+}
+
+/**
+ * Porción del precio unitario de la línea que corresponde al management fee. Es
+ * informativa: ya está dentro de `itemUnitPrice`, no se suma aparte.
+ */
+export function itemFeeAmount(item: CartItem, mode: PriceMode): number {
+  if (mode !== "proveedor" || item.overridePrice !== undefined) return 0;
+  const cobrado = itemUnitPrice(item, mode);
+  return cobrado - cobrado / (1 + MANAGEMENT_FEE_RATE);
 }
 
 /** true cuando la tarifa no es la de mostrador, para resaltar el precio en la UI. */
