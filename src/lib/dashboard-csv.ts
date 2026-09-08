@@ -1,6 +1,7 @@
 import { downloadCSV } from "@/lib/csv";
 import { ventaCardCharged, ventaCardSurcharge } from "@/lib/checkout-math";
 import { productImpuesto, SERVICE_IMPUESTO, taxRate } from "@/lib/pricing";
+import { feeSumaAlTotal } from "@/lib/tax";
 import type { CompraType } from "@/types/compra";
 import type { ProductType } from "@/types/product";
 import type { VentaType } from "@/types/venta";
@@ -38,6 +39,26 @@ const fecha = (iso: string) => new Date(iso).toLocaleString("es-MX");
  * Las ventas anteriores a estos campos no traen ninguno y caen en "Mostrador", que es la
  * lectura correcta: antes de que existiera la tarifa, todo se cobraba a precio de lista.
  */
+/**
+ * Rol del management fee en un ticket. Desde que el fee entró al precio de cada línea, el
+ * monto guardado ya viene contenido en `subtotal + iva` y NO se suma al total; los tickets
+ * anteriores lo traen como cargo aparte. `feeSumaAlTotal` los distingue desde lo guardado,
+ * así que el CSV reporta cada época como se cobró sin inventar un campo nuevo.
+ *
+ * Devuelve "" cuando el ticket no lleva fee, para no ensuciar la columna con un "No" que
+ * se leería como si hubiera un fee que no se sumó.
+ */
+function feeEnPrecio(v: {
+  subtotal: number;
+  iva: number;
+  total: number;
+  managementFee?: number;
+}): string {
+  const fee = v.managementFee ?? 0;
+  if (fee <= 0) return "";
+  return feeSumaAlTotal(v.subtotal, v.iva, v.total, fee) ? "No" : "Sí";
+}
+
 function tarifa(v: { esProveedor?: boolean; esMembresia?: boolean }): string {
   if (v.esProveedor) return "Proveedor";
   if (v.esMembresia) return "Health Pass";
@@ -47,9 +68,16 @@ function tarifa(v: { esProveedor?: boolean; esMembresia?: boolean }): string {
 /**
  * Una fila por venta. Es el archivo para cuadrar caja.
  *
- * Cierra exacto por construcción: Subtotal + IVA + Management fee + Recargo tarjeta = Total.
- * El management fee solo aparece en tickets de tarifa Proveedor (10% sobre la mercancía) y
- * el recargo solo en tickets Health Pass pagados con tarjeta.
+ * Cierra exacto, con el management fee decidiendo cuál de las dos identidades aplica —
+ * la columna "Fee en el precio" lo dice fila por fila:
+ *
+ *     Fee en el precio = Sí  →  Subtotal + IVA + Recargo tarjeta = Total
+ *     Fee en el precio = No  →  Subtotal + IVA + Management fee + Recargo tarjeta = Total
+ *
+ * "Sí" es la semántica actual: el 10% va dentro del precio de cada línea, así que ya está
+ * contado en subtotal + iva y el monto guardado es informativo. "No" son los tickets
+ * anteriores al cambio, donde el fee se sumaba al final. El recargo solo aparece en
+ * tickets Health Pass pagados con tarjeta.
  */
 export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
   const sucursal = naming.sucursal ? `_${slug(naming.sucursal)}` : "";
@@ -63,11 +91,12 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
       "Operador",
       "Tarifa",
       "Método de pago",
-      // Los cuatro componentes van juntos y en orden para que se lea la identidad que el
-      // sistema garantiza: Subtotal + IVA + Management fee + Recargo tarjeta = Total.
+      // Los componentes van juntos y en orden para que la identidad se lea de corrido, con
+      // la bandera pegada al fee que califica.
       "Subtotal",
       "IVA",
       "Management fee",
+      "Fee en el precio",
       "Recargo tarjeta",
       "Total",
       "Efectivo MXN",
@@ -106,6 +135,7 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
         v.subtotal.toFixed(2),
         v.iva.toFixed(2),
         (v.managementFee ?? 0).toFixed(2),
+        feeEnPrecio(v),
         ventaCardSurcharge(v).toFixed(2),
         v.total.toFixed(2),
         efectivoMXN.toFixed(2),
@@ -151,14 +181,21 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
  *
  * Qué suma contra `ventas.csv`, para el mismo folio:
  *
- *     Σ Total + Σ Management fee = Total del ticket − Recargo tarjeta
+ *     Σ Total = Subtotal + IVA del ticket
  *
- * El recargo se queda fuera a propósito: es un cargo de la forma de pago, no del precio de
- * la mercancía, y vive en `ventas.csv`. El management fee sí entra porque es parte de lo
- * que cuesta la tarifa de proveedor.
+ * Vale en las dos épocas del management fee y sin casos especiales, porque `subtotal + iva`
+ * siempre es la mercancía y `Σ totalLine` siempre es la suma de sus líneas: antes el fee
+ * quedaba fuera de ambos, hoy queda dentro de ambos. El recargo de tarjeta nunca entra —
+ * es un cargo de la forma de pago, no del precio, y vive solo en `ventas.csv`.
  *
- * `Margen` es solo de mercancía (Subtotal − Costo total) y no incluye el fee, que va en su
- * propia columna: quien quiera la contribución total suma las dos.
+ * `Management fee` es informativa y NO se suma al Total: es la parte de ese Total que
+ * corresponde al fee. Se reparte en proporción al total de cada línea, lo que la hace
+ * exacta salvo que el cajero haya tecleado un precio a mano en alguna (esas líneas no
+ * llevan fee y el reparto les asigna una parte de todos modos).
+ *
+ * `Margen` (Subtotal − Costo total) sí incluye el fee en tickets de proveedor, porque el
+ * fee está dentro del precio y por tanto dentro del Subtotal. Sumarle la columna del fee
+ * lo contaría dos veces.
  */
 export function exportVentasPorProductoCSV(
   ventas: VentaType[],
@@ -183,15 +220,18 @@ export function exportVentasPorProductoCSV(
       "Impuestos",
       "Total",
       "Management fee",
+      "Fee en el precio",
       "Margen",
     ],
     ventas.flatMap((v) => {
       // El fee es un 10% plano sobre la misma base que suman las líneas, así que repartirlo
-      // en proporción al total de cada una es exacto, no una estimación. Se prorratea el
-      // monto persistido y no un 10% recalculado, para respetar lo que de verdad se cobró.
+      // en proporción al total de cada una da el reparto real. Se prorratea el monto
+      // persistido y no un 10% recalculado, para que la suma de la columna cuadre con lo
+      // que de verdad se cobró incluso si alguna línea llevaba precio tecleado a mano.
       const baseTicket = (v.venta ?? []).reduce((sum, i) => sum + i.totalLine, 0);
       const feeTicket = v.managementFee ?? 0;
       const tarifaTicket = tarifa(v);
+      const feeEnPrecioTicket = feeEnPrecio(v);
 
       return (v.venta ?? []).map((item) => {
         const product = item.product ? productsById.get(item.product.id) : undefined;
@@ -214,6 +254,7 @@ export function exportVentasPorProductoCSV(
         // subtotal, que se leería como una utilidad del 100%.
         const margen = costoTotal != null ? subtotal - costoTotal : null;
 
+        // Informativo: parte de `total` que es fee. No se suma.
         const feeLinea = baseTicket > 0 ? feeTicket * (total / baseTicket) : 0;
 
         return [
@@ -230,6 +271,7 @@ export function exportVentasPorProductoCSV(
           impuestos.toFixed(2),
           total.toFixed(2),
           feeLinea.toFixed(2),
+          feeEnPrecioTicket,
           margen != null ? margen.toFixed(2) : "",
         ];
       });

@@ -39,7 +39,7 @@ La diferencia está en qué representa una fila.
 | **Una fila es** | un ticket | un producto dentro de un ticket |
 | **Qué detalla** | cómo se cobró la venta | qué mercancía se vendió |
 | **Úsalo para** | cuadrar caja y contabilidad | márgenes y decidir qué conviene vender |
-| **Columnas** | 18 | 14 |
+| **Columnas** | 19 | 15 |
 
 La columna **Folio** es la que los une. Un folio aparece **una sola vez** en el archivo por
 venta, y **tantas veces como productos tenga** en el archivo por producto.
@@ -67,7 +67,8 @@ son los importes que quedaron grabados en el momento del cobro y no se recalcula
 | Método de pago | Efectivo, tarjeta, transferencia o mixto. |
 | Subtotal | Mercancía sin impuesto. |
 | IVA | Impuesto de todo el ticket. |
-| Management fee | 10 % sobre la mercancía. Solo en tickets de tarifa Proveedor. |
+| Management fee | El 10 % de la tarifa Proveedor. Ver la columna siguiente antes de sumarlo. |
+| Fee en el precio | **Sí**: el fee ya está dentro de Subtotal + IVA. **No**: se cobró aparte y sí se suma. Vacío si el ticket no lleva fee. |
 | Recargo tarjeta | 3 % que paga un cliente Health Pass al pagar con tarjeta. |
 | Total | Lo que realmente pagó el cliente. |
 | Efectivo MXN | Pesos recibidos menos el cambio entregado. |
@@ -80,12 +81,20 @@ son los importes que quedaron grabados en el momento del cobro y no se recalcula
 
 ### La suma que siempre debe cerrar
 
+Depende de lo que diga **Fee en el precio** en esa misma fila:
+
 ```
-Subtotal + IVA + Management fee + Recargo tarjeta = Total
+Fee en el precio = Sí  →  Subtotal + IVA + Recargo tarjeta = Total
+Fee en el precio = No  →  Subtotal + IVA + Management fee + Recargo tarjeta = Total
 ```
 
-Las cuatro columnas están juntas y en ese orden, antes del Total, justamente para que puedas
-verificarlo de un vistazo. Si alguna fila no cierra, es un error que hay que reportar.
+**Sí** es como se cobra hoy: el 10 % va dentro del precio de cada producto, así que ya está
+contado en Subtotal + IVA y el monto de la columna es solo informativo. **No** son los
+tickets anteriores al cambio, donde el fee se sumaba al final.
+
+Las columnas están juntas y en ese orden, con la bandera pegada al fee que califica, para
+que puedas verificarlo de un vistazo. Si una fila no cierra con su regla, es un error que
+hay que reportar.
 
 ---
 
@@ -107,8 +116,9 @@ Una fila por producto vendido. Es el archivo de márgenes.
 | Subtotal | Cantidad × precio de venta. Sin impuesto. | Aproximado |
 | Impuestos | IVA de ese renglón. | Aproximado |
 | Total | Lo que pagó el cliente por ese renglón. | Exacto |
-| Management fee | Parte del fee del ticket que le toca a este renglón. | Exacto |
-| Margen | Subtotal − Costo total. Solo mercancía, sin el fee. | Aproximado |
+| Management fee | Parte del **Total** de este renglón que es fee. Informativa: no se suma. | Exacto |
+| Fee en el precio | Igual que en el otro archivo. Se repite en cada renglón del folio. | Exacto |
+| Margen | Subtotal − Costo total. En tickets de proveedor **ya incluye el fee**. | Aproximado |
 
 ### Las sumas que siempre deben cerrar
 
@@ -120,9 +130,12 @@ Subtotal − Costo total     = Margen
 
 > **No sumes estas columnas**
 >
-> **Método de pago** y **Tarifa** describen el ticket, no el renglón, así que se repiten en
-> cada producto del mismo folio. Sirven para filtrar o para una tabla dinámica, no para
-> totalizar. Para totales por método de pago usa el archivo por venta.
+> **Método de pago**, **Tarifa** y **Fee en el precio** describen el ticket, no el renglón,
+> así que se repiten en cada producto del mismo folio. Sirven para filtrar o para una tabla
+> dinámica, no para totalizar. Para totales por método de pago usa el archivo por venta.
+>
+> **Management fee** tampoco se suma al Total: es la parte de ese Total que ya es fee.
+> Sumarla lo contaría dos veces.
 >
 > En ventas **mixtas** la columna solo dice *mixto*: no hay forma de saber qué producto se
 > pagó con qué. El desglose está en el archivo por venta.
@@ -138,50 +151,67 @@ archivos.
 |---|---|---|
 | **Mostrador** | Precio de lista. Es la venta normal. | Ninguno. |
 | **Health Pass** | Precio preferente de socio. | Si paga con tarjeta, **3 %** de recargo en la terminal. |
-| **Proveedor** | Precio de proveedor. | **Management fee del 10 %** sobre la mercancía. |
+| **Proveedor** | Precio de proveedor **con el management fee del 10 % ya dentro**. | Ninguno al final del ticket. |
 
 Las ventas anteriores a que existieran estas tarifas aparecen como **Mostrador**, que es la
 lectura correcta: en ese entonces todo se cobraba a precio de lista.
+
+En la tarifa Proveedor el fee **no es un cargo al final**: multiplica el precio de cada
+producto, y como el precio incluye IVA, el fee carga el impuesto de su propia línea. En el
+carrito se ve con un badge `+10 % fee` por producto. Los tickets emitidos antes de este
+cambio sí lo llevaban como cargo aparte, y por eso existe la columna **Fee en el precio**.
+
+El fee **no se aplica a líneas con precio tecleado a mano** por el cajero: un precio escrito
+a mano es final.
 
 ---
 
 ## Cómo cruzar los dos archivos
 
-Toma un folio y suma sus renglones en el archivo por producto. Debe dar el total del ticket
-**menos el recargo de tarjeta**:
+Toma un folio y suma la columna **Total** de sus renglones en el archivo por producto. Debe
+dar el **Subtotal + IVA** de ese ticket en el archivo por venta:
 
 ```
-Σ Total + Σ Management fee = Total del ticket − Recargo tarjeta
+Σ Total = Subtotal + IVA del ticket
 ```
 
-El recargo queda fuera a propósito: es un cargo de *la forma de pago*, no del precio de la
-mercancía, así que vive únicamente en el archivo por venta. El management fee sí entra,
-porque es parte de lo que cuesta la tarifa de proveedor.
+Esta igualdad vale siempre y sin casos especiales, sin importar la época del fee, porque
+`Subtotal + IVA` es la mercancía y `Σ Total` es la suma de sus renglones: antes el fee
+quedaba fuera de los dos, hoy queda dentro de los dos.
+
+Ni el **recargo de tarjeta** ni la columna **Management fee** entran en este cruce. El
+recargo es un cargo de *la forma de pago*, no del precio, y vive solo en el archivo por
+venta. El management fee ya está contenido en el Total de cada renglón.
 
 ### Ejemplo: un ticket de tarifa Proveedor
 
-Folio `00003`, pagado en efectivo. El mismo producto salió en dos renglones porque se surtió
-de dos lotes distintos.
+Folio `00003`, pagado en efectivo. Un producto de precio de proveedor $100 al 8 %, que salió
+en dos renglones porque se surtió de dos lotes distintos. El precio cobrado es
+`100 × 1.10 = 110.00`, con el fee ya dentro.
 
 **Archivo por producto**
 
-| Producto | Cant. | Subtotal | Impuestos | Total | Fee | Margen |
-|---|---:|---:|---:|---:|---:|---:|
-| Paracetamol 500 mg | 2 | 200.00 | 16.00 | 216.00 | 21.60 | 124.00 |
-| Paracetamol 500 mg | 1 | 100.00 | 8.00 | 108.00 | 10.80 | 62.00 |
+| Producto | Cant. | Subtotal | Impuestos | Total | Fee | Fee en el precio |
+|---|---:|---:|---:|---:|---:|---|
+| Paracetamol 500 mg | 2 | 203.70 | 16.30 | 220.00 | 20.00 | Sí |
+| Paracetamol 500 mg | 1 | 101.85 | 8.15 | 110.00 | 10.00 | Sí |
 
 **Archivo por venta**
 
-| Folio | Tarifa | Subtotal | IVA | Fee | Recargo | Total |
-|---|---|---:|---:|---:|---:|---:|
-| 00003 | Proveedor | 300.00 | 24.00 | 32.40 | 0.00 | 356.40 |
+| Folio | Tarifa | Subtotal | IVA | Fee | Fee en el precio | Recargo | Total |
+|---|---|---:|---:|---:|---|---:|---:|
+| 00003 | Proveedor | 305.56 | 24.44 | 30.00 | Sí | 0.00 | 330.00 |
 
 **El cruce**
 
 ```
-(216.00 + 21.60) + (108.00 + 10.80) = 356.40
-300.00 + 24.00 + 32.40 + 0.00       = 356.40   ✓
+Σ Total          = 220.00 + 110.00 = 330.00
+Subtotal + IVA   = 305.56 +  24.44 = 330.00   ✓
 ```
+
+El ticket cobró **330.00**, no 360.00: los 30.00 de fee ya venían dentro de los precios. Y
+como el precio incluye IVA, el fee carga el impuesto de su propia línea — por eso el renglón
+de una pieza declara 8.15 de IVA y no 7.41.
 
 ---
 
@@ -211,8 +241,9 @@ que el renglón puede no coincidir centavo a centavo con el ticket impreso.
   un servicio. Se dejan en blanco a propósito: poner cero haría ver una utilidad del 100 %.
 - **Consultas y servicios médicos.** Nunca tienen costo. Su IVA es fijo de 8 %, ya incluido en
   la tarifa.
-- **El margen no incluye el management fee.** Está en su propia columna. Si quieres la
-  ganancia total del renglón, suma las dos.
+- **El margen ya incluye el management fee** en tickets de proveedor, porque el fee va
+  dentro del precio y por tanto dentro del Subtotal. No le sumes la columna del fee: lo
+  contarías dos veces.
 - **Un mismo producto repetido en un folio.** Normal: la venta se surtió de más de un lote.
 - **Efectivo USD.** Está en dólares sin convertir. Para pasarlo a pesos usa la columna Tipo de
   cambio de esa misma fila.
