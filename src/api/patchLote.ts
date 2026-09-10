@@ -1,8 +1,14 @@
 import { authFetch } from "@/lib/auth";
+import type { DiscardReason, LoteState } from "@/types/lote";
 
 interface PatchLotePayload {
-  currentAmount: number;
-  state?: "activo" | "agotado" | "vencido";
+  currentAmount?: number;
+  state?: LoteState;
+  // Merma: los escribe `discardLotes` junto con state="vencido".
+  discardedAt?: string;
+  discardedBy?: string;
+  discardedQuantity?: number;
+  discardReason?: DiscardReason;
 }
 
 // Escritura absoluta del lote (consistente con patchProductStock).
