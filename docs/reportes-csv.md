@@ -11,7 +11,8 @@ cada columna y qué cifras se pueden auditar al centavo.
 ## Dónde están y qué alcance tienen
 
 Entra al **Panel de administración → Dashboard**. En el encabezado de la sección **Ventas**
-hay dos botones de descarga.
+hay dos botones de descarga. Más abajo, la sección **Compras** tiene el suyo aparte, que no
+cubre esta guía. La página `/admin/compras` no exporta nada: todo sale del Dashboard.
 
 Los dos archivos respetan **los filtros que tengas activos** en ese momento: el período (Hoy,
 Semana, Mes, Todo o un rango del calendario), la sucursal y el operador. Lo que ves en
@@ -39,7 +40,7 @@ La diferencia está en qué representa una fila.
 | **Una fila es** | un ticket | un producto dentro de un ticket |
 | **Qué detalla** | cómo se cobró la venta | qué mercancía se vendió |
 | **Úsalo para** | cuadrar caja y contabilidad | márgenes y decidir qué conviene vender |
-| **Columnas** | 19 | 15 |
+| **Columnas** | 19 | 14 |
 
 La columna **Folio** es la que los une. Un folio aparece **una sola vez** en el archivo por
 venta, y **tantas veces como productos tenga** en el archivo por producto.
@@ -102,30 +103,37 @@ hay que reportar.
 
 Una fila por producto vendido. Es el archivo de márgenes.
 
+Van agrupadas por bloque, y dentro de cada bloque en el orden en que se encadena la
+aritmética, para que las sumas se lean de izquierda a derecha sin saltar columnas.
+
 | Columna | Qué contiene | Confianza |
 |---|---|---|
+| **De qué ticket viene** | | |
 | Fecha | Fecha y hora del ticket. | Exacto |
 | Folio | Ticket al que pertenece el renglón. | Exacto |
 | Método de pago | Del ticket completo, por eso se repite en cada renglón. | Exacto |
 | Tarifa | Del ticket completo. También se repite. | Exacto |
+| Fee en el precio | Igual que en el otro archivo. También se repite. | Exacto |
+| **Qué se vendió** | | |
 | Producto | Nombre del producto o del servicio. | Exacto |
 | Cantidad | Piezas vendidas en ese renglón. | Exacto |
-| Precio de venta | Precio unitario **sin impuesto**. | Aproximado |
+| **Lo que costó** | | |
 | Costo unitario | Lo que nos costó una pieza, sin impuesto. | Aproximado |
 | Costo total | Cantidad × costo unitario. | Aproximado |
+| **Lo que se cobró** | | |
+| Precio de venta | Precio unitario **sin impuesto**. | Aproximado |
 | Subtotal | Cantidad × precio de venta. Sin impuesto. | Aproximado |
 | Impuestos | IVA de ese renglón. | Aproximado |
-| Total | Lo que pagó el cliente por ese renglón. | Exacto |
-| Management fee | Parte del **Total** de este renglón que es fee. Informativa: no se suma. | Exacto |
-| Fee en el precio | Igual que en el otro archivo. Se repite en cada renglón del folio. | Exacto |
-| Margen | Subtotal − Costo total. En tickets de proveedor **ya incluye el fee**. | Aproximado |
+| Total cobrado | Lo que pagó el cliente por ese renglón. **Ojo: no es `Costo total`.** | Exacto |
+| **La conclusión** | | |
+| Retorno | Qué dejó el renglón. La fuente cambia con la tarifa — ver la nota de abajo. | Según la tarifa |
 
 ### Las sumas que siempre deben cerrar
 
 ```
 Precio de venta × Cantidad = Subtotal
-Subtotal + Impuestos       = Total
-Subtotal − Costo total     = Margen
+Subtotal + Impuestos       = Total cobrado
+Cantidad × Costo unitario  = Costo total
 ```
 
 > **No sumes estas columnas**
@@ -134,11 +142,28 @@ Subtotal − Costo total     = Margen
 > así que se repiten en cada producto del mismo folio. Sirven para filtrar o para una tabla
 > dinámica, no para totalizar. Para totales por método de pago usa el archivo por venta.
 >
-> **Management fee** tampoco se suma al Total: es la parte de ese Total que ya es fee.
-> Sumarla lo contaría dos veces.
->
 > En ventas **mixtas** la columna solo dice *mixto*: no hay forma de saber qué producto se
 > pagó con qué. El desglose está en el archivo por venta.
+
+> **Cómo leer la columna Retorno**
+>
+> Contesta *qué dejó este renglón*, y de dónde sale la cifra depende de la tarifa. No es un
+> capricho: en dos de las tres el precio de venta se deriva del mismo precio de proveedor que
+> el reporte usa como costo, así que restar ahí no mediría el negocio.
+>
+> | Tarifa | Qué trae el Retorno | Exactitud |
+> |---|---|---|
+> | **Mostrador** | El margen de mercancía (Subtotal − Costo total) | Corrido hacia abajo, ver abajo |
+> | **Proveedor** | El management fee de ese renglón | **Exacto** |
+> | **Health Pass** | **0.00** — cero por diseño | **Exacto** |
+>
+> Un retorno de **cero en Health Pass no es una venta a pérdida**: en esa tarifa se vende al
+> precio de proveedor, y lo que deja el programa (cuota, volumen, recurrencia) no se mide en
+> esta línea.
+>
+> **Limitación en Mostrador.** Ahí el Retorno sale corrido hacia abajo por el IVA del costo,
+> porque el Subtotal es **neto** y el Costo es **crudo**. Sirve para **comparar productos
+> entre sí**, pero no tomes la cifra como utilidad exacta. Está en revisión.
 
 ---
 
@@ -168,20 +193,23 @@ a mano es final.
 
 ## Cómo cruzar los dos archivos
 
-Toma un folio y suma la columna **Total** de sus renglones en el archivo por producto. Debe
-dar el **Subtotal + IVA** de ese ticket en el archivo por venta:
+Toma un folio y suma la columna **Total cobrado** de sus renglones en el archivo por
+producto. Debe dar el **Subtotal + IVA** de ese ticket en el archivo por venta:
 
 ```
-Σ Total = Subtotal + IVA del ticket
+Σ Total cobrado = Subtotal + IVA del ticket
 ```
 
 Esta igualdad vale siempre y sin casos especiales, sin importar la época del fee, porque
-`Subtotal + IVA` es la mercancía y `Σ Total` es la suma de sus renglones: antes el fee
+`Subtotal + IVA` es la mercancía y `Σ Total cobrado` es la suma de sus renglones: antes el fee
 quedaba fuera de los dos, hoy queda dentro de los dos.
 
-Ni el **recargo de tarjeta** ni la columna **Management fee** entran en este cruce. El
-recargo es un cargo de *la forma de pago*, no del precio, y vive solo en el archivo por
-venta. El management fee ya está contenido en el Total de cada renglón.
+El **recargo de tarjeta** no entra en este cruce: es un cargo de *la forma de pago*, no del
+precio de la mercancía, y vive solo en el archivo por venta.
+
+El management fee tampoco hay que sumarlo aparte. En los tickets de hoy ya viene dentro del
+Total cobrado de cada renglón; en los anteriores al cambio se cobró al final y nunca estuvo
+en los renglones. En ambos casos el cruce cierra sin tocarlo.
 
 ### Ejemplo: un ticket de tarifa Proveedor
 
@@ -189,25 +217,28 @@ Folio `00003`, pagado en efectivo. Un producto de precio de proveedor $100 al 8 
 en dos renglones porque se surtió de dos lotes distintos. El precio cobrado es
 `100 × 1.10 = 110.00`, con el fee ya dentro.
 
-**Archivo por producto**
+**Archivo por producto** — las dos filas llevan `Fee en el precio = Sí`
 
-| Producto | Cant. | Subtotal | Impuestos | Total | Fee | Fee en el precio |
-|---|---:|---:|---:|---:|---:|---|
-| Paracetamol 500 mg | 2 | 203.70 | 16.30 | 220.00 | 20.00 | Sí |
-| Paracetamol 500 mg | 1 | 101.85 | 8.15 | 110.00 | 10.00 | Sí |
+| Producto | Cant. | Costo total | Subtotal | Impuestos | Total cobrado | Retorno |
+|---|---:|---:|---:|---:|---:|---:|
+| Paracetamol 500 mg | 2 | 200.00 | 203.70 | 16.30 | 220.00 | 20.00 |
+| Paracetamol 500 mg | 1 | 100.00 | 101.85 | 8.15 | 110.00 | 10.00 |
 
 **Archivo por venta**
 
-| Folio | Tarifa | Subtotal | IVA | Fee | Fee en el precio | Recargo | Total |
+| Folio | Tarifa | Subtotal | IVA | Management fee | Fee en el precio | Recargo | Total |
 |---|---|---:|---:|---:|---|---:|---:|
 | 00003 | Proveedor | 305.56 | 24.44 | 30.00 | Sí | 0.00 | 330.00 |
 
 **El cruce**
 
 ```
-Σ Total          = 220.00 + 110.00 = 330.00
+Σ Total cobrado  = 220.00 + 110.00 = 330.00
 Subtotal + IVA   = 305.56 +  24.44 = 330.00   ✓
 ```
+
+Y el **Retorno** de los dos renglones suma `20.00 + 10.00 = 30.00`, que es exactamente el
+management fee del ticket. Así se ve por qué en Proveedor el retorno *es* el fee.
 
 El ticket cobró **330.00**, no 360.00: los 30.00 de fee ya venían dentro de los precios. Y
 como el precio incluye IVA, el fee carga el impuesto de su propia línea — por eso el renglón
@@ -217,18 +248,21 @@ de una pieza declara 8.15 de IVA y no 7.41.
 
 ## Qué significa "aproximado"
 
-Seis columnas del archivo por producto se **reconstruyen** al momento de exportar, porque el
+Cinco columnas del archivo por producto se **reconstruyen** al momento de exportar, porque el
 sistema no las guarda renglón por renglón. Son confiables para analizar tendencias y decidir,
 pero no son un documento fiscal.
 
-**Costo unitario, Costo total y Margen** usan el *costo que el producto tiene hoy* en el
-catálogo, que se actualiza solo cada vez que registras una compra con costo. Si compraste ese
-producto más caro o más barato *después* de esa venta, el reporte muestra el costo de hoy, no
-el de aquel día.
+**Costo unitario y Costo total** usan el *costo que el producto tiene hoy* en el catálogo,
+que se actualiza cada vez que registras una compra con costo. Si compraste ese producto más
+caro o más barato *después* de esa venta, el reporte muestra el costo de hoy, no el de aquel
+día.
 
 **Precio de venta, Subtotal e Impuestos** usan la *tasa de IVA que el producto tiene hoy*. Si
 el cajero corrigió la tasa a mano en esa venta puntual, esa corrección no quedó guardada, así
 que el renglón puede no coincidir centavo a centavo con el ticket impreso.
+
+El **Retorno** hereda las dos cosas, pero solo en **Mostrador**: ahí sale de restar el costo
+al subtotal. En Proveedor y Health Pass es exacto, porque no depende del costo ni de la tasa.
 
 > **Para contabilidad, usa el archivo por venta.** Todas sus columnas son exactas. El archivo
 > por producto es una herramienta de análisis.
@@ -237,13 +271,16 @@ que el renglón puede no coincidir centavo a centavo con el ticket impreso.
 
 ## Casos que verás seguido
 
-- **Celdas vacías en costo y margen.** El producto no tiene costo capturado, o el renglón es
-  un servicio. Se dejan en blanco a propósito: poner cero haría ver una utilidad del 100 %.
+- **Celdas vacías en costo y retorno.** El producto no tiene costo capturado, o el renglón
+  es un servicio. Se dejan en blanco a propósito, no en cero: un cero se leería como una
+  venta que no dejó nada.
 - **Consultas y servicios médicos.** Nunca tienen costo. Su IVA es fijo de 8 %, ya incluido en
   la tarifa.
-- **El margen ya incluye el management fee** en tickets de proveedor, porque el fee va
-  dentro del precio y por tanto dentro del Subtotal. No le sumes la columna del fee: lo
-  contarías dos veces.
+- **Retorno en cero en Health Pass.** Es lo correcto, no un error: en esa tarifa se vende al
+  precio de proveedor y el retorno de la línea es cero por diseño.
+- **En Proveedor, el Retorno es el management fee.** También es lo correcto: en esa tarifa
+  el retorno de la venta *es* el 10 %. El monto del fee a nivel ticket está en el archivo
+  por venta.
 - **Un mismo producto repetido en un folio.** Normal: la venta se surtió de más de un lote.
 - **Efectivo USD.** Está en dólares sin convertir. Para pasarlo a pesos usa la columna Tipo de
   cambio de esa misma fila.

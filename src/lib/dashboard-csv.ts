@@ -181,21 +181,21 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
  *
  * Qué suma contra `ventas.csv`, para el mismo folio:
  *
- *     Σ Total = Subtotal + IVA del ticket
+ *     Σ Total cobrado = Subtotal + IVA del ticket
  *
  * Vale en las dos épocas del management fee y sin casos especiales, porque `subtotal + iva`
- * siempre es la mercancía y `Σ totalLine` siempre es la suma de sus líneas: antes el fee
+ * siempre es la mercancía y `Σ Total cobrado` siempre es la suma de sus líneas: antes el fee
  * quedaba fuera de ambos, hoy queda dentro de ambos. El recargo de tarjeta nunca entra —
  * es un cargo de la forma de pago, no del precio, y vive solo en `ventas.csv`.
  *
- * `Management fee` es informativa y NO se suma al Total: es la parte de ese Total que
- * corresponde al fee. Se reparte en proporción al total de cada línea, lo que la hace
- * exacta salvo que el cajero haya tecleado un precio a mano en alguna (esas líneas no
- * llevan fee y el reparto les asigna una parte de todos modos).
+ * `Retorno` contesta "¿qué dejó este renglón?" y su fuente cambia con la tarifa: en
+ * Mostrador es el margen de mercancía, en Proveedor es el management fee y en Health Pass es
+ * cero por diseño. En Proveedor se reparte el fee del ticket en proporción al total de cada
+ * línea, lo que lo hace exacto salvo que el cajero haya tecleado un precio a mano en alguna
+ * (esas líneas no llevan fee y el reparto les asigna una parte de todos modos).
  *
- * `Margen` (Subtotal − Costo total) sí incluye el fee en tickets de proveedor, porque el
- * fee está dentro del precio y por tanto dentro del Subtotal. Sumarle la columna del fee
- * lo contaría dos veces.
+ * Solo el de Mostrador arrastra el desajuste de base del costo (ver
+ * `docs/pendiente-margen-por-producto.md`); los otros dos son exactos.
  */
 export function exportVentasPorProductoCSV(
   ventas: VentaType[],
@@ -207,21 +207,29 @@ export function exportVentasPorProductoCSV(
   downloadCSV(
     `ventas-por-producto_${naming.stamp}${sucursal}${operadorSuffix(naming)}.csv`,
     [
+      // Agrupadas por bloque, y dentro de cada uno en el orden en que se encadena la
+      // aritmética, para que las sumas de la guía se lean de corrido sin saltar columnas.
+      // De qué ticket viene
       "Fecha",
       "Folio",
       "Método de pago",
       "Tarifa",
+      "Fee en el precio",
+      // Qué se vendió
       "Producto",
       "Cantidad",
-      "Precio de venta",
+      // Lo que costó. Va antes del cobro para que la cifra que más se busca, el total
+      // cobrado, quede al final y pegada al Retorno.
       "Costo unitario",
       "Costo total",
+      // Lo que se cobró: precio × cantidad = subtotal, + impuestos = total cobrado.
+      // "cobrado" no es adorno: sin él se confunde con "Costo total" al sumar una columna.
+      "Precio de venta",
       "Subtotal",
       "Impuestos",
-      "Total",
-      "Management fee",
-      "Fee en el precio",
-      "Margen",
+      "Total cobrado",
+      // La conclusión
+      "Retorno",
     ],
     ventas.flatMap((v) => {
       // El fee es un 10% plano sobre la misma base que suman las líneas, así que repartirlo
@@ -250,33 +258,56 @@ export function exportVentasPorProductoCSV(
 
         const costoUnitario = product?.priceMember ?? null;
         const costoTotal = costoUnitario != null ? costoUnitario * item.quantity : null;
-        // Sin costo no hay margen que reportar: dejarlo vacío en vez de igualarlo al
-        // subtotal, que se leería como una utilidad del 100%.
-        const margen = costoTotal != null ? subtotal - costoTotal : null;
-
-        // Informativo: parte de `total` que es fee. No se suma.
+        // Parte de `total` que es fee. No sale como columna propia: en Proveedor es el
+        // Retorno, y en las demás tarifas siempre sería cero.
         const feeLinea = baseTicket > 0 ? feeTicket * (total / baseTicket) : 0;
+
+        // Qué dejó este renglón. La fuente del retorno depende de la tarifa, porque en dos
+        // de las tres el precio de venta se deriva del mismo `priceMember` que el reporte
+        // usa como costo: restar ahí no mide el negocio, solo devuelve la tarifa.
+        //   Mostrador   → el margen de mercancía, única tarifa con precio propio
+        //   Proveedor   → el management fee, que es el retorno de esa venta y es exacto
+        //   Health Pass → cero por diseño: se vende al precio de proveedor
+        const retorno =
+          tarifaTicket === "Health Pass"
+            ? 0
+            : tarifaTicket === "Proveedor"
+              ? feeLinea
+              : costoTotal != null
+                ? subtotal - costoTotal
+                // Sin costo capturado no hay retorno que reportar: vacío, no cero, que se
+                // leería como una venta que no dejó nada.
+                : null;
 
         return [
           fecha(v.fecha),
           folio(v.id),
           v.metodoPago,
           tarifaTicket,
+          feeEnPrecioTicket,
           item.productName,
           item.quantity,
-          precioVenta.toFixed(2),
           costoUnitario != null ? costoUnitario.toFixed(2) : "",
           costoTotal != null ? costoTotal.toFixed(2) : "",
+          precioVenta.toFixed(2),
           subtotal.toFixed(2),
           impuestos.toFixed(2),
           total.toFixed(2),
-          feeLinea.toFixed(2),
-          feeEnPrecioTicket,
-          margen != null ? margen.toFixed(2) : "",
+          retorno != null ? retorno.toFixed(2) : "",
         ];
       });
     })
   );
+}
+
+/** Tasas de IVA presentes en una compra, o "No" si ninguna se capturó. */
+function ivaRegistrado(items: { iva?: string }[]): string {
+  const tasas = new Set<string>();
+  for (const i of items) {
+    if (i.iva === "iva8") tasas.add("8%");
+    else if (i.iva === "iva16") tasas.add("16%");
+  }
+  return tasas.size ? Array.from(tasas).sort().join(" + ") : "No";
 }
 
 /** Una fila por compra. Incluye las de total 0, marcadas, para poder reconciliar. */
@@ -296,6 +327,9 @@ export function exportComprasCSV(compras: CompraType[], naming: CsvNaming): void
       "Productos",
       "Unidades",
       "Costos registrados",
+      // Sin tasa capturada el total de la compra es el crudo tecleado, así que no sirve
+      // para contrastarlo contra la factura del proveedor.
+      "IVA registrado",
       "Factura adjunta",
       "Notas",
     ],
@@ -310,6 +344,7 @@ export function exportComprasCSV(compras: CompraType[], naming: CsvNaming): void
         new Set(items.map((i) => i.product?.documentId ?? i.productName)).size,
         items.reduce((s, i) => s + i.quantity, 0),
         c.total > 0 ? "Sí" : "No",
+        ivaRegistrado(items),
         c.archivo?.name ?? "",
         c.notas ?? "",
       ];

@@ -18,7 +18,13 @@ import { patchProduct } from "@/api/patchProduct";
 import { postLote } from "@/api/postLote";
 import { getUser } from "@/lib/auth";
 import { LocalPurchaseItem } from "./purchase/types";
-import { itemQuantity, ivaMultiplier, comprasTotal, ivaToImpuestoProducto } from "./purchase/helpers";
+import {
+  itemQuantity,
+  ivaMultiplier,
+  comprasTotal,
+  ivaToImpuestoProducto,
+  ivaDesdeProducto,
+} from "./purchase/helpers";
 import { SupplierStep } from "./purchase/supplier-step";
 import { ItemsStep } from "./purchase/items-step";
 import { ConfirmStep } from "./purchase/confirm-step";
@@ -95,7 +101,9 @@ export function NewPurchaseDialog({
           productName: product.productName,
           stockActual: product.stock_central ?? 0,
           costoUnitario: product.priceMember ?? 0,
-          iva: "exento" as const,
+          // Arranca con la tasa que el producto ya tiene: al confirmar se sobrescribe
+          // el `impuesto` del producto, así que un valor fijo aquí la borraría.
+          iva: ivaDesdeProducto(product),
           lotes: [{ numeroLote: "", cantidad: 1 }],
         },
       ];
