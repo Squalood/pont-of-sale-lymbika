@@ -39,6 +39,25 @@ function impuestoIncluido(item: CartItem): ImpuestoLinea {
 }
 
 /**
+ * Si el precio de lista de la línea ya trae el impuesto dentro. Los dos campos de precio del
+ * producto NO están en la misma base:
+ *
+ *   `product.price`       precio de anaquel  → lo trae dentro
+ *   `product.priceMember` costo del proveedor → viene SIN IVA
+ *
+ * `priceMember` se captura neto en la compra, que le suma la tasa aparte para el total (ver
+ * `purchase/helpers.ts → itemTotalLine`). Así que las tarifas que cotizan con ese campo
+ * tienen que **sumar** el impuesto encima en vez de despejarlo: despejarlo cobraba el neto
+ * como si fuera total y regalaba el IVA en cada pieza gravada.
+ *
+ * La tarifa de un servicio sí lo trae dentro.
+ */
+function listPriceIncluyeImpuesto(item: CartItem, mode: PriceMode): boolean {
+  if (item.type === "service") return true;
+  return mode === "regular";
+}
+
+/**
  * Precio **sin impuesto** de una línea. Es el invariante: se despeja del precio cobrado
  * (lista + fee) con el impuesto que ese precio trae dentro, y no se mueve al corregir la
  * tasa en el mostrador.
@@ -48,7 +67,12 @@ export function itemNetPrice(item: CartItem, mode: PriceMode): number {
     // Un precio tecleado a mano es lo que paga el cliente, así que de ahí se extrae.
     return item.overridePrice / (1 + taxRate(itemImpuesto(item)));
   }
-  return withFee(listPrice(item, mode), mode) / (1 + taxRate(impuestoIncluido(item)));
+  const cobrado = withFee(listPrice(item, mode), mode);
+  // Si el precio de lista trae el impuesto dentro hay que despejarlo; si viene neto, ya es
+  // la base y no se toca.
+  return listPriceIncluyeImpuesto(item, mode)
+    ? cobrado / (1 + taxRate(impuestoIncluido(item)))
+    : cobrado;
 }
 
 /**
@@ -63,6 +87,10 @@ export function itemUnitPrice(item: CartItem, mode: PriceMode): number {
   const cobrado = withFee(listPrice(item, mode), mode);
   const dentro = impuestoIncluido(item);
   const efectivo = itemImpuesto(item);
+
+  // El costo de proveedor viene neto: la tasa se suma encima, no se despeja.
+  if (!listPriceIncluyeImpuesto(item, mode)) return cobrado * (1 + taxRate(efectivo));
+
   if (efectivo === dentro) return cobrado;
   return (cobrado / (1 + taxRate(dentro))) * (1 + taxRate(efectivo));
 }

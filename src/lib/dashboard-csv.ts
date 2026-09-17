@@ -188,14 +188,10 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
  * quedaba fuera de ambos, hoy queda dentro de ambos. El recargo de tarjeta nunca entra —
  * es un cargo de la forma de pago, no del precio, y vive solo en `ventas.csv`.
  *
- * `Retorno` contesta "¿qué dejó este renglón?" y su fuente cambia con la tarifa: en
- * Mostrador es el margen de mercancía, en Proveedor es el management fee y en Health Pass es
- * cero por diseño. En Proveedor se reparte el fee del ticket en proporción al total de cada
- * línea, lo que lo hace exacto salvo que el cajero haya tecleado un precio a mano en alguna
- * (esas líneas no llevan fee y el reparto les asigna una parte de todos modos).
- *
- * Solo el de Mostrador arrastra el desajuste de base del costo (ver
- * `docs/pendiente-margen-por-producto.md`); los otros dos son exactos.
+ * `Retorno` es `Subtotal − Costo total`, sin casos por tarifa: los dos vienen sin impuesto,
+ * así que la resta mide el negocio. Health Pass cae en 0 y Proveedor en el 10 % del fee por
+ * la tarifa misma, no porque el reporte lo imponga — si alguno se sale de ahí, es una señal
+ * real y no un artefacto.
  */
 export function exportVentasPorProductoCSV(
   ventas: VentaType[],
@@ -232,12 +228,6 @@ export function exportVentasPorProductoCSV(
       "Retorno",
     ],
     ventas.flatMap((v) => {
-      // El fee es un 10% plano sobre la misma base que suman las líneas, así que repartirlo
-      // en proporción al total de cada una da el reparto real. Se prorratea el monto
-      // persistido y no un 10% recalculado, para que la suma de la columna cuadre con lo
-      // que de verdad se cobró incluso si alguna línea llevaba precio tecleado a mano.
-      const baseTicket = (v.venta ?? []).reduce((sum, i) => sum + i.totalLine, 0);
-      const feeTicket = v.managementFee ?? 0;
       const tarifaTicket = tarifa(v);
       const feeEnPrecioTicket = feeEnPrecio(v);
 
@@ -258,26 +248,17 @@ export function exportVentasPorProductoCSV(
 
         const costoUnitario = product?.priceMember ?? null;
         const costoTotal = costoUnitario != null ? costoUnitario * item.quantity : null;
-        // Parte de `total` que es fee. No sale como columna propia: en Proveedor es el
-        // Retorno, y en las demás tarifas siempre sería cero.
-        const feeLinea = baseTicket > 0 ? feeTicket * (total / baseTicket) : 0;
-
-        // Qué dejó este renglón. La fuente del retorno depende de la tarifa, porque en dos
-        // de las tres el precio de venta se deriva del mismo `priceMember` que el reporte
-        // usa como costo: restar ahí no mide el negocio, solo devuelve la tarifa.
-        //   Mostrador   → el margen de mercancía, única tarifa con precio propio
-        //   Proveedor   → el management fee, que es el retorno de esa venta y es exacto
-        //   Health Pass → cero por diseño: se vende al precio de proveedor
-        const retorno =
-          tarifaTicket === "Health Pass"
-            ? 0
-            : tarifaTicket === "Proveedor"
-              ? feeLinea
-              : costoTotal != null
-                ? subtotal - costoTotal
-                // Sin costo capturado no hay retorno que reportar: vacío, no cero, que se
-                // leería como una venta que no dejó nada.
-                : null;
+        // Qué dejó este renglón: una sola resta, sin casos por tarifa. Subtotal y Costo
+        // total están los dos sin impuesto, así que la resta mide el negocio de verdad —
+        // y cada tarifa cae donde debe sin que el reporte lo imponga:
+        //   Mostrador   → el margen real
+        //   Health Pass → 0, porque se vende al costo de proveedor
+        //   Proveedor   → el 10 % del fee, que va dentro del precio
+        // Si alguna se sale de ahí, es una señal que hay que ver, no un artefacto.
+        //
+        // Sin costo capturado se deja vacío, no en cero: un cero se leería como una venta
+        // que no dejó nada.
+        const retorno = costoTotal != null ? subtotal - costoTotal : null;
 
         return [
           fecha(v.fecha),

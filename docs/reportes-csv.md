@@ -35,8 +35,9 @@ ventas_2026-08-11_2026-08-18_centro_ana.csv
 
 La diferencia está en qué representa una fila.
 
-| | `ventas_….csv` | `ventas-por-producto_….csv` |
+| Comparación | **Por venta** | **Por producto** |
 |---|---|---|
+| **Archivo** | `ventas_….csv` | `ventas-por-producto_….csv` |
 | **Una fila es** | un ticket | un producto dentro de un ticket |
 | **Qué detalla** | cómo se cobró la venta | qué mercancía se vendió |
 | **Úsalo para** | cuadrar caja y contabilidad | márgenes y decidir qué conviene vender |
@@ -103,30 +104,55 @@ hay que reportar.
 
 Una fila por producto vendido. Es el archivo de márgenes.
 
-Van agrupadas por bloque, y dentro de cada bloque en el orden en que se encadena la
-aritmética, para que las sumas se lean de izquierda a derecha sin saltar columnas.
+Las 14 columnas van en cinco bloques, y dentro de cada uno el orden sigue la aritmética,
+para que las sumas se lean de izquierda a derecha sin saltar columnas.
+
+#### 1. De qué ticket viene
+
+Describen el ticket completo, así que **se repiten en cada renglón del mismo folio**. Todas
+son exactas.
+
+| Columna | Qué contiene |
+|---|---|
+| Fecha | Fecha y hora del ticket. |
+| Folio | Ticket al que pertenece el renglón. Liga con el archivo por venta. |
+| Método de pago | Efectivo, tarjeta, transferencia o mixto. |
+| Tarifa | Mostrador, Health Pass o Proveedor. |
+| Fee en el precio | Igual que en el archivo por venta. |
+
+#### 2. Qué se vendió
+
+Exactas las dos.
+
+| Columna | Qué contiene |
+|---|---|
+| Producto | Nombre del producto o del servicio. |
+| Cantidad | Piezas vendidas en ese renglón. |
+
+#### 3. Lo que costó
+
+Las dos son **aproximadas**: usan el costo que el producto tiene hoy en el catálogo, no el
+del día de la venta.
+
+| Columna | Qué contiene |
+|---|---|
+| Costo unitario | Lo que nos costó una pieza, sin impuesto. |
+| Costo total | Cantidad × costo unitario. |
+
+#### 4. Lo que se cobró
 
 | Columna | Qué contiene | Confianza |
 |---|---|---|
-| **De qué ticket viene** | | |
-| Fecha | Fecha y hora del ticket. | Exacto |
-| Folio | Ticket al que pertenece el renglón. | Exacto |
-| Método de pago | Del ticket completo, por eso se repite en cada renglón. | Exacto |
-| Tarifa | Del ticket completo. También se repite. | Exacto |
-| Fee en el precio | Igual que en el otro archivo. También se repite. | Exacto |
-| **Qué se vendió** | | |
-| Producto | Nombre del producto o del servicio. | Exacto |
-| Cantidad | Piezas vendidas en ese renglón. | Exacto |
-| **Lo que costó** | | |
-| Costo unitario | Lo que nos costó una pieza, sin impuesto. | Aproximado |
-| Costo total | Cantidad × costo unitario. | Aproximado |
-| **Lo que se cobró** | | |
 | Precio de venta | Precio unitario **sin impuesto**. | Aproximado |
 | Subtotal | Cantidad × precio de venta. Sin impuesto. | Aproximado |
 | Impuestos | IVA de ese renglón. | Aproximado |
 | Total cobrado | Lo que pagó el cliente por ese renglón. **Ojo: no es `Costo total`.** | Exacto |
-| **La conclusión** | | |
-| Retorno | Qué dejó el renglón. La fuente cambia con la tarifa — ver la nota de abajo. | Según la tarifa |
+
+#### 5. La conclusión
+
+| Columna | Qué contiene | Confianza |
+|---|---|---|
+| Retorno | `Subtotal − Costo total`. Qué dejó el renglón — ver la nota de abajo. | Aproximado |
 
 ### Las sumas que siempre deben cerrar
 
@@ -134,6 +160,7 @@ aritmética, para que las sumas se lean de izquierda a derecha sin saltar column
 Precio de venta × Cantidad = Subtotal
 Subtotal + Impuestos       = Total cobrado
 Cantidad × Costo unitario  = Costo total
+Subtotal − Costo total     = Retorno
 ```
 
 > **No sumes estas columnas**
@@ -147,23 +174,31 @@ Cantidad × Costo unitario  = Costo total
 
 > **Cómo leer la columna Retorno**
 >
-> Contesta *qué dejó este renglón*, y de dónde sale la cifra depende de la tarifa. No es un
-> capricho: en dos de las tres el precio de venta se deriva del mismo precio de proveedor que
-> el reporte usa como costo, así que restar ahí no mediría el negocio.
+> Es una sola resta, `Subtotal − Costo total`, igual en las tres tarifas. Los dos vienen sin
+> impuesto, así que la resta mide el negocio de verdad.
 >
-> | Tarifa | Qué trae el Retorno | Exactitud |
+> Cada tarifa cae en un valor esperado **por cómo está armado su precio**, no porque el
+> reporte lo imponga:
+>
+> | Tarifa | Qué deberías ver | Por qué |
 > |---|---|---|
-> | **Mostrador** | El margen de mercancía (Subtotal − Costo total) | Corrido hacia abajo, ver abajo |
-> | **Proveedor** | El management fee de ese renglón | **Exacto** |
-> | **Health Pass** | **0.00** — cero por diseño | **Exacto** |
+> | **Mostrador** | Variable, positivo | Es la única con precio propio de venta. |
+> | **Health Pass** | **0.00** | Se vende al costo de proveedor, sin margen. |
+> | **Proveedor** | El **10 %** del costo | Es el management fee, que va dentro del precio. |
 >
-> Un retorno de **cero en Health Pass no es una venta a pérdida**: en esa tarifa se vende al
-> precio de proveedor, y lo que deja el programa (cuota, volumen, recurrencia) no se mide en
-> esta línea.
+> Un cero en Health Pass **no es una venta a pérdida**: es el precio funcionando como se
+> diseñó. Lo que deja el programa (cuota, volumen, recurrencia) no se mide en esta línea.
 >
-> **Limitación en Mostrador.** Ahí el Retorno sale corrido hacia abajo por el IVA del costo,
-> porque el Subtotal es **neto** y el Costo es **crudo**. Sirve para **comparar productos
-> entre sí**, pero no tomes la cifra como utilidad exacta. Está en revisión.
+> **Si un renglón se sale de su valor esperado, es una señal real** — un costo mal capturado,
+> un precio tecleado a mano, o mercancía que cambió de precio. Vale revisarlo.
+
+> **Ventas anteriores al 17 de septiembre de 2026**
+>
+> En esas verás **Retorno negativo en Health Pass** sobre productos gravados (no en
+> medicamentos, que son tasa 0). No es un error del reporte: hasta esa fecha el sistema
+> cobraba al socio el costo de proveedor **sin sumarle el IVA**, así que esas ventas
+> realmente perdieron el impuesto. Ya está corregido en el cobro; las ventas viejas se quedan
+> como fueron.
 
 ---
 
@@ -276,11 +311,12 @@ al subtotal. En Proveedor y Health Pass es exacto, porque no depende del costo n
   venta que no dejó nada.
 - **Consultas y servicios médicos.** Nunca tienen costo. Su IVA es fijo de 8 %, ya incluido en
   la tarifa.
-- **Retorno en cero en Health Pass.** Es lo correcto, no un error: en esa tarifa se vende al
-  precio de proveedor y el retorno de la línea es cero por diseño.
-- **En Proveedor, el Retorno es el management fee.** También es lo correcto: en esa tarifa
-  el retorno de la venta *es* el 10 %. El monto del fee a nivel ticket está en el archivo
-  por venta.
+- **Retorno en cero en Health Pass.** Es lo correcto: en esa tarifa se vende al costo de
+  proveedor, sin margen.
+- **Retorno negativo en Health Pass, en ventas anteriores al 17/9/2026.** También es real,
+  no un error del reporte. Ver la nota del archivo por producto.
+- **En Proveedor, el Retorno es el 10 % del costo.** Es el management fee, que va dentro del
+  precio. El monto a nivel ticket está en el archivo por venta.
 - **Un mismo producto repetido en un folio.** Normal: la venta se surtió de más de un lote.
 - **Efectivo USD.** Está en dólares sin convertir. Para pasarlo a pesos usa la columna Tipo de
   cambio de esa misma fila.
