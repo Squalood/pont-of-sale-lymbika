@@ -7,8 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "validar-margen": "node scripts/validar-margen.mjs",
-    "candidatas-factura": "node scripts/candidatas-factura.mjs"
+    "validar-margen": "node scripts/validar-margen.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

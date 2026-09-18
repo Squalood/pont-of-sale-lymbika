@@ -166,18 +166,21 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
  * ver purchase/helpers.ts), así que el margen se calcula contra `Subtotal` y nunca contra
  * `Total`: son bases distintas.
  *
- * Dos columnas son aproximadas y no un dato histórico exacto, porque el backend no las
- * persiste por línea (ver el commit que metió el IVA editable por artículo: "el impuesto
- * por línea no se persiste"):
- *  - Costo unitario: el `priceMember` ACTUAL del producto. Es el mismo campo que se
- *    sobrescribe con el costo real al registrar una compra (ver new-purchase-dialog.tsx),
- *    así que es el mejor costo disponible, pero una venta vieja pudo costar distinto si
- *    hubo compras después. Va vacío en servicios, que no tienen costo.
- *  - Impuestos: se recalcula con la tasa ACTUAL del producto (`impuesto`), no la vigente el
- *    día de la venta. El cajero puede corregir la tasa por línea desde el chip de IVA y esa
- *    corrección no se guarda, así que puede no coincidir centavo a centavo con el ticket.
+ * El costo y la tasa salen de los snapshots `unitCost` e `impuesto` que la venta graba al
+ * cobrar, y solo se cae al catálogo cuando la venta no los trae —o sea en las ventas previas
+ * a que existieran esos campos. Esa es la única fuente de imprecisión que queda, y es
+ * histórica: confirmar una compra sobrescribe `priceMember` e `impuesto` del producto, así
+ * que leerlos hoy reescribía el costo y el IVA de todas sus ventas pasadas.
  *
- * `Total` sí es exacto: es el `totalLine` que quedó grabado en la venta.
+ * El costo y el precio se copian del MISMO objeto `item.product` en el MISMO instante del
+ * checkout. Por eso `Retorno = 0` en Health Pass deja de ser coincidencia y pasa a ser un
+ * invariante estructural, que es lo que hace válido a `scripts/validar-margen.mjs`.
+ *
+ * Lo que el snapshot NO arregla: congela lo que el catálogo decía ese día, no lo que costó la
+ * pieza concreta. Dos líneas de lotes distintos del mismo producto guardan el mismo costo.
+ *
+ * `Total` es exacto siempre: es el `totalLine` que quedó grabado en la venta. En servicios
+ * `Costo unitario` va vacío, porque no tienen costo de proveedor.
  *
  * Qué suma contra `ventas.csv`, para el mismo folio:
  *
@@ -234,19 +237,25 @@ export function exportVentasPorProductoCSV(
       return (v.venta ?? []).map((item) => {
         const product = item.product ? productsById.get(item.product.id) : undefined;
 
+        // La tasa que quedó grabada en la venta. Solo las ventas previas al snapshot caen al
+        // catálogo, que devuelve la tasa de hoy y no la del día del cobro.
         const rate =
-          item.type === "service"
-            ? taxRate(SERVICE_IMPUESTO)
-            : product
-              ? taxRate(productImpuesto(product))
-              : 0;
+          item.tax != null
+            ? taxRate(item.tax)
+            : item.type === "service"
+              ? taxRate(SERVICE_IMPUESTO)
+              : product
+                ? taxRate(productImpuesto(product))
+                : 0;
 
         const total = item.totalLine;
         const subtotal = total / (1 + rate);
         const impuestos = total - subtotal;
         const precioVenta = item.quantity > 0 ? subtotal / item.quantity : 0;
 
-        const costoUnitario = product?.priceMember ?? null;
+        // El costo grabado en la venta. Igual que la tasa, solo las ventas previas al
+        // snapshot caen al catálogo y arrastran su deriva.
+        const costoUnitario = item.unitCost ?? product?.priceMember ?? null;
         const costoTotal = costoUnitario != null ? costoUnitario * item.quantity : null;
         // Qué dejó este renglón: una sola resta, sin casos por tarifa. Subtotal y Costo
         // total están los dos sin impuesto, así que la resta mide el negocio de verdad —

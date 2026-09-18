@@ -8,6 +8,20 @@ export interface VentaItem {
   quantity: number;
   unitPrice: number;
   totalLine: number;
+  /**
+   * Costo del producto al momento de cobrar. Snapshot, y por eso existe: el catálogo solo
+   * guarda el costo de la última compra, así que leerlo al exportar reescribía el costo de
+   * todas las ventas pasadas del producto.
+   *
+   * Congela lo que el catálogo decía ese día, no lo que costó la pieza concreta: dos líneas
+   * de lotes distintos del mismo producto guardan el mismo costo.
+   */
+  unitCost?: number | null; // snapshot
+  /**
+   * Tasa que se cobró en la línea, incluida la corrección del chip del cajero. Es el código
+   * (`iva8`, `exento`), no el monto: el monto se deriva en el reporte.
+   */
+  tax?: string | null; // snapshot
   lotDocumentId?: string | null; // documentId del lote del que sale la línea [D1]
   lotNumber?: string | null; // snapshot
   expirationDate?: string | null; // snapshot
@@ -20,6 +34,14 @@ export interface VentaItemType {
   quantity: number;
   unitPrice: number;
   totalLine: number;
+  /** Costo al momento de cobrar. Ausente en ventas previas al campo: ahí hay que caer al catálogo. */
+  unitCost?: number | null;
+  /**
+   * Código de la tasa cobrada en la línea, no el monto. Sin tipar a `ImpuestoLinea` a
+   * propósito: es dato crudo de la API, igual que `ProductType.impuesto`, y se valida en
+   * `taxRate`.
+   */
+  tax?: string | null;
   lotDocumentId?: string | null;
   lotNumber?: string | null;
   expirationDate?: string | null;

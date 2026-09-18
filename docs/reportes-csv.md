@@ -131,8 +131,8 @@ Exactas las dos.
 
 #### 3. Lo que costó
 
-Las dos son **aproximadas**: usan el costo que el producto tiene hoy en el catálogo, no el
-del día de la venta.
+El costo se copia a la venta al cobrar, así que no cambia después. En ventas anteriores al
+17/9/2026 se usa el del catálogo — ver *Qué cambió y desde cuándo*.
 
 | Columna | Qué contiene |
 |---|---|
@@ -141,18 +141,21 @@ del día de la venta.
 
 #### 4. Lo que se cobró
 
-| Columna | Qué contiene | Confianza |
-|---|---|---|
-| Precio de venta | Precio unitario **sin impuesto**. | Aproximado |
-| Subtotal | Cantidad × precio de venta. Sin impuesto. | Aproximado |
-| Impuestos | IVA de ese renglón. | Aproximado |
-| Total cobrado | Lo que pagó el cliente por ese renglón. **Ojo: no es `Costo total`.** | Exacto |
+Exactas las cuatro: la tasa de IVA también queda copiada en la venta, incluida la corrección
+que el cajero haga con el chip.
+
+| Columna | Qué contiene |
+|---|---|
+| Precio de venta | Precio unitario **sin impuesto**. |
+| Subtotal | Cantidad × precio de venta. Sin impuesto. |
+| Impuestos | IVA de ese renglón. |
+| Total cobrado | Lo que pagó el cliente por ese renglón. **Ojo: no es `Costo total`.** |
 
 #### 5. La conclusión
 
-| Columna | Qué contiene | Confianza |
-|---|---|---|
-| Retorno | `Subtotal − Costo total`. Qué dejó el renglón — ver la nota de abajo. | Aproximado |
+| Columna | Qué contiene |
+|---|---|
+| Retorno | `Subtotal − Costo total`. Qué dejó el renglón — ver la nota de abajo. |
 
 ### Las sumas que siempre deben cerrar
 
@@ -192,13 +195,30 @@ Subtotal − Costo total     = Retorno
 > **Si un renglón se sale de su valor esperado, es una señal real** — un costo mal capturado,
 > un precio tecleado a mano, o mercancía que cambió de precio. Vale revisarlo.
 
-> **Ventas anteriores al 17 de septiembre de 2026**
->
-> En esas verás **Retorno negativo en Health Pass** sobre productos gravados (no en
-> medicamentos, que son tasa 0). No es un error del reporte: hasta esa fecha el sistema
-> cobraba al socio el costo de proveedor **sin sumarle el IVA**, así que esas ventas
-> realmente perdieron el impuesto. Ya está corregido en el cobro; las ventas viejas se quedan
-> como fueron.
+### Qué cambió y desde cuándo
+
+Dos cosas cambiaron el **17 de septiembre de 2026**, y las dos se notan al comparar reportes de
+antes y después de esa fecha. Las ventas viejas se quedan como fueron: no se recalculan.
+
+**1. El costo y el IVA ahora quedan congelados en la venta.** Antes el reporte le preguntaba al
+catálogo *"¿cuánto cuesta este producto?"* al momento de exportar, y el catálogo solo recuerda
+la última compra. Entonces una compra nueva reescribía el costo de todas las ventas pasadas de
+ese producto, y una venta que había dejado ganancia podía aparecer como pérdida meses después.
+
+Desde esa fecha, el costo y la tasa se copian a la venta al cobrar y ya nadie los mueve. En
+ventas anteriores el reporte sigue usando el costo de hoy, así que **una exportación de ventas
+viejas puede dar cifras distintas cada vez que cambian los costos del catálogo**.
+
+**2. Health Pass ya cobra el IVA.** En ventas anteriores verás **Retorno negativo en Health
+Pass** sobre productos gravados (no en medicamentos, que son tasa 0). No es un error del
+reporte: hasta esa fecha el sistema le cobraba al socio el costo de proveedor **sin sumarle el
+impuesto**, así que esas ventas realmente perdieron el IVA.
+
+**Lo que sigue siendo aproximado, incluso en ventas nuevas.** El costo que se congela es el que
+el catálogo tenía ese día, no el de la caja concreta que se vendió: si hay dos lotes del mismo
+producto comprados a precios distintos, los dos renglones guardan el mismo costo. Y si el
+producto no tenía costo capturado el día de la venta, el renglón se queda sin costo y el
+reporte cae al del catálogo, con la misma deriva de antes.
 
 ---
 
@@ -281,34 +301,31 @@ de una pieza declara 8.15 de IVA y no 7.41.
 
 ---
 
-## Qué significa "aproximado"
+## Qué tan exacto es el archivo por producto
 
-Cinco columnas del archivo por producto se **reconstruyen** al momento de exportar, porque el
-sistema no las guarda renglón por renglón. Son confiables para analizar tendencias y decidir,
-pero no son un documento fiscal.
+Desde el 17/9/2026 el costo y la tasa de IVA se copian a la venta al cobrar, así que las
+columnas son estables: exportar el mismo período dos veces da lo mismo.
 
-**Costo unitario y Costo total** usan el *costo que el producto tiene hoy* en el catálogo,
-que se actualiza cada vez que registras una compra con costo. Si compraste ese producto más
-caro o más barato *después* de esa venta, el reporte muestra el costo de hoy, no el de aquel
-día.
+Quedan dos salvedades, y las dos están explicadas arriba en *Qué cambió y desde cuándo*:
 
-**Precio de venta, Subtotal e Impuestos** usan la *tasa de IVA que el producto tiene hoy*. Si
-el cajero corrigió la tasa a mano en esa venta puntual, esa corrección no quedó guardada, así
-que el renglón puede no coincidir centavo a centavo con el ticket impreso.
+- **Ventas anteriores a esa fecha** no tienen el costo ni la tasa guardados, así que el reporte
+  usa los del catálogo de hoy. Esas filas sí pueden cambiar entre una exportación y otra.
+- **Dos lotes del mismo producto a precios distintos** guardan el mismo costo: se congela el
+  del catálogo de ese día, no el de la caja concreta que se vendió.
 
-El **Retorno** hereda las dos cosas, pero solo en **Mostrador**: ahí sale de restar el costo
-al subtotal. En Proveedor y Health Pass es exacto, porque no depende del costo ni de la tasa.
+El **Retorno** hereda las dos salvedades, porque sale de restar el costo al subtotal.
 
-> **Para contabilidad, usa el archivo por venta.** Todas sus columnas son exactas. El archivo
-> por producto es una herramienta de análisis.
+> **Para contabilidad sigue siendo mejor el archivo por venta.** Sus importes son los que
+> quedaron grabados en el cobro y no se reconstruyen nunca. El archivo por producto es una
+> herramienta de análisis.
 
 ---
 
 ## Casos que verás seguido
 
-- **Celdas vacías en costo y retorno.** El producto no tiene costo capturado, o el renglón
-  es un servicio. Se dejan en blanco a propósito, no en cero: un cero se leería como una
-  venta que no dejó nada.
+- **Celdas vacías en costo y retorno.** El renglón es un servicio, o el producto no tenía
+  costo capturado ni el día de la venta ni hoy. Se dejan en blanco a propósito, no en cero: un
+  cero se leería como una venta que no dejó nada.
 - **Consultas y servicios médicos.** Nunca tienen costo. Su IVA es fijo de 8 %, ya incluido en
   la tarifa.
 - **Retorno en cero en Health Pass.** Es lo correcto: en esa tarifa se vende al costo de

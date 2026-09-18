@@ -1,21 +1,28 @@
 /**
- * Audita la columna Margen de un export `ventas-por-producto_*.csv`.
+ * Audita el retorno de un export `ventas-por-producto_*.csv`.
  *
- *     node scripts/validar-margen.mjs ruta/al/ventas-por-producto_....csv
+ *     npm run validar-margen -- ruta/al/ventas-por-producto_....csv
  *
- * Por qué existe: en Health Pass y Proveedor el precio de venta sale del mismo campo que el
- * reporte usa como costo (`priceMember`), así que el margen no mide el negocio — queda
- * determinado por la tarifa. Eso da un invariante que se puede verificar fila por fila:
+ * En Health Pass y Proveedor el precio de venta se deriva del mismo `priceMember` que el
+ * reporte usa como costo, así que el retorno de esas dos tarifas está determinado por la
+ * tarifa y se puede verificar fila por fila:
  *
- *     Mostrador                     → variable (única tarifa donde el margen informa algo)
- *     Health Pass                   → 0
+ *     Mostrador                     → variable, no hay valor esperado
+ *     Health Pass                   → 0            (se vende al costo de proveedor)
  *     Proveedor · Fee en precio Sí  → +10% del costo
- *     Proveedor · Fee en precio No  → 0   (el fee se cobró aparte, nunca entró al margen)
+ *     Proveedor · Fee en precio No  → 0            (el fee se cobró aparte del renglón)
  *
- * Hoy el invariante se viola de forma sistemática porque `Subtotal` es neto y `Costo total`
- * es crudo: la desviación es exactamente el IVA de la línea. El script separa ese patrón del
- * resto para que, al normalizar la base fiscal del costo, se pueda confirmar que las
- * violaciones por IVA bajan a cero y solo queden las de deriva del catálogo.
+ * Las violaciones se separan en tres, y la fecha de la venta es lo que decide cuál es cuál:
+ * el 2026-09-17 se arreglaron dos cosas a la vez (el cobro del IVA en proveedor, y el
+ * congelado de costo y tasa en la línea), así que antes y después significan cosas distintas.
+ *
+ *  - **IVA de línea**, solo antes del corte: se cobraba el costo neto como si fuera el total.
+ *    Histórico y no se corrige.
+ *  - **Deriva del catálogo**, solo antes del corte: el costo cambió entre la venta y la
+ *    exportación (ver `docs/pendiente-costo-historico.md`). Tampoco se corrige.
+ *  - **Revisar**: todo lo que no cuadra desde el corte. Ahí el costo ya va congelado en la
+ *    línea, así que no puede ser deriva: es un precio tecleado a mano en el carrito, o una
+ *    anomalía real. Es el único cubo que pide acción, y el único que mueve el exit code.
  */
 
 import fs from "node:fs";
@@ -23,6 +30,9 @@ import fs from "node:fs";
 /** Tolerancia en pesos: la misma que usa `feeSumaAlTotal` para el redondeo a centavos. */
 const TOL = 0.011;
 const FEE_RATE = 0.1;
+
+/** Día en que se arreglaron el cobro del IVA y el congelado de costo. Ver el encabezado. */
+const CORTE = "2026-09-17";
 
 /** Parser de CSV con comillas: los nombres de producto traen comas y comillas escapadas. */
 function parseCSV(text) {
@@ -67,6 +77,21 @@ function parseCSV(text) {
 
 const num = (v) => (v === "" || v == null ? null : Number(v));
 
+/**
+ * La columna `Fecha` la escribe `toLocaleString("es-MX")`: `17/9/2026, 2:30:05 p.m.`. Se
+ * parsea a mano porque `new Date()` lee ese formato como mes/día y voltea los dos primeros
+ * campos. Solo interesa el día, así que se descarta todo lo que va después de la coma.
+ */
+function fechaISO(v) {
+  const m = String(v ?? "")
+    .split(",")[0]
+    .trim()
+    .match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const [, d, mes, año] = m;
+  return `${año}-${mes.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
 function main() {
   const file = process.argv[2];
   if (!file) {
@@ -100,6 +125,7 @@ function main() {
   // invariante se sigue verificando sobre Subtotal − Costo total, que es el dato crudo.
   const iFolio = col("Folio");
   const iProd = col("Producto");
+  const iFecha = col("Fecha");
   const iFee = header.indexOf("Fee en el precio");
 
   if (iFee === -1) {
@@ -112,17 +138,29 @@ function main() {
   const cubos = {
     ok: [],
     baseFiscal: [],
-    otro: [],
+    deriva: [],
+    revisar: [],
     sinCosto: [],
     mostrador: [],
   };
+  /** Filas cuya `Fecha` no se pudo leer: van a `revisar` para no esconderlas. */
+  let sinFecha = 0;
 
   for (const r of rows.slice(1)) {
     const tarifa = r[iTarifa];
     const costo = num(r[iCosto]);
     const margen = costo != null && num(r[iSub]) != null ? num(r[iSub]) - costo : null;
     const impuestos = num(r[iImp]) ?? 0;
-    const ref = { folio: r[iFolio], producto: r[iProd], tarifa, costo, margen, impuestos };
+    const iso = fechaISO(r[iFecha]);
+    const ref = {
+      folio: r[iFolio],
+      producto: r[iProd],
+      tarifa,
+      costo,
+      margen,
+      impuestos,
+      fecha: iso ?? "¿?",
+    };
 
     if (tarifa === "Mostrador") {
       cubos.mostrador.push(ref);
@@ -148,49 +186,71 @@ function main() {
     ref.esperado = esperado;
     ref.desv = desv;
 
+    const viejo = iso != null && iso < CORTE;
+    if (iso == null) sinFecha++;
+
     if (Math.abs(desv) <= TOL) cubos.ok.push(ref);
-    // La firma del desajuste de base: Subtotal neto contra Costo crudo corre el margen
-    // exactamente el IVA de esa línea.
+    // Las dos explicaciones benignas solo existen antes del corte. Desde el corte el costo va
+    // congelado en la línea y el IVA se cobra bien, así que cualquier desviación —incluso una
+    // que imite la firma del IVA— es algo que pasó hoy y hay que mirar.
+    else if (!viejo) cubos.revisar.push(ref);
+    // Firma del cobro viejo: se cobraba el costo neto como si fuera el total, así que el
+    // retorno sale corrido justo el IVA de la línea.
     else if (Math.abs(desv + impuestos) <= TOL) cubos.baseFiscal.push(ref);
-    else cubos.otro.push(ref);
+    else cubos.deriva.push(ref);
   }
 
-  const validadas = cubos.ok.length + cubos.baseFiscal.length + cubos.otro.length;
+  const validadas =
+    cubos.ok.length + cubos.baseFiscal.length + cubos.deriva.length + cubos.revisar.length;
   const money = (n) => n.toFixed(2).padStart(9);
+  const n5 = (n) => String(n).padStart(5);
 
   console.log(`\nArchivo: ${file}`);
   console.log(`Renglones: ${rows.length - 1}\n`);
-  console.log(`  Con invariante verificable   ${String(validadas).padStart(5)}`);
-  console.log(`  Mostrador (margen libre)     ${String(cubos.mostrador.length).padStart(5)}`);
-  console.log(`  Sin costo o servicio         ${String(cubos.sinCosto.length).padStart(5)}`);
+  console.log(`  Con invariante verificable   ${n5(validadas)}`);
+  console.log(`  Mostrador (margen libre)     ${n5(cubos.mostrador.length)}`);
+  console.log(`  Sin costo o servicio         ${n5(cubos.sinCosto.length)}`);
   console.log("");
-  console.log(`  ✓ Cumplen el invariante      ${String(cubos.ok.length).padStart(5)}`);
-  console.log(`  ✗ Desviación = IVA de línea  ${String(cubos.baseFiscal.length).padStart(5)}   base fiscal del costo`);
-  console.log(`  ✗ Desviación arbitraria      ${String(cubos.otro.length).padStart(5)}   costo del catálogo cambió`);
+  console.log(`  ✓ Cumplen el invariante      ${n5(cubos.ok.length)}`);
+  console.log(`  · IVA de línea               ${n5(cubos.baseFiscal.length)}   antes del ${CORTE}, no se corrige`);
+  console.log(`  · Deriva del catálogo        ${n5(cubos.deriva.length)}   antes del ${CORTE}, no se corrige`);
+  console.log(`  ⚠ Revisar                    ${n5(cubos.revisar.length)}   desde el ${CORTE}: ya no puede ser deriva`);
+
+  if (sinFecha) {
+    console.log(`\n  Aviso: ${sinFecha} renglón(es) con Fecha ilegible; van a "Revisar".`);
+  }
 
   const muestra = (titulo, lista, n = 5) => {
     if (!lista.length) return;
     console.log(`\n${titulo}`);
     for (const x of lista.slice(0, n)) {
       console.log(
-        `  ${x.folio}  ${x.producto.slice(0, 26).padEnd(26)} ${x.tarifa.padEnd(11)}` +
-          ` costo ${money(x.costo)}  margen ${money(x.margen)}` +
+        `  ${x.fecha.padEnd(10)} ${x.folio}  ${x.producto.slice(0, 22).padEnd(22)}` +
+          ` ${x.tarifa.padEnd(11)} costo ${money(x.costo)}  margen ${money(x.margen)}` +
           `  esperado ${money(x.esperado)}  desv ${money(x.desv)}`
       );
     }
     if (lista.length > n) console.log(`  … y ${lista.length - n} más`);
   };
 
-  muestra("Desviación = IVA de la línea (un solo defecto, en todas las tarifas):", cubos.baseFiscal);
-  muestra("Desviación arbitraria (el costo cambió entre la venta y la exportación):", cubos.otro);
-
-  const rotas = cubos.baseFiscal.length + cubos.otro.length;
-  console.log(
-    rotas === 0
-      ? "\nTodos los renglones con invariante verificable lo cumplen.\n"
-      : `\n${rotas} de ${validadas} renglones violan el invariante.\n`
+  // El cubo accionable va primero y completo: es lo único que pide trabajo.
+  muestra(
+    "⚠ REVISAR — precio tecleado a mano en el carrito, o anomalía real:",
+    cubos.revisar,
+    cubos.revisar.length
   );
-  process.exitCode = rotas === 0 ? 0 : 1;
+  muestra("Histórico: el precio de proveedor se cobraba sin IVA (ya arreglado):", cubos.baseFiscal);
+  muestra("Histórico: el costo del catálogo cambió después de la venta:", cubos.deriva);
+
+  const viejas = cubos.baseFiscal.length + cubos.deriva.length;
+  console.log(
+    cubos.revisar.length === 0
+      ? `\nNada que revisar. ${viejas ? `${viejas} renglón(es) de ruido histórico conocido.` : ""}\n`
+      : `\n${cubos.revisar.length} de ${validadas} renglones piden revisión.\n`
+  );
+  // El exit code solo lo mueve "Revisar": el ruido histórico no baja nunca y dejaría el
+  // script en rojo para siempre, que es como se vuelve ruido que nadie mira.
+  process.exitCode = cubos.revisar.length === 0 ? 0 : 1;
 }
 
 main();

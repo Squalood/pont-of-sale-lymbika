@@ -5,7 +5,7 @@ import { patchProductStock } from "@/api/patchProductStock";
 import { patchLote } from "@/api/patchLote";
 import { printReceipt } from "@/lib/print-receipt";
 import { CARD_SURCHARGE_RATE } from "@/lib/checkout-math";
-import type { PriceMode } from "@/lib/pricing";
+import { itemImpuesto, type PriceMode } from "@/lib/pricing";
 import type { IvaBreakdown } from "@/lib/tax";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
@@ -108,6 +108,11 @@ export function useCheckout({
               quantity: item.quantity,
               unitPrice: getPrice(item),
               totalLine: getPrice(item) * item.quantity,
+              // Snapshots del costo y la tasa: el catálogo solo recuerda la última compra, así
+              // que leerlos al exportar reescribía el pasado. `null` y nunca 0: un 0 se leería
+              // como "costó cero".
+              unitCost: item.product.priceMember ?? null,
+              tax: itemImpuesto(item),
               lotDocumentId: item.selectedLot?.documentId ?? null,
               lotNumber: item.selectedLot?.lotNumber ?? null,
               expirationDate: item.selectedLot?.expirationDate ?? null,
@@ -121,6 +126,8 @@ export function useCheckout({
               quantity: 1,
               unitPrice: getPrice(item),
               totalLine: getPrice(item),
+              // Sin `unitCost`: un servicio no tiene costo de proveedor, igual que no tiene lote.
+              tax: itemImpuesto(item),
             };
           }
         }),

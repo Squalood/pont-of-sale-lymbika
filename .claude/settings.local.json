@@ -15,7 +15,13 @@
       "Bash(cp src/components/ui/card.tsx /c/Users/ananc/AppData/Local/Temp/claude/c--Users-ananc-Documents-Proyectos-web-apps-point-of-sale/5ffdcdac-ca30-4308-a33c-27ce7f68406c/scratchpad/card.tsx.bak)",
       "Bash(yes)",
       "Bash(npx --yes shadcn@3.8.4 add chart --yes)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(node post-test.mjs)",
+      "Bash(node snapshot-test.mjs)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(pkill -f \"next-server\")",
+      "Bash(node -e ' *)",
+      "Bash(echo \"exit code: $?\")"
     ]
   }
 }
