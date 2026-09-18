@@ -1,10 +1,17 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
+import { type DateRange } from "react-day-picker";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -20,9 +27,35 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Paperclip, Download, Plus, Layers, CalendarClock } from "lucide-react";
+import { PeriodFilter } from "@/components/admin/period-filter";
+import { TablePagination } from "@/components/admin/table-pagination";
 import { CompraType, CompraItemType } from "@/types/compra";
 import { toast } from "sonner";
 import { urlOriginal } from "@/lib/media";
+import { inRange, resolveRange, type Period } from "@/lib/date-range";
+
+const PAGE_SIZE = 20;
+const TODOS_PROVEEDORES = "todos";
+
+/** Folio visible de la compra. Mismo formato en la columna, el buscador y el detalle. */
+function compraFolio(compra: Pick<CompraType, "id">): string {
+  return String(compra.id).padStart(5, "0");
+}
+
+/**
+ * Nombre con el que se guarda la factura adjunta: el folio de la compra y nada mas.
+ * Descarta a proposito el nombre con el que llego el archivo, que suele ser un codigo
+ * del proveedor que no dice a que compra pertenece.
+ *
+ * La extension se arrastra del nombre original porque es lo unico que indica el tipo:
+ * el populate de la compra no trae el `mime` del adjunto. Un nombre sin extension deja
+ * el folio solo, y el navegador sigue reconociendo el archivo por el Content-Type que
+ * manda /api/descargar.
+ */
+function nombreDescargaFactura(compra: Pick<CompraType, "id">, nombreArchivo: string): string {
+  const extension = nombreArchivo.match(/\.[^.]+$/)?.[0].toLowerCase() ?? "";
+  return `Factura de compra ${compraFolio(compra)}${extension}`;
+}
 
 // Agrupa las líneas de la compra (aplanadas, una por lote) de vuelta por producto.
 interface GroupedCompraItem {
@@ -69,75 +102,104 @@ interface ComprasTableProps {
   onNuevaCompra: () => void;
 }
 
-type Period = "hoy" | "semana" | "mes" | "todo";
-
 export function ComprasTable({ compras, onNuevaCompra }: ComprasTableProps) {
   const [period, setPeriod] = useState<Period>("hoy");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [proveedorId, setProveedorId] = useState(TODOS_PROVEEDORES);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<CompraType | null>(null);
 
+  function handlePeriod(p: Period) { setPeriod(p); setDateRange(undefined); setPage(1); }
+  function handleProveedor(v: string) { setProveedorId(v); setPage(1); }
+  function handleSearch(v: string) { setSearch(v); setPage(1); }
+
+  function handleDateRange(range: DateRange | undefined) {
+    setDateRange(range);
+    if (range?.from) setPeriod("custom");
+    setPage(1);
+  }
+
+  function clearDateRange() {
+    setDateRange(undefined);
+    setPeriod("hoy");
+    setPage(1);
+  }
+
+  // Solo los proveedores que aparecen en el historial: una opcion que no tiene
+  // ninguna compra detras siempre filtraria a cero.
+  const proveedores = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of compras) {
+      if (c.proveedor?.documentId) map.set(c.proveedor.documentId, c.proveedor.name);
+    }
+    return [...map.entries()]
+      .map(([documentId, name]) => ({ documentId, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  }, [compras]);
+
+  const range = useMemo(() => resolveRange(period, dateRange), [period, dateRange]);
+
   const filtered = useMemo(() => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
+    // El folio se teclea con o sin "#", y se compara contra el mismo texto que
+    // muestra la columna para que "0012" y "12" encuentren la compra #00012.
+    const folio = search.trim().replace(/^#/, "");
     return compras.filter((c) => {
-      const fecha = new Date(c.fecha);
-      const matchesPeriod = (() => {
-        switch (period) {
-          case "hoy":
-            return fecha >= today;
-          case "semana": {
-            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-            return fecha >= weekAgo;
-          }
-          case "mes": {
-            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-            return fecha >= monthStart;
-          }
-          default:
-            return true;
-        }
-      })();
-
-      const matchesSearch =
-        search === "" ||
-        (c.proveedor?.name ?? "").toLowerCase().includes(search.toLowerCase());
-
-      return matchesPeriod && matchesSearch;
+      if (!inRange(c.fecha, range)) return false;
+      if (proveedorId !== TODOS_PROVEEDORES && c.proveedor?.documentId !== proveedorId) return false;
+      if (folio && !compraFolio(c).includes(folio)) return false;
+      return true;
     });
-  }, [compras, period, search]);
+  }, [compras, range, proveedorId, search]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-lg font-semibold">Historial de compras</h2>
-        <div className="flex items-center gap-3">
-          <Button size="sm" onClick={onNuevaCompra}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            Nueva Compra
-          </Button>
-          <Input
-            placeholder="Buscar proveedor..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-44 h-8 text-sm"
-          />
-          <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
-            <TabsList>
-              <TabsTrigger value="hoy">Hoy</TabsTrigger>
-              <TabsTrigger value="semana">Semana</TabsTrigger>
-              <TabsTrigger value="mes">Mes</TabsTrigger>
-              <TabsTrigger value="todo">Todo</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+        <Button size="sm" onClick={onNuevaCompra}>
+          <Plus className="mr-1.5 h-4 w-4" />
+          Nueva Compra
+        </Button>
       </div>
+
+      <PeriodFilter
+        period={period}
+        dateRange={dateRange}
+        onPeriodChange={handlePeriod}
+        onDateRangeChange={handleDateRange}
+        onClear={clearDateRange}
+      >
+        <Input
+          placeholder="Buscar por # compra"
+          value={search}
+          onChange={(e) => handleSearch(e.target.value)}
+          className="h-8 w-44 text-sm"
+        />
+        {proveedores.length > 0 && (
+          <Select value={proveedorId} onValueChange={handleProveedor}>
+            <SelectTrigger className="h-8 w-52 text-sm">
+              <SelectValue placeholder="Proveedor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS_PROVEEDORES}>Todos los proveedores</SelectItem>
+              {proveedores.map((p) => (
+                <SelectItem key={p.documentId} value={p.documentId}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </PeriodFilter>
 
       <div className="rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-24">#</TableHead>
               <TableHead>Fecha / Hora</TableHead>
               <TableHead>Proveedor</TableHead>
               <TableHead className="text-center">Productos</TableHead>
@@ -149,12 +211,12 @@ export function ComprasTable({ compras, onNuevaCompra }: ComprasTableProps) {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                  No hay compras en este período
+                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                  No hay compras que coincidan con los filtros
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((compra) => {
+              paginated.map((compra) => {
                 const fecha = new Date(compra.fecha);
                 return (
                   <TableRow
@@ -162,6 +224,9 @@ export function ComprasTable({ compras, onNuevaCompra }: ComprasTableProps) {
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setSelected(compra)}
                   >
+                    <TableCell className="font-medium tabular-nums">
+                      #{compraFolio(compra)}
+                    </TableCell>
                     <TableCell>
                       <div className="text-sm font-medium">
                         {fecha.toLocaleDateString("es-MX")}
@@ -198,6 +263,15 @@ export function ComprasTable({ compras, onNuevaCompra }: ComprasTableProps) {
           </TableBody>
         </Table>
       </div>
+
+      {totalPages > 1 && (
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          label={`${filtered.length} ${filtered.length === 1 ? "compra" : "compras"}`}
+        />
+      )}
 
       {/* TODO: restaurar total comprado cuando se habiliten costos */}
 
@@ -266,7 +340,7 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
           <DialogTitle>
             Compra{" "}
             <span className="text-muted-foreground font-normal">
-              #{String(compra.id).padStart(5, "0")}
+              #{compraFolio(compra)}
             </span>
           </DialogTitle>
         </DialogHeader>
@@ -318,7 +392,10 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
                   type="button"
                   disabled={downloading}
                   onClick={() => {
-                    handleDownload(urlOriginal(compra.archivo!.url), compra.archivo!.name);
+                    handleDownload(
+                      urlOriginal(compra.archivo!.url),
+                      nombreDescargaFactura(compra, compra.archivo!.name)
+                    );
                   }}
                   className="inline-flex items-center gap-1.5 text-primary underline-offset-4 hover:underline disabled:opacity-50"
                 >
