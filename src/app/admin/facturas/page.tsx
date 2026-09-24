@@ -1,50 +1,59 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import { useGetFacturas } from "@/api/getFacturas";
-import { InvoiceForm } from "@/components/admin/invoice-form";
 import { FacturasTable } from "@/components/admin/facturas-table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { NewInvoiceDialog } from "@/components/admin/new-invoice-dialog";
+import type { FacturaType } from "@/types/factura";
 
 export default function FacturasPage() {
-  const { result: facturas, loading, error } = useGetFacturas();
-  const [tab, setTab] = useState("nueva");
-  const [refreshKey, setRefreshKey] = useState(0);
+  const { result: facturas, loading, error, refetch } = useGetFacturas();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [draft, setDraft] = useState<FacturaType | null>(null);
+  const [openCount, setOpenCount] = useState(0);
 
-  const handleSaved = useCallback(() => {
-    setRefreshKey((k) => k + 1);
-    setTab("historial");
-  }, []);
+  function openNueva() {
+    setDraft(null);
+    setOpenCount((n) => n + 1);
+    setDialogOpen(true);
+  }
+
+  function openBorrador(factura: FacturaType) {
+    setDraft(factura);
+    setOpenCount((n) => n + 1);
+    setDialogOpen(true);
+  }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-4">
-      <Tabs value={tab} onValueChange={setTab} className="flex-1 min-h-0 flex flex-col">
-        <TabsList className="shrink-0 w-fit">
-          <TabsTrigger value="nueva">Nueva Factura</TabsTrigger>
-          <TabsTrigger value="historial">
-            Historial
-            {facturas.length > 0 && (
-              <span className="ml-1.5 text-xs bg-muted text-muted-foreground rounded-full px-1.5 py-0.5">
-                {facturas.length}
-              </span>
-            )}
-          </TabsTrigger>
-        </TabsList>
+    <div className="space-y-6 flex-1 min-h-0 overflow-y-auto">
+      <h1 className="text-2xl font-bold">Facturas</h1>
 
-        <TabsContent value="nueva" className="flex-1 min-h-0 flex flex-col mt-4">
-          <InvoiceForm onSaved={handleSaved} />
-        </TabsContent>
+      {loading ? (
+        <div className="flex h-64 items-center justify-center">
+          <Spinner className="size-8 text-primary" />
+        </div>
+      ) : error ? (
+        <div className="flex h-64 items-center justify-center text-destructive">
+          <p>{error}</p>
+        </div>
+      ) : (
+        <FacturasTable
+          facturas={facturas}
+          onNuevaFactura={openNueva}
+          onEditarBorrador={openBorrador}
+        />
+      )}
 
-        <TabsContent value="historial" className="flex-1 min-h-0 overflow-y-auto mt-4">
-          {loading ? (
-            <p className="text-sm text-muted-foreground">Cargando historial...</p>
-          ) : error ? (
-            <p className="text-sm text-destructive">{error}</p>
-          ) : (
-            <FacturasTable key={refreshKey} facturas={facturas} />
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* El `key` cambia en cada apertura: el formulario se remonta y lee el borrador tal
+          como quedó tras el último refetch, en vez de lo que tenía antes de guardarlo. */}
+      <NewInvoiceDialog
+        key={openCount}
+        open={dialogOpen}
+        draft={draft}
+        onClose={() => setDialogOpen(false)}
+        onSaved={refetch}
+      />
     </div>
   );
 }

@@ -7,7 +7,8 @@ export interface FacturaItemPayload {
 }
 
 export interface FacturaPayload {
-  folio?: string;
+  /** `null` en un borrador sin folio: el folio se asigna al generar. */
+  folio?: string | null;
   fecha: string; // ISO
   fechaVencimiento?: string | null;
   cliente: string;
@@ -23,7 +24,8 @@ export interface FacturaPayload {
   iva16: number;
   iva8: number;
   total: number;
-  estado: "emitida";
+  /** Un borrador se guarda sin imprimir y es lo único editable; al generarlo pasa a "emitida". */
+  estado: "borrador" | "emitida";
   estadoPago?: "pendiente" | "pagada" | "pagada_parcial";
   montoPagado?: number;
   fechaPago?: string | null;
@@ -38,7 +40,7 @@ export interface FacturaItemType {
   cantidad: number;
   precioUnitario: number;
   impuesto: "iva16" | "iva8" | "exento";
-  product: { id: number; productName: string } | null;
+  product: { id: number; documentId: string; productName: string } | null;
 }
 
 export interface FacturaType {
@@ -60,7 +62,7 @@ export interface FacturaType {
   iva16: number;
   iva8: number;
   total: number;
-  estado: "emitida" | "cancelada";
+  estado: "borrador" | "emitida" | "cancelada";
   estadoPago: "pendiente" | "pagada" | "pagada_parcial";
   montoPagado: number;
   fechaPago: string | null;

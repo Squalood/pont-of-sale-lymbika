@@ -30,10 +30,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Printer } from "lucide-react";
+import { Pencil, Printer } from "lucide-react";
 import { FacturaType } from "@/types/factura";
 import { printInvoice } from "@/lib/print-invoice";
 import { patchFacturaEstadoPago } from "@/api/patchFacturaEstadoPago";
+import { EstadoFacturaBadge } from "@/components/admin/estado-factura-badge";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,8 @@ interface FacturaDetailDialogProps {
   open: boolean;
   onClose: () => void;
   onUpdated?: (patch: Partial<FacturaType>) => void;
+  /** Solo se ofrece en borradores: una factura emitida ya se entregó y no se edita. */
+  onEdit?: () => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -107,7 +110,7 @@ function DatePickerField({ value, onChange }: { value: Date; onChange: (d: Date)
 
 // ── FacturaDetailDialog ───────────────────────────────────────────────────────
 
-export function FacturaDetailDialog({ factura, open, onClose, onUpdated }: FacturaDetailDialogProps) {
+export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit }: FacturaDetailDialogProps) {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paymentForm, setPaymentForm] = useState<PaymentFormState | null>(null);
   const [savingPago, setSavingPago] = useState(false);
@@ -118,6 +121,7 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated }: Factu
   if (!factura) return null;
 
   const fecha = new Date(factura.fecha);
+  const esBorrador = factura.estado === "borrador";
   const estadoPago: EstadoPago = localEstadoPago ?? factura.estadoPago ?? "pendiente";
   const montoPagado: number = localMontoPagado ?? factura.montoPagado ?? 0;
   const fechaPago: string | null = localFechaPago !== undefined ? localFechaPago : (factura.fechaPago ?? null);
@@ -189,7 +193,7 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated }: Factu
         <DialogHeader className="shrink-0">
           <DialogTitle>
             Factura{" "}
-            <span className="text-muted-foreground font-normal">{factura.folio}</span>
+            <span className="text-muted-foreground font-normal">{factura.folio || "sin folio"}</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -213,9 +217,7 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated }: Factu
             <div>
               <span className="text-muted-foreground">Estado</span>
               <p>
-                <Badge variant={factura.estado === "cancelada" ? "destructive" : "default"}>
-                  {factura.estado ?? "emitida"}
-                </Badge>
+                <EstadoFacturaBadge estado={factura.estado} />
               </p>
             </div>
             {factura.pharmacy && (
@@ -317,103 +319,112 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated }: Factu
             </div>
           </div>
 
-          {/* Estado de pago */}
-          <div className="rounded-md border px-4 py-3 space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Estado de pago
-              </p>
-              <Badge
-                variant={estadoPagoBadgeVariant(estadoPago)}
-                className={estadoPagoBadgeClass(estadoPago)}
-              >
-                {ESTADO_PAGO_LABEL[estadoPago]}
-              </Badge>
-            </div>
-
-            {/* Info de pago si ya fue registrado */}
-            {estadoPago !== "pendiente" && (
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Monto pagado</span>
-                  <p className="font-medium">${fmt(montoPagado)}</p>
-                </div>
-                {fechaPago && (
-                  <div>
-                    <span className="text-muted-foreground">Fecha de pago</span>
-                    <p className="font-medium">
-                      {new Date(fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                    </p>
-                  </div>
-                )}
+          {/* Estado de pago: un borrador todavía no es cobrable. */}
+          {!esBorrador && (
+            <div className="rounded-md border px-4 py-3 space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Estado de pago
+                </p>
+                <Badge
+                  variant={estadoPagoBadgeVariant(estadoPago)}
+                  className={estadoPagoBadgeClass(estadoPago)}
+                >
+                  {ESTADO_PAGO_LABEL[estadoPago]}
+                </Badge>
               </div>
-            )}
 
-            {/* Inline form de pago */}
-            {showPaymentForm && paymentForm ? (
-              <div className="space-y-3 pt-1 border-t">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Estado</Label>
-                    <Select
-                      value={paymentForm.estadoPago}
-                      onValueChange={(v) => {
-                        const ep = v as EstadoPago;
-                        setFormField("estadoPago", ep);
-                        if (ep === "pagada") setFormField("montoPagado", factura!.total);
-                      }}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pagada">Pagada</SelectItem>
-                        <SelectItem value="pagada_parcial">Pago parcial</SelectItem>
-                        <SelectItem value="pendiente">Pendiente</SelectItem>
-                      </SelectContent>
-                    </Select>
+              {/* Info de pago si ya fue registrado */}
+              {estadoPago !== "pendiente" && (
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Monto pagado</span>
+                    <p className="font-medium">${fmt(montoPagado)}</p>
+                  </div>
+                  {fechaPago && (
+                    <div>
+                      <span className="text-muted-foreground">Fecha de pago</span>
+                      <p className="font-medium">
+                        {new Date(fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Inline form de pago */}
+              {showPaymentForm && paymentForm ? (
+                <div className="space-y-3 pt-1 border-t">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Estado</Label>
+                      <Select
+                        value={paymentForm.estadoPago}
+                        onValueChange={(v) => {
+                          const ep = v as EstadoPago;
+                          setFormField("estadoPago", ep);
+                          if (ep === "pagada") setFormField("montoPagado", factura!.total);
+                        }}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pagada">Pagada</SelectItem>
+                          <SelectItem value="pagada_parcial">Pago parcial</SelectItem>
+                          <SelectItem value="pendiente">Pendiente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Monto pagado</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={paymentForm.montoPagado}
+                        onChange={(e) => setFormField("montoPagado", Math.max(0, Number(e.target.value) || 0))}
+                        className="h-9"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Monto pagado</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={paymentForm.montoPagado}
-                      onChange={(e) => setFormField("montoPagado", Math.max(0, Number(e.target.value) || 0))}
-                      className="h-9"
+                    <Label>Fecha de pago</Label>
+                    <DatePickerField
+                      value={paymentForm.fechaPago}
+                      onChange={(d) => setFormField("fechaPago", d)}
                     />
                   </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" size="sm" onClick={() => setShowPaymentForm(false)} disabled={savingPago}>
+                      Cancelar
+                    </Button>
+                    <Button size="sm" onClick={handleConfirmPago} disabled={savingPago}>
+                      {savingPago ? "Guardando..." : "Confirmar"}
+                    </Button>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Fecha de pago</Label>
-                  <DatePickerField
-                    value={paymentForm.fechaPago}
-                    onChange={(d) => setFormField("fechaPago", d)}
-                  />
-                </div>
-                <div className="flex gap-2 justify-end">
-                  <Button variant="outline" size="sm" onClick={() => setShowPaymentForm(false)} disabled={savingPago}>
-                    Cancelar
-                  </Button>
-                  <Button size="sm" onClick={handleConfirmPago} disabled={savingPago}>
-                    {savingPago ? "Guardando..." : "Confirmar"}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button variant="outline" size="sm" onClick={openPaymentForm}>
-                {estadoPago === "pendiente" ? "Registrar pago" : "Editar pago"}
-              </Button>
-            )}
-          </div>
+              ) : (
+                <Button variant="outline" size="sm" onClick={openPaymentForm}>
+                  {estadoPago === "pendiente" ? "Registrar pago" : "Editar pago"}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleReprint}>
-            <Printer className="h-4 w-4" />
-            Reimprimir
-          </Button>
+          {esBorrador ? (
+            <Button onClick={onEdit}>
+              <Pencil className="h-4 w-4" />
+              Editar
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={handleReprint}>
+              <Printer className="h-4 w-4" />
+              Reimprimir
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

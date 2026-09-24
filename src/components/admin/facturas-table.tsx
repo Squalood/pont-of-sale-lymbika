@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -14,6 +16,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FacturaType } from "@/types/factura";
 import { FacturaDetailDialog } from "@/components/admin/factura-detail-dialog";
+import { EstadoFacturaBadge } from "@/components/admin/estado-factura-badge";
 
 type Period = "hoy" | "semana" | "mes" | "todo";
 type EstadoPagoFilter = "todos" | "pendiente" | "pagada" | "pagada_parcial";
@@ -21,6 +24,8 @@ type EstadoPago = "pendiente" | "pagada" | "pagada_parcial";
 
 interface FacturasTableProps {
   facturas: FacturaType[];
+  onNuevaFactura: () => void;
+  onEditarBorrador: (factura: FacturaType) => void;
 }
 
 function fmt(n: number) {
@@ -65,7 +70,7 @@ function EstadoPagoBadge({ ep }: { ep: EstadoPago | null | undefined }) {
   return <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-300">{ESTADO_PAGO_LABEL[estado]}</Badge>;
 }
 
-export function FacturasTable({ facturas: initialFacturas }: FacturasTableProps) {
+export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEditarBorrador }: FacturasTableProps) {
   const [facturas, setFacturas] = useState<FacturaType[]>(initialFacturas);
   const [period, setPeriod] = useState<Period>("todo");
   const [estadoPagoFilter, setEstadoPagoFilter] = useState<EstadoPagoFilter>("todos");
@@ -78,7 +83,8 @@ export function FacturasTable({ facturas: initialFacturas }: FacturasTableProps)
     const q = search.trim().toLowerCase();
     return facturas.filter((f) => {
       if (!isInPeriod(f.fecha, period)) return false;
-      if (estadoPagoFilter !== "todos" && (f.estadoPago ?? "pendiente") !== estadoPagoFilter) return false;
+      // Un borrador no tiene estado de pago: solo aparece en "Todos".
+      if (estadoPagoFilter !== "todos" && (f.estado === "borrador" || (f.estadoPago ?? "pendiente") !== estadoPagoFilter)) return false;
       if (!q) return true;
       return (
         f.folio?.toLowerCase().includes(q) ||
@@ -88,10 +94,15 @@ export function FacturasTable({ facturas: initialFacturas }: FacturasTableProps)
     });
   }, [facturas, period, estadoPagoFilter, search]);
 
-  const totales = useMemo(
-    () => filtered.reduce((s, f) => s + (f.total ?? 0), 0),
-    [filtered]
-  );
+  // Los borradores se listan pero no cuentan: todavía no son facturas.
+  const { emitidas, borradores, totales } = useMemo(() => {
+    const emitidas = filtered.filter((f) => f.estado !== "borrador");
+    return {
+      emitidas: emitidas.length,
+      borradores: filtered.length - emitidas.length,
+      totales: emitidas.reduce((s, f) => s + (f.total ?? 0), 0),
+    };
+  }, [filtered]);
 
   function handleUpdated(documentId: string, patch: Partial<FacturaType>) {
     setFacturas((prev) =>
@@ -102,8 +113,16 @@ export function FacturasTable({ facturas: initialFacturas }: FacturasTableProps)
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Filtros período */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="text-lg font-semibold">Historial de facturas</h2>
+        <Button size="sm" onClick={onNuevaFactura}>
+          <Plus className="mr-1.5 h-4 w-4" />
+          Nueva Factura
+        </Button>
+      </div>
+
+      {/* Filtros: período, búsqueda y estado de pago */}
+      <div className="flex flex-wrap items-center gap-3">
         <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
           <TabsList>
             <TabsTrigger value="hoy">Hoy</TabsTrigger>
@@ -118,20 +137,24 @@ export function FacturasTable({ facturas: initialFacturas }: FacturasTableProps)
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
         />
-        <span className="text-sm text-muted-foreground ml-auto">
-          {filtered.length} factura{filtered.length !== 1 ? "s" : ""} · Total: ${fmt(totales)}
-        </span>
+        <Tabs
+          value={estadoPagoFilter}
+          onValueChange={(v) => setEstadoPagoFilter(v as EstadoPagoFilter)}
+          className="ml-auto"
+        >
+          <TabsList>
+            <TabsTrigger value="todos">Todos</TabsTrigger>
+            <TabsTrigger value="pendiente">Pendientes</TabsTrigger>
+            <TabsTrigger value="pagada">Pagadas</TabsTrigger>
+            <TabsTrigger value="pagada_parcial">Pago parcial</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      {/* Filtro estado de pago */}
-      <Tabs value={estadoPagoFilter} onValueChange={(v) => setEstadoPagoFilter(v as EstadoPagoFilter)}>
-        <TabsList className="h-8">
-          <TabsTrigger value="todos" className="text-xs px-3 h-7">Todos</TabsTrigger>
-          <TabsTrigger value="pendiente" className="text-xs px-3 h-7">Pendientes</TabsTrigger>
-          <TabsTrigger value="pagada" className="text-xs px-3 h-7">Pagadas</TabsTrigger>
-          <TabsTrigger value="pagada_parcial" className="text-xs px-3 h-7">Pago parcial</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <p className="text-sm text-muted-foreground text-right">
+        {emitidas} factura{emitidas !== 1 ? "s" : ""} · Total: ${fmt(totales)}
+        {borradores > 0 && ` · ${borradores} borrador${borradores !== 1 ? "es" : ""}`}
+      </p>
 
       <div className="rounded-lg border bg-white overflow-x-auto">
         <Table>
@@ -172,12 +195,14 @@ export function FacturasTable({ facturas: initialFacturas }: FacturasTableProps)
                     ${fmt(f.total ?? 0)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={f.estado === "cancelada" ? "destructive" : "default"}>
-                      {f.estado ?? "emitida"}
-                    </Badge>
+                    <EstadoFacturaBadge estado={f.estado} />
                   </TableCell>
                   <TableCell>
-                    <EstadoPagoBadge ep={f.estadoPago} />
+                    {f.estado === "borrador" ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <EstadoPagoBadge ep={f.estadoPago} />
+                    )}
                   </TableCell>
                 </TableRow>
               ))
@@ -191,6 +216,11 @@ export function FacturasTable({ facturas: initialFacturas }: FacturasTableProps)
         open={!!selected}
         onClose={() => setSelected(null)}
         onUpdated={(patch) => selected && handleUpdated(selected.documentId, patch)}
+        onEdit={() => {
+          if (!selected) return;
+          setSelected(null);
+          onEditarBorrador(selected);
+        }}
       />
     </div>
   );
