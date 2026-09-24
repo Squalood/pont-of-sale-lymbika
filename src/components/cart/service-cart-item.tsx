@@ -4,6 +4,7 @@ import { CartItem as CartItemType, cartItemKey } from "@/types/product";
 import { Button } from "@/components/ui/button";
 import { Stethoscope, Trash2 } from "lucide-react";
 import { PriceEditor } from "./price-editor";
+import { QuantityControls } from "./quantity-controls";
 import {
   SERVICE_IMPUESTO,
   impuestoLabel,
@@ -20,11 +21,12 @@ interface ServiceCartItemProps {
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
 }
 
-export function ServiceCartItem({ item, priceMode, onRemoveItem, onUpdatePrice }: ServiceCartItemProps) {
+export function ServiceCartItem({ item, priceMode, onUpdateQuantity, onRemoveItem, onUpdatePrice }: ServiceCartItemProps) {
   const key = cartItemKey(item);
-  const { serviceRate } = item;
+  const { serviceRate, quantity } = item;
   const displayPrice = itemUnitPrice(item, priceMode);
   const hasOverride = item.overridePrice !== undefined;
+  const specialPrice = isSpecialPrice(priceMode);
 
   return (
     <div className="group rounded-lg border p-2">
@@ -50,17 +52,27 @@ export function ServiceCartItem({ item, priceMode, onRemoveItem, onUpdatePrice }
       {serviceRate.doctor?.doctorName && (
         <p className="mt-1 pl-12 text-xs text-muted-foreground">{serviceRate.doctor.doctorName}</p>
       )}
-      <div className="mt-1 pl-12">
+      <div className="mt-1 flex items-center justify-between pl-12">
         <PriceEditor
           displayPrice={displayPrice}
           hasOverride={hasOverride}
-          specialPrice={isSpecialPrice(priceMode)}
+          specialPrice={specialPrice}
           itemKey={key}
           onUpdatePrice={onUpdatePrice}
           variant="service"
         />
+        <QuantityControls
+          quantity={quantity}
+          itemKey={key}
+          onUpdateQuantity={onUpdateQuantity}
+        />
+        <span className={`text-sm font-semibold ${hasOverride ? "text-amber-600" : specialPrice ? "text-emerald-400" : ""}`}>
+          ${(displayPrice * quantity).toFixed(2)}
+        </span>
+      </div>
+      <div className="mt-1 pl-12">
         {/* Fijo y no editable: el precio de la tarifa ya trae el impuesto dentro. */}
-        <span className="mt-1 inline-block rounded-md border border-dashed px-1.5 text-xs text-muted-foreground">
+        <span className="inline-block rounded-md border border-dashed px-1.5 text-xs text-muted-foreground">
           {impuestoLabel(SERVICE_IMPUESTO)}
         </span>
       </div>

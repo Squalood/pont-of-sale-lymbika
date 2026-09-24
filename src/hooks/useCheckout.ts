@@ -123,9 +123,9 @@ export function useCheckout({
               product: null,
               service_rate: item.serviceRate.documentId,
               productName: item.serviceRate.medical_service?.name ?? "",
-              quantity: 1,
+              quantity: item.quantity,
               unitPrice: getPrice(item),
-              totalLine: getPrice(item),
+              totalLine: getPrice(item) * item.quantity,
               // Sin `unitCost`: un servicio no tiene costo de proveedor, igual que no tiene lote.
               tax: itemImpuesto(item),
             };
