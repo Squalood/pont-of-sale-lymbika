@@ -62,10 +62,22 @@ interface GroupedCompraItem {
   key: string;
   productName: string;
   costoUnitario: number;
+  /**
+   * Falso cuando los renglones del producto no comparten costo: el proveedor puede
+   * facturar el mismo articulo a precios distintos en la misma compra. Entonces el
+   * "c/u" de la cabecera mentiria, y el costo se muestra en cada renglon.
+   */
+  costoUniforme: boolean;
   iva?: "iva8" | "iva16" | "exento";
   totalQty: number;
   totalLine: number;
-  lotes: { numeroLote?: string; fechaCaducidad?: string; quantity: number; totalLine: number }[];
+  lotes: {
+    numeroLote?: string;
+    fechaCaducidad?: string;
+    quantity: number;
+    costoUnitario: number;
+    totalLine: number;
+  }[];
 }
 
 function groupCompraItems(items: CompraItemType[]): GroupedCompraItem[] {
@@ -78,6 +90,7 @@ function groupCompraItems(items: CompraItemType[]): GroupedCompraItem[] {
         key,
         productName: it.productName,
         costoUnitario: it.costoUnitario,
+        costoUniforme: true,
         iva: it.iva,
         totalQty: 0,
         totalLine: 0,
@@ -87,10 +100,12 @@ function groupCompraItems(items: CompraItemType[]): GroupedCompraItem[] {
     }
     g.totalQty += it.quantity;
     g.totalLine += it.totalLine;
+    if (it.costoUnitario !== g.costoUnitario) g.costoUniforme = false;
     g.lotes.push({
       numeroLote: it.numeroLote,
       fechaCaducidad: it.fechaCaducidad,
       quantity: it.quantity,
+      costoUnitario: it.costoUnitario,
       totalLine: it.totalLine,
     });
   }
@@ -324,7 +339,7 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
 
   const fecha = new Date(compra.fecha);
 
-  const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
+  const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmtDate = (s: string) => new Date(s).toLocaleDateString("es-MX");
   const fmtIva = (iva?: "iva8" | "iva16" | "exento") =>
     iva === "iva8" ? "8%" : iva === "iva16" ? "16%" : "—";
@@ -418,7 +433,8 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
                       <p className="font-medium truncate" title={g.productName}>{g.productName}</p>
                       {showCosts && (
                         <p className="text-xs text-muted-foreground">
-                          ${fmt(g.costoUnitario)} c/u{showIva && g.iva && g.iva !== "exento" ? ` · IVA ${fmtIva(g.iva)}` : ""}
+                          {g.costoUniforme ? `$${fmt(g.costoUnitario)} c/u` : "Precios por lote"}
+                          {showIva && g.iva && g.iva !== "exento" ? ` · IVA ${fmtIva(g.iva)}` : ""}
                         </p>
                       )}
                     </div>
@@ -445,7 +461,9 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
                           )}
                         </span>
                         <span className="shrink-0 text-muted-foreground">
-                          x{l.quantity}{showCosts ? ` · $${fmt(l.totalLine)}` : ""}
+                          x{l.quantity}
+                          {showCosts && !g.costoUniforme ? ` · $${fmt(l.costoUnitario)} c/u` : ""}
+                          {showCosts ? ` · $${fmt(l.totalLine)}` : ""}
                         </span>
                       </div>
                     ))}

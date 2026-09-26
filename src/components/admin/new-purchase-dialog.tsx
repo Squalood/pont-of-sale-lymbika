@@ -17,10 +17,11 @@ import { postCompra } from "@/api/postCompra";
 import { patchProduct } from "@/api/patchProduct";
 import { postLote } from "@/api/postLote";
 import { getUser } from "@/lib/auth";
-import { LocalPurchaseItem } from "./purchase/types";
+import { LocalPurchaseItem, LoteRow } from "./purchase/types";
 import {
   itemQuantity,
-  ivaMultiplier,
+  itemCostoParaCatalogo,
+  loteTotalLine,
   comprasTotal,
   ivaToImpuestoProducto,
   ivaDesdeProducto,
@@ -84,13 +85,22 @@ export function NewPurchaseDialog({
     setItems((prev) => prev.map((item, i) => (i !== idx ? item : { ...item, ...patch })));
   }
 
+  /**
+   * Renglón en blanco para un producto. Hereda el costo del último renglón porque lo
+   * habitual es que los lotes de una misma compra lleguen al mismo precio; cuando el
+   * proveedor factura distinto, se corrige solo ese renglón.
+   */
+  function nuevoLote(lotes: LoteRow[]): LoteRow {
+    return { numeroLote: "", cantidad: 1, costoUnitario: lotes.at(-1)?.costoUnitario ?? 0 };
+  }
+
   // Agrega el producto (con 1 renglón de lote vacío). Si ya existe, agrega otro renglón.
   function handleAddProduct(product: ProductType) {
     setItems((prev) => {
       const idx = prev.findIndex((i) => i.productId === product.id);
       if (idx !== -1) {
         return prev.map((item, i) =>
-          i !== idx ? item : { ...item, lotes: [...item.lotes, { numeroLote: "", cantidad: 1 }] }
+          i !== idx ? item : { ...item, lotes: [...item.lotes, nuevoLote(item.lotes)] }
         );
       }
       return [
@@ -100,18 +110,13 @@ export function NewPurchaseDialog({
           product: product.documentId,
           productName: product.productName,
           stockActual: product.stock_central ?? 0,
-          costoUnitario: product.priceMember ?? 0,
           // Arranca con la tasa que el producto ya tiene: al confirmar se sobrescribe
           // el `impuesto` del producto, así que un valor fijo aquí la borraría.
           iva: ivaDesdeProducto(product),
-          lotes: [{ numeroLote: "", cantidad: 1 }],
+          lotes: [{ numeroLote: "", cantidad: 1, costoUnitario: product.priceMember ?? 0 }],
         },
       ];
     });
-  }
-
-  function handleChangeCosto(idx: number, value: string) {
-    updateItem(idx, { costoUnitario: Math.max(0, parseFloat(value) || 0) });
   }
 
   function handleChangeIva(idx: number, value: "iva8" | "iva16" | "exento") {
@@ -120,7 +125,7 @@ export function NewPurchaseDialog({
 
   function handleAddLote(idx: number) {
     setItems((prev) =>
-      prev.map((item, i) => (i !== idx ? item : { ...item, lotes: [...item.lotes, { numeroLote: "", cantidad: 1 }] }))
+      prev.map((item, i) => (i !== idx ? item : { ...item, lotes: [...item.lotes, nuevoLote(item.lotes)] }))
     );
   }
 
@@ -153,6 +158,20 @@ export function NewPurchaseDialog({
     updateLote(itemIdx, loteIdx, { cantidad: Math.max(1, parseInt(value) || 1) });
   }
 
+  function handleChangeLoteCosto(itemIdx: number, loteIdx: number, value: string) {
+    updateLote(itemIdx, loteIdx, { costoUnitario: Math.max(0, parseFloat(value) || 0) });
+  }
+
+  // Vaciar el campo devuelve el costo del catalogo a automatico (el mas alto).
+  function handleChangeCostoCatalogo(idx: number, value: string) {
+    const costoCatalogo = value.trim() === "" ? undefined : Math.max(0, parseFloat(value) || 0);
+    updateItem(idx, { costoCatalogo });
+  }
+
+  function handleResetCostoCatalogo(idx: number) {
+    updateItem(idx, { costoCatalogo: undefined });
+  }
+
   function handleChangeLoteCaducidad(itemIdx: number, loteIdx: number, value: string) {
     updateLote(itemIdx, loteIdx, { fechaCaducidad: value || undefined });
   }
@@ -178,9 +197,9 @@ export function NewPurchaseDialog({
           product: item.product,
           productName: item.productName,
           quantity: lote.cantidad,
-          costoUnitario: item.costoUnitario,
+          costoUnitario: lote.costoUnitario,
           iva: item.iva,
-          totalLine: lote.cantidad * item.costoUnitario * ivaMultiplier(item.iva),
+          totalLine: loteTotalLine(lote, item.iva),
           ...(lote.numeroLote.trim() ? { numeroLote: lote.numeroLote.trim() } : {}),
           ...(lote.fechaCaducidad ? { fechaCaducidad: lote.fechaCaducidad } : {}),
         }))
@@ -205,9 +224,10 @@ export function NewPurchaseDialog({
 
         // Un solo PUT por producto: stock, costo y tasa de IVA quedan en la misma escritura.
         // El costo solo se manda si se capturó; la tasa siempre, y sobrescribe la que hubiera.
+        const costoCatalogo = itemCostoParaCatalogo(item);
         await patchProduct(item.product, {
           stock_central: item.stockActual + totalQty,
-          ...(item.costoUnitario > 0 ? { priceMember: item.costoUnitario } : {}),
+          ...(costoCatalogo > 0 ? { priceMember: costoCatalogo } : {}),
           impuesto: ivaToImpuestoProducto(item.iva),
         });
         // Un inventory-lot por cada renglón que traiga número de lote.
@@ -276,7 +296,9 @@ export function NewPurchaseDialog({
           <ItemsStep
             items={items}
             onAddProduct={handleAddProduct}
-            onChangeCosto={handleChangeCosto}
+            onChangeLoteCosto={handleChangeLoteCosto}
+            onChangeCostoCatalogo={handleChangeCostoCatalogo}
+            onResetCostoCatalogo={handleResetCostoCatalogo}
             onChangeIva={handleChangeIva}
             onAddLote={handleAddLote}
             onRemoveLote={handleRemoveLote}

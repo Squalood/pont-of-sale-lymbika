@@ -20,7 +20,7 @@ interface ConfirmStepProps {
   onBack: () => void;
 }
 
-const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
+const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function ConfirmStep({
   selectedProveedor,
@@ -64,7 +64,7 @@ export function ConfirmStep({
                     IVA {item.iva === "iva8" ? "8%" : "16%"}
                   </Badge>
                 )}
-                {item.costoUnitario > 0 && (
+                {itemTotalLine(item) > 0 && (
                   <span className="text-xs text-muted-foreground shrink-0 w-20 text-right">
                     ${fmt(itemTotalLine(item))}
                   </span>
@@ -74,6 +74,7 @@ export function ConfirmStep({
                 {item.lotes.map((lote, li) => (
                   <li key={li}>
                     {lote.numeroLote.trim() ? `Lote ${lote.numeroLote.trim()}` : "Sin lote"} · x{lote.cantidad}
+                    {lote.costoUnitario > 0 ? ` · $${fmt(lote.costoUnitario)} c/u` : ""}
                     {lote.fechaCaducidad ? ` · Cad: ${lote.fechaCaducidad}` : ""}
                   </li>
                 ))}

@@ -1,11 +1,28 @@
 import { productImpuesto, type ImpuestoProducto } from "@/lib/pricing";
 import type { ProductType } from "@/types/product";
-import { LocalPurchaseItem } from "./types";
+import { LocalPurchaseItem, LoteRow } from "./types";
 
-export function ivaMultiplier(iva?: "iva8" | "iva16" | "exento"): number {
-  if (iva === "iva8") return 1.08;
-  if (iva === "iva16") return 1.16;
-  return 1;
+/** Tasa decimal del IVA de la compra. */
+export function ivaTasa(iva?: "iva8" | "iva16" | "exento"): number {
+  if (iva === "iva8") return 0.08;
+  if (iva === "iva16") return 0.16;
+  return 0;
+}
+
+const centavos = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Importe de un renglon con IVA, **cerrado en centavos por renglon**.
+ *
+ * Es como factura el proveedor: el CFDI redondea el importe y el impuesto de cada
+ * concepto a dos decimales y luego suma. Arrastrar los decimales y redondear solo al
+ * final descuadra contra la factura — en la compra #00331 daba 1,360.7472 contra los
+ * 1,360.76 de NADRO, porque los tres conceptos gravados perdian medio centavo cada uno.
+ */
+export function loteTotalLine(lote: LoteRow, iva?: LocalPurchaseItem["iva"]): number {
+  const importe = centavos((lote.cantidad || 0) * (lote.costoUnitario || 0));
+  const impuesto = centavos(importe * ivaTasa(iva));
+  return centavos(importe + impuesto);
 }
 
 // Cantidad total del producto = Σ cantidades de sus lotes.
@@ -13,12 +30,25 @@ export function itemQuantity(item: LocalPurchaseItem): number {
   return item.lotes.reduce((sum, l) => sum + (l.cantidad || 0), 0);
 }
 
+// Importe del producto: cada renglon aporta su cantidad por SU costo. Multiplicar la
+// cantidad total por un costo unico perdia los centavos cuando el proveedor factura el
+// mismo articulo a precios distintos.
 export function itemTotalLine(item: LocalPurchaseItem): number {
-  return itemQuantity(item) * item.costoUnitario * ivaMultiplier(item.iva);
+  return centavos(item.lotes.reduce((sum, l) => sum + loteTotalLine(l, item.iva), 0));
+}
+
+/** El mas alto de los renglones: no subvalua el margen cuando la compra trae precios mixtos. */
+export function itemCostoMasAlto(item: LocalPurchaseItem): number {
+  return item.lotes.reduce((max, l) => Math.max(max, l.costoUnitario || 0), 0);
+}
+
+/** Costo que hereda el producto en el catalogo: el tecleado a mano, o el mas alto. */
+export function itemCostoParaCatalogo(item: LocalPurchaseItem): number {
+  return item.costoCatalogo ?? itemCostoMasAlto(item);
 }
 
 export function comprasTotal(items: LocalPurchaseItem[]): number {
-  return items.reduce((sum, i) => sum + itemTotalLine(i), 0);
+  return centavos(items.reduce((sum, i) => sum + itemTotalLine(i), 0));
 }
 
 /**

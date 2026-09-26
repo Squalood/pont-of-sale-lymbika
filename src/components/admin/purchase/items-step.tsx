@@ -4,16 +4,18 @@ import { useState } from "react";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { ProductType } from "@/types/product";
 import { useSearchProducts } from "@/api/searchProducts";
 import { LocalPurchaseItem } from "./types";
-import { itemQuantity, itemTotalLine, comprasTotal } from "./helpers";
+import { itemQuantity, itemTotalLine, comprasTotal, itemCostoParaCatalogo } from "./helpers";
 
 interface ItemsStepProps {
   items: LocalPurchaseItem[];
   onAddProduct: (product: ProductType) => void;
-  onChangeCosto: (idx: number, value: string) => void;
+  onChangeLoteCosto: (itemIdx: number, loteIdx: number, value: string) => void;
+  onChangeCostoCatalogo: (idx: number, value: string) => void;
+  onResetCostoCatalogo: (idx: number) => void;
   onChangeIva: (idx: number, value: "iva8" | "iva16" | "exento") => void;
   onAddLote: (idx: number) => void;
   onRemoveLote: (itemIdx: number, loteIdx: number) => void;
@@ -25,7 +27,11 @@ interface ItemsStepProps {
   onBack: () => void;
 }
 
-const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
+const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Rejilla del renglon de lote. Las etiquetas salen una vez arriba en vez de repetirse
+// en cada renglon, asi las columnas aliñan y los precios se comparan de un vistazo.
+const LOTE_COLS = "grid grid-cols-[3rem_5rem_minmax(0,1fr)_8rem_1.25rem] items-center gap-1.5";
 
 const IVA_OPTIONS = [
   { value: "exento", label: "Ex" },
@@ -36,7 +42,9 @@ const IVA_OPTIONS = [
 export function ItemsStep({
   items,
   onAddProduct,
-  onChangeCosto,
+  onChangeLoteCosto,
+  onChangeCostoCatalogo,
+  onResetCostoCatalogo,
   onChangeIva,
   onAddLote,
   onRemoveLote,
@@ -112,7 +120,7 @@ export function ItemsStep({
                   </p>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     x{itemQuantity(item)}
-                    {item.costoUnitario > 0 && ` · $${fmt(itemTotalLine(item))}`}
+                    {itemTotalLine(item) > 0 && ` · $${fmt(itemTotalLine(item))}`}
                   </span>
                   <button
                     type="button"
@@ -123,20 +131,8 @@ export function ItemsStep({
                   </button>
                 </div>
 
-                {/* Precio + IVA (por producto) */}
+                {/* IVA (por producto: es su tasa fiscal, no la del lote) + precio de catálogo */}
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">Precio</span>
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={item.costoUnitario === 0 ? "" : item.costoUnitario}
-                      onChange={(e) => onChangeCosto(idx, e.target.value)}
-                      placeholder="0.00"
-                      className="h-7 w-24 text-center text-sm"
-                    />
-                  </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">IVA</span>
                     <div className="flex rounded border overflow-hidden text-xs">
@@ -156,40 +152,76 @@ export function ItemsStep({
                       ))}
                     </div>
                   </div>
+
+                  {/* Lo que quedará como precio del producto en el catálogo. */}
+                  <div className="ml-auto flex items-center gap-1.5">
+                    <span
+                      className="text-xs text-muted-foreground"
+                      title="Se guarda como precio de miembro del producto. Por defecto, el más alto de sus lotes."
+                    >
+                      Precio catálogo
+                    </span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={itemCostoParaCatalogo(item) === 0 ? "" : itemCostoParaCatalogo(item)}
+                      onChange={(e) => onChangeCostoCatalogo(idx, e.target.value)}
+                      placeholder="0.00"
+                      className="h-7 w-20 px-1 text-center text-sm"
+                    />
+                    {item.costoCatalogo !== undefined && (
+                      <button
+                        type="button"
+                        onClick={() => onResetCostoCatalogo(idx)}
+                        title="Volver al más alto de los lotes"
+                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Lotes (renglones) */}
-                <div className="space-y-1.5 border-t pt-2">
+                <div className="space-y-1 border-t pt-2">
+                  <div className={`${LOTE_COLS} text-[11px] text-muted-foreground`}>
+                    <span>Cant</span>
+                    <span>Precio</span>
+                    <span>Lote</span>
+                    <span>Caduca</span>
+                    <span />
+                  </div>
                   {item.lotes.map((lote, li) => (
-                    <div key={li} className="flex items-center gap-2 flex-wrap">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">Cant</span>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={lote.cantidad}
-                          onChange={(e) => onChangeLoteCantidad(idx, li, e.target.value)}
-                          className="h-7 w-14 text-center text-sm"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">Lote</span>
-                        <Input
-                          value={lote.numeroLote}
-                          onChange={(e) => onChangeLoteNumero(idx, li, e.target.value)}
-                          placeholder="Nº lote"
-                          className="h-7 w-24 text-sm"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">Caduca</span>
-                        <Input
-                          type="date"
-                          value={lote.fechaCaducidad ?? ""}
-                          onChange={(e) => onChangeLoteCaducidad(idx, li, e.target.value)}
-                          className="h-7 w-36 text-sm"
-                        />
-                      </div>
+                    <div key={li} className={LOTE_COLS}>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={lote.cantidad}
+                        onChange={(e) => onChangeLoteCantidad(idx, li, e.target.value)}
+                        className="h-7 px-1 text-center text-sm"
+                      />
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={lote.costoUnitario === 0 ? "" : lote.costoUnitario}
+                        onChange={(e) => onChangeLoteCosto(idx, li, e.target.value)}
+                        placeholder="0.00"
+                        className="h-7 px-1 text-center text-sm"
+                      />
+                      <Input
+                        value={lote.numeroLote}
+                        onChange={(e) => onChangeLoteNumero(idx, li, e.target.value)}
+                        placeholder="Nº lote"
+                        className="h-7 px-2 text-sm"
+                      />
+                      <Input
+                        type="date"
+                        value={lote.fechaCaducidad ?? ""}
+                        onChange={(e) => onChangeLoteCaducidad(idx, li, e.target.value)}
+                        className="h-7 px-1 text-sm"
+                      />
                       <button
                         type="button"
                         onClick={() => onRemoveLote(idx, li)}
@@ -203,7 +235,7 @@ export function ItemsStep({
                   <button
                     type="button"
                     onClick={() => onAddLote(idx)}
-                    className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    className="flex items-center gap-1 pt-0.5 text-xs text-primary hover:underline"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Agregar lote
