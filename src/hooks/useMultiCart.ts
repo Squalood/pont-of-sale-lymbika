@@ -1,10 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Cart, CartItem, ProductType, cartItemKey } from "@/types/product";
 import type { ImpuestoLinea, PriceMode } from "@/lib/pricing";
 
 export const CART_VW = 25;
 export const MAX_CARTS = 4;
+
+// Los carritos viven en el estado de la página, que se desmonta al ir a /admin. Se guardan
+// en sessionStorage para recuperarlos al volver (o al recargar). Es por pestaña: dos cajas
+// abiertas no se pisan, y cerrar la pestaña no deja una venta a medias para el día siguiente.
+const STORAGE_KEY = "pos:carts";
+
+type PersistedCarts = {
+  carts: Cart[];
+  nextCartId: number;
+  activeCartId: number;
+  sidebarOpen: boolean;
+};
+
+function readPersisted(): PersistedCarts | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as PersistedCarts;
+    if (!Array.isArray(data.carts) || data.carts.length === 0) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
 
 // Tope de cantidad de una línea = currentAmount del lote elegido (snapshot del producto en el
 // carrito). Una línea = un lote, así que no se puede vender más de lo que hay en ese lote.
@@ -23,6 +47,56 @@ export function useMultiCart(
   const [nextCartId, setNextCartId] = useState(2);
   const [activeCartId, setActiveCartId] = useState(1);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Se restaura en un efecto y no en el inicializador de useState: la página también se
+  // renderiza en el servidor, donde no hay sessionStorage, y leerlo antes rompería la hidratación.
+  useEffect(() => {
+    const saved = readPersisted();
+    if (saved) {
+      setCarts(saved.carts);
+      setNextCartId(saved.nextCartId);
+      setActiveCartId(saved.activeCartId);
+      setSidebarOpen(saved.sidebarOpen);
+    }
+    setHydrated(true);
+  }, []);
+
+  // Sin la bandera, el primer render guardaría el carrito vacío encima del que falta restaurar.
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const data: PersistedCarts = { carts, nextCartId, activeCartId, sidebarOpen };
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch {
+      // Storage lleno o bloqueado: el carrito sigue funcionando, solo no sobrevive a la navegación.
+    }
+  }, [hydrated, carts, nextCartId, activeCartId, sidebarOpen]);
+
+  // Un carrito restaurado trae la foto del producto de cuando se agregó. Al llegar el catálogo
+  // fresco se reemplaza, y cada línea se recorta al lote actual: si otra caja vendió de ese
+  // lote mientras tanto, lotCap con la foto vieja dejaría vender más de lo que queda.
+  function refreshCartProducts(fresh: ProductType[]) {
+    if (fresh.length === 0) return;
+    const byId = new Map(fresh.map((p) => [p.id, p]));
+    const refresh = (item: CartItem): CartItem => {
+      if (item.type !== "product") return item;
+      const product = byId.get(item.product.id);
+      if (!product) return item;
+      const updated = { ...item, product };
+      return { ...updated, quantity: Math.min(item.quantity, lotCap(updated)) };
+    };
+    // El aviso se decide con `carts` del render y no dentro del updater: React puede
+    // ejecutar el updater más tarde o dos veces (StrictMode) y el toast saldría mal.
+    const trimmed = carts.some((cart) => cart.items.some((i) => refresh(i).quantity !== i.quantity));
+    setCarts((prev) =>
+      prev.map((cart) => ({
+        ...cart,
+        items: cart.items.map(refresh).filter((item) => item.quantity > 0),
+      }))
+    );
+    if (trimmed) toast.warning("Se ajustaron cantidades del carrito al stock actual de los lotes");
+  }
 
   const sidebarWidth = `${100 - carts.length * CART_VW}vw`;
 
@@ -176,5 +250,6 @@ export function useMultiCart(
     addCart,
     removeCart,
     handleSaleComplete,
+    refreshCartProducts,
   };
 }

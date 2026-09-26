@@ -75,8 +75,13 @@ export default function Home() {
     sidebarOpen, setSidebarOpen, sidebarWidth,
     addToCartOf, updateQuantityOf, removeItemOf,
     updateItemPriceOf, updateItemImpuestoOf, clearCartOf, setPriceModeOf,
-    addCart, removeCart, handleSaleComplete,
+    addCart, removeCart, handleSaleComplete, refreshCartProducts,
   } = useMultiCart(setProducts);
+
+  // Solo con el catálogo recién traído, no con `products`: ese cambia en cada venta y
+  // el carrito ya se vació para entonces.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshCartProducts(fetchedProducts); }, [fetchedProducts]);
 
   // Índice de búsqueda del catálogo. Se construye sobre `fetchedProducts` y no
   // sobre `products`: vender solo cambia el stock, los nombres no, así que el
