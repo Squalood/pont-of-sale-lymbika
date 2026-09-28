@@ -17,6 +17,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FacturaType } from "@/types/factura";
 import { FacturaDetailDialog } from "@/components/admin/factura-detail-dialog";
 import { EstadoFacturaBadge } from "@/components/admin/estado-factura-badge";
+import { folioVisible } from "@/lib/factura-folio";
 
 type Period = "hoy" | "semana" | "mes" | "todo";
 type EstadoPagoFilter = "todos" | "pendiente" | "pagada" | "pagada_parcial";
@@ -87,7 +88,7 @@ export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEdi
       if (estadoPagoFilter !== "todos" && (f.estado === "borrador" || (f.estadoPago ?? "pendiente") !== estadoPagoFilter)) return false;
       if (!q) return true;
       return (
-        f.folio?.toLowerCase().includes(q) ||
+        folioVisible(f.folio).toLowerCase().includes(q) ||
         f.cliente?.toLowerCase().includes(q) ||
         (f.rfc ?? "").toLowerCase().includes(q)
       );
@@ -185,7 +186,7 @@ export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEdi
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => setSelected(f)}
                 >
-                  <TableCell className="font-mono text-xs">{f.folio || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{folioVisible(f.folio) || "—"}</TableCell>
                   <TableCell className="text-sm">{fmtDate(f.fecha)}</TableCell>
                   <TableCell className="font-medium">{f.cliente}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">{f.rfc || "—"}</TableCell>

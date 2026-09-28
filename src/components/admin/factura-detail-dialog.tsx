@@ -35,6 +35,7 @@ import { FacturaType } from "@/types/factura";
 import { printInvoice } from "@/lib/print-invoice";
 import { patchFacturaEstadoPago } from "@/api/patchFacturaEstadoPago";
 import { EstadoFacturaBadge } from "@/components/admin/estado-factura-badge";
+import { folioVisible } from "@/lib/factura-folio";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -193,7 +194,7 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
         <DialogHeader className="shrink-0">
           <DialogTitle>
             Factura{" "}
-            <span className="text-muted-foreground font-normal">{factura.folio || "sin folio"}</span>
+            <span className="text-muted-foreground font-normal">{folioVisible(factura.folio) || "sin folio"}</span>
           </DialogTitle>
         </DialogHeader>
 

@@ -7,8 +7,8 @@ export interface FacturaItemPayload {
 }
 
 export interface FacturaPayload {
-  /** `null` en un borrador sin folio: el folio se asigna al generar. */
-  folio?: string | null;
+  /** Obligatorio en Strapi. Un borrador sin folio lleva uno provisional (ver lib/factura-folio). */
+  folio?: string;
   fecha: string; // ISO
   fechaVencimiento?: string | null;
   cliente: string;

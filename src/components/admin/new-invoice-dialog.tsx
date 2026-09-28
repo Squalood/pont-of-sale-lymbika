@@ -22,6 +22,7 @@ import { useSearchProducts } from "@/api/searchProducts";
 import { printInvoice } from "@/lib/print-invoice";
 import { postFactura } from "@/api/postFactura";
 import { putFactura } from "@/api/putFactura";
+import { folioProvisional, folioVisible } from "@/lib/factura-folio";
 import type { FacturaPayload, FacturaType } from "@/types/factura";
 import { useCaja } from "@/lib/caja-context";
 import { toast } from "sonner";
@@ -106,10 +107,15 @@ function makeInitialState(): InvoiceState {
   };
 }
 
+/** Fila sin llenar: ni descripción ni precio. No se guarda. */
+function isBlankLine(l: InvoiceLine): boolean {
+  return !l.descripcion.trim() && l.precioUnitario === 0;
+}
+
 /** Rehidrata el formulario desde un borrador guardado. */
 function stateFromDraft(f: FacturaType): InvoiceState {
   return {
-    invoiceNumber: f.folio ?? "",
+    invoiceNumber: folioVisible(f.folio),
     cliente: f.cliente ?? "",
     rfc: f.rfc ?? "",
     tipoCliente: f.tipoCliente ?? "",
@@ -414,9 +420,10 @@ export function NewInvoiceDialog({ open, onClose, onSaved, draft }: NewInvoiceDi
     }));
   }
 
+  // Las líneas vacías se descartan: un borrador puede quedarse con la fila inicial sin llenar.
   function buildLines() {
-    return invoice.lines.map(({ descripcion, cantidad, precioUnitario, impuesto, productDocumentId }) => ({
-      descripcion,
+    return invoice.lines.filter((l) => !isBlankLine(l)).map(({ descripcion, cantidad, precioUnitario, impuesto, productDocumentId }) => ({
+      descripcion: descripcion.trim(),
       cantidad,
       precioUnitario,
       impuesto,
@@ -424,12 +431,12 @@ export function NewInvoiceDialog({ open, onClose, onSaved, draft }: NewInvoiceDi
     }));
   }
 
-  function buildPayload(estado: FacturaPayload["estado"], folio: string | null): FacturaPayload {
+  function buildPayload(estado: FacturaPayload["estado"], folio: string): FacturaPayload {
     return {
       folio,
       fecha: invoice.fechaFactura.toISOString(),
       fechaVencimiento: invoice.fechaVencimiento?.toISOString() ?? null,
-      cliente: invoice.cliente,
+      cliente: invoice.cliente.trim(),
       rfc: invoice.rfc || undefined,
       tipoCliente: (invoice.tipoCliente as "empresa" | "particular") || undefined,
       formaDePago: invoice.formaDePago || undefined,
@@ -454,11 +461,31 @@ export function NewInvoiceDialog({ open, onClose, onSaved, draft }: NewInvoiceDi
     else await postFactura(payload);
   }
 
+  // `cliente` y `descripcion` son obligatorios en Strapi, pero un "" podría pasar su validación:
+  // se revisan aquí, y antes de imprimir, para no sacar un PDF que luego no se guarda.
+  function validate(emitir: boolean): boolean {
+    if (!invoice.cliente.trim()) {
+      toast.error("Escribe el cliente o razón social");
+      return false;
+    }
+    const sinDescripcion = invoice.lines.findIndex((l) => !isBlankLine(l) && !l.descripcion.trim());
+    if (sinDescripcion !== -1) {
+      toast.error(`La línea ${sinDescripcion + 1} tiene precio pero no descripción`);
+      return false;
+    }
+    if (emitir && buildLines().length === 0) {
+      toast.error("Agrega al menos una línea a la factura");
+      return false;
+    }
+    return true;
+  }
+
   async function handleSaveDraft() {
+    if (!validate(false)) return;
     setSaving(true);
     try {
-      // Sin folio automático: el folio se asigna al generar, no al guardar.
-      await persist(buildPayload("borrador", invoice.invoiceNumber.trim() || null));
+      // El folio real se asigna al generar; hasta entonces va uno provisional.
+      await persist(buildPayload("borrador", invoice.invoiceNumber.trim() || folioProvisional()));
       toast.success("Borrador guardado");
       onSaved?.();
       handleClose();
@@ -473,6 +500,7 @@ export function NewInvoiceDialog({ open, onClose, onSaved, draft }: NewInvoiceDi
   }
 
   async function handlePrint() {
+    if (!validate(true)) return;
     const folio = invoice.invoiceNumber.trim() || "FAC-" + Date.now();
     const lines = buildLines();
 
