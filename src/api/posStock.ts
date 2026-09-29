@@ -167,6 +167,28 @@ export const postDiscardLots = (input: {
   idemKey: string;
 }) => post<StockOpResult<{ discardedLots: number; failed: string[] }>>("/discard-lot", input);
 
+/** Qué haría "Pasar toda la bodega" (dryRun) o lo que falta después de una tanda. */
+export interface MoveAllPreview {
+  pharmacy: { documentId: string; nombre: string };
+  /** Productos con stock o lotes en la bodega. */
+  products: number;
+  units: number;
+  lots: number;
+  /** Unidades que la farmacia ya vendió sin lote (su negativo): se descuentan de los lotes movidos. */
+  soldUnlotted: number;
+  /** Productos con bodega negativa: no se mueve su stock (solo sus lotes). */
+  negativeBodega: number;
+  negativeSamples: { productDocumentId: string; productName: string; bodega: number }[];
+}
+
+export const previewMoveAll = (to: string) => post<MoveAllPreview>("/move-all", { to, dryRun: true });
+
+/** Una tanda de "Pasar toda la bodega". Repetir con otra llave mientras `remaining > 0`. */
+export const postMoveAll = (to: string, idemKey: string, limit = 50) =>
+  post<
+    StockOpResult<{ products: number; units: number; lotsMoved: number; soldApplied: number }> & { remaining: number }
+  >("/move-all", { to, idemKey, limit });
+
 export interface LocationLevelItem {
   productDocumentId: string;
   productName: string;

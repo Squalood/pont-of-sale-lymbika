@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeftRight, ExternalLink, Plus, RefreshCw, Scale, Search, SquarePen } from "lucide-react";
+import { ArrowLeftRight, ExternalLink, PackageOpen, Plus, RefreshCw, Scale, Search, SquarePen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -17,10 +17,12 @@ import {
 } from "@/components/ui/table";
 import { getStockLevels, type LocationLevelItem } from "@/api/posStock";
 import { usePharmacies } from "@/hooks/usePharmacies";
+import { useCaja } from "@/lib/caja-context";
 import { normalize } from "@/lib/search";
 import { BODEGA, LocationSelect, TODAS, locationName, toLocation } from "./location-select";
 import { StockAdjustDialog, transferHref, type AdjustTarget } from "./stock-adjust-dialog";
 import { StockCountDialog, type CountTarget } from "./stock-count-dialog";
+import { MoveAllDialog } from "./move-all-dialog";
 
 type Filtro = "todos" | "descuadre" | "sinlotes" | "negativos" | "bajo";
 
@@ -32,6 +34,8 @@ interface Row extends LocationLevelItem {
 }
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+// "Pasar bodega a farmacia" fue para la migración inicial (ya hecha): oculto salvo que se pida.
+const MOVE_ALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_MOVE_ALL === "true";
 const strapiProductUrl = (documentId: string) =>
   `${BACKEND_URL}/admin/content-manager/collection-types/api::product.product/${documentId}`;
 
@@ -55,6 +59,8 @@ export function StockLevelsView() {
   const [filtro, setFiltro] = useState<Filtro>("descuadre");
   const [adjust, setAdjust] = useState<{ target: AdjustTarget | null; location: string } | null>(null);
   const [count, setCount] = useState<{ target: CountTarget; location: string } | null>(null);
+  const [moveAll, setMoveAll] = useState(false);
+  const { caja } = useCaja();
 
   const esTodas = location === TODAS;
   const esBodega = location === BODEGA;
@@ -177,6 +183,17 @@ export function StockLevelsView() {
           <Button variant="outline" size="sm" onClick={load} disabled={loading} className="gap-2">
             <RefreshCw className="h-4 w-4" /> Recargar
           </Button>
+          {MOVE_ALL_ENABLED && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMoveAll(true)}
+              title="Cuando toda la mercancía está en una farmacia: pasa el stock y los lotes de la bodega a ella"
+              className="gap-2"
+            >
+              <PackageOpen className="h-4 w-4" /> Pasar bodega a farmacia
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={() => setAdjust({ target: null, location })}
@@ -311,6 +328,14 @@ export function StockLevelsView() {
         locationName={locationName(count?.location ?? BODEGA, pharmacies)}
         onClose={() => setCount(null)}
         onDone={load}
+      />
+
+      <MoveAllDialog
+        open={MOVE_ALL_ENABLED && moveAll}
+        onClose={() => setMoveAll(false)}
+        onDone={load}
+        pharmacies={pharmacies}
+        defaultPharmacy={caja?.pharmacy?.documentId}
       />
     </div>
   );

@@ -80,6 +80,7 @@ bodega es lo que sobra: **total = bodega + farmacias**, siempre.
 | Cuadrar | Stock por farmacia | Queda igual a lo contado | Cambia en la diferencia | Cada lote queda con lo contado |
 | Corregir | Stock por farmacia | Sube o baja | Cambia igual | Si eliges un lote, baja o sube junto |
 | Desechar | Caducidades | Baja la ubicación del lote | Baja | El lote pasa a `vencido` |
+| Pasar bodega a farmacia | Stock por farmacia (botón) | Toda la bodega pasa a una farmacia | **No cambia** | Todos los lotes de bodega cambian de lugar |
 
 **Regla de uso:**
 - **Traspasar** cuando la mercancía ya existe y solo cambia de lugar.
@@ -120,6 +121,7 @@ explican con claridad.
 | `POST /adjust` | Corregir stock o un lote |
 | `POST /count` | Cuadrar (conteo físico por lote) |
 | `POST /discard-lot` | Desechar lotes |
+| `POST /move-all` | Pasar toda la bodega a una farmacia (vista previa con `dryRun`, luego por tandas) |
 | `GET /levels` | Stock y lotes de una ubicación |
 
 **Cambios en colecciones:**
@@ -161,10 +163,38 @@ explican con claridad.
       acciones de **Pos-stock** (incluida `count`), **Pharmacy-stock → find**,
       **Stock-transfer → find** e **Inventory-lot → find**.
 - [ ] Revisar los mínimos (`min_stock`) de Pharmacy Stock.
-- [ ] Al inicio todo el stock está contado como bodega y las farmacias en 0. Por cada farmacia,
-      **antes de vender** o lo antes posible: **Traspasar** desde bodega lo que tiene en anaquel,
-      eligiendo el lote cuando se sepa.
+- [ ] Al inicio todo el stock está contado como bodega y las farmacias en 0.
+  - **Si toda la mercancía está en una sola farmacia** (el caso actual): Stock por farmacia →
+    **Pasar bodega a farmacia**. Ver la sección 8.1.
+  - Si está repartida: por cada farmacia, **Traspasar** desde bodega lo que tiene en anaquel,
+    eligiendo el lote cuando se sepa.
 - [ ] Revisar Stock por farmacia → Todas las ubicaciones → **Descuadres** y resolver con **Cuadrar**.
+
+### 8.1 Pasar toda la bodega a una farmacia
+
+Todo el stock de hoy está físicamente en una sola farmacia. En vez de ~2000 traspasos, un botón lo
+pasa todo:
+
+> **Hecho el 29-sep-2026.** El botón quedó oculto. Para volver a mostrarlo, poner
+> `NEXT_PUBLIC_ENABLE_MOVE_ALL=true` en las variables del POS y redesplegar. En Strapi,
+> `moveAll` debe estar deshabilitado mientras no se use.
+
+1. En Strapi, habilitar **Pos-stock → moveAll** para Authenticated (se puede deshabilitar después).
+2. Stock por farmacia → **Pasar bodega a farmacia** → elegir la farmacia.
+3. La vista previa dice cuántos productos, unidades y lotes se mueven. También avisa si hay
+   productos con la bodega en negativo (normalmente restos de pruebas): su stock no se mueve.
+4. **Pasar**. El servidor lo hace por tandas de 50 productos, cada una en su propia transacción.
+   Si algo falla a medias, lo movido se queda y se puede volver a correr: solo mueve lo que falta.
+
+Qué hace con cada producto:
+- Suma la bodega completa a la farmacia; la bodega queda en 0 y **el total no cambia**.
+- Pasa a la farmacia **todos** los lotes de la bodega (activos, agotados y vencidos).
+- Si la farmacia ya estaba en negativo por ventas de estos días (se vendió sin lotes), descuenta
+  esas unidades de los lotes que llegan, empezando por el que caduca antes. Ejemplo: total 47,
+  farmacia −3, bodega 50 con lotes de 50 → farmacia 47 con lotes de 47.
+- No crea registros en Traspasos: queda una fila por tanda en **Stock Operation** (tipo
+  `migration`).
+- Las ventas pueden seguir mientras corre: cada producto se bloquea mientras se mueve.
 
 ---
 
