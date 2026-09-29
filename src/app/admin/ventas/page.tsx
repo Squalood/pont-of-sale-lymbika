@@ -1,31 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useGetVentas } from "@/api/getVentas";
-import { useGetProducts } from "@/api/getProducts";
-import { ProductType } from "@/types/product";
 import { SalesDashboard } from "@/components/admin/sales-dashboard";
 import { SalesTable } from "@/components/admin/sales-table";
 
+// Sin catálogo de productos: las devoluciones toman el producto de la línea de la venta y el
+// stock lo regresa el servidor (/pos-stock/return). Antes se bajaba todo el catálogo solo para eso.
 export default function VentasPage() {
   const { result: ventas, loading, error } = useGetVentas();
-  const { result: fetchedProducts } = useGetProducts();
-  const [products, setProducts] = useState<ProductType[]>([]);
-
-  useEffect(() => {
-    setProducts(fetchedProducts);
-  }, [fetchedProducts]);
-
-  function handleReturnComplete(returnedItems: { productId: number; quantity: number }[]) {
-    setProducts((prev) =>
-      prev.map((p) => {
-        const returned = returnedItems.find((r) => r.productId === p.id);
-        if (returned) return { ...p, stock_central: p.stock_central + returned.quantity };
-        return p;
-      })
-    );
-  }
 
   return (
     <div className="space-y-6 flex-1 min-h-0 overflow-y-auto">
@@ -42,11 +25,7 @@ export default function VentasPage() {
       ) : (
         <>
           <SalesDashboard ventas={ventas} />
-          <SalesTable
-            ventas={ventas}
-            products={products}
-            onReturnComplete={handleReturnComplete}
-          />
+          <SalesTable ventas={ventas} />
         </>
       )}
     </div>

@@ -5,17 +5,28 @@ import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, Receipt, Package, ArrowLeft, LogOut, Settings, RotateCcw, ShoppingBag, Vault, FileText, CalendarClock, Warehouse, ArrowLeftRight } from "lucide-react";
 import { clearAuth } from "@/lib/auth";
 
-const navItems = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/compras", label: "Compras", icon: ShoppingBag },
-  { href: "/admin/productos", label: "Productos", icon: Package },
-  { href: "/admin/ventas", label: "Historial de Ventas", icon: Receipt },
-  { href: "/admin/cajas", label: "Historial de Cajas", icon: Vault },
-  { href: "/admin/traspasos", label: "Traspasos", icon: ArrowLeftRight },
-  { href: "/admin/devoluciones", label: "Devoluciones", icon: RotateCcw },
-  { href: "/admin/caducidades", label: "Caducidades", icon: CalendarClock },
-  { href: "/admin/facturas", label: "Facturas", icon: FileText },
-  { href: "/admin/stock", label: "Stock por farmacia", icon: Warehouse }
+// Dos bloques: lo que pasa en caja (ventas, dinero) y lo que hay en anaqueles (inventario).
+const navGroups = [
+  {
+    title: "Ventas",
+    items: [
+      { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/ventas", label: "Historial de Ventas", icon: Receipt },
+      { href: "/admin/cajas", label: "Historial de Cajas", icon: Vault },
+      { href: "/admin/devoluciones", label: "Devoluciones", icon: RotateCcw },
+      { href: "/admin/facturas", label: "Facturas", icon: FileText },
+    ],
+  },
+  {
+    title: "Inventario",
+    items: [
+      { href: "/admin/compras", label: "Compras", icon: ShoppingBag },
+      { href: "/admin/productos", label: "Productos", icon: Package },    
+      { href: "/admin/traspasos", label: "Traspasos", icon: ArrowLeftRight },
+      { href: "/admin/stock", label: "Stock por farmacia", icon: Warehouse },
+      { href: "/admin/caducidades", label: "Caducidades", icon: CalendarClock },
+    ],
+  },
 ];
 
 export function AdminSidebar() {
@@ -36,24 +47,31 @@ export function AdminSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-3">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 space-y-4 overflow-y-auto p-3">
+        {navGroups.map((group) => (
+          <div key={group.title} className="space-y-1">
+            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
+              {group.title}
+            </p>
+            {group.items.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}

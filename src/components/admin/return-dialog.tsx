@@ -21,7 +21,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Minus, Plus } from "lucide-react";
 import { VentaType, VentaItemType } from "@/types/venta";
-import { ProductType } from "@/types/product";
 import { getDevolucionesByVenta } from "@/api/getDevolucionesByVenta";
 import { postDevolucion } from "@/api/postDevolucion";
 import { toast } from "sonner";
@@ -33,10 +32,9 @@ import { useCaja } from "@/lib/caja-context";
 
 interface ReturnDialogProps {
   venta: VentaType;
-  products: ProductType[];
   open: boolean;
   onClose: () => void;
-  onReturnComplete: (returnedItems: { productId: number; quantity: number }[]) => void;
+  onReturnComplete?: (returnedItems: { productId: number; quantity: number }[]) => void;
 }
 
 type Step = "items" | "details" | "confirm";
@@ -47,7 +45,7 @@ interface ReturnRow extends VentaItemType {
   returnQty: number;
 }
 
-export function ReturnDialog({ venta, products, open, onClose, onReturnComplete }: ReturnDialogProps) {
+export function ReturnDialog({ venta, open, onClose, onReturnComplete }: ReturnDialogProps) {
   const { caja, refetchEfectivo } = useCaja();
   const [step, setStep] = useState<Step>("items");
   const [rows, setRows] = useState<ReturnRow[]>([]);
@@ -128,9 +126,8 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
         estado: "Completada",
         operador,
         items: selectedRows.map((r) => {
-          const productDocId = r.product
-            ? (products.find((p) => p.id === r.product!.id)?.documentId ?? null)
-            : null;
+          // La línea de la venta ya trae su producto poblado (getVentas): no hace falta el catálogo.
+          const productDocId = r.product?.documentId ?? null;
           return {
             product: productDocId,
             productName: r.productName,
@@ -161,7 +158,7 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
       const returnedItems = [...returnedMap].map(([productId, quantity]) => ({ productId, quantity }));
 
       // 4. Update local state
-      onReturnComplete(returnedItems);
+      onReturnComplete?.(returnedItems);
       if (metodo === "Efectivo") refetchEfectivo();
 
       // 5. Print receipt

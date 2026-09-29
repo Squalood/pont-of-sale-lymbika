@@ -12,8 +12,9 @@ import { authFetch } from "@/lib/auth";
  * explícitos rompería la pantalla con un 400 mientras los campos de merma no
  * existan en Strapi; así los `discarded*` simplemente llegan `undefined`.
  *
- * `stock_central` en el populate del producto es lo que permite calcular el
- * stock resultante al desechar sin un segundo fetch por producto.
+ * `stock_central` (total) y `pharmacy_stocks` en el populate del producto permiten calcular
+ * el stock de la ubicación de cada lote sin un segundo fetch: en una farmacia es su fila, en la
+ * bodega es total − farmacias. La merma descuenta de la ubicación del lote.
  */
 export function useGetLotes() {
   const url =
@@ -23,6 +24,10 @@ export function useGetLotes() {
     `&populate[product][fields][0]=documentId` +
     `&populate[product][fields][1]=productName` +
     `&populate[product][fields][2]=stock_central` +
+    `&populate[product][populate][pharmacy_stocks][fields][0]=stock` +
+    `&populate[product][populate][pharmacy_stocks][populate][pharmacy][fields][0]=documentId` +
+    `&populate[pharmacy][fields][0]=documentId` +
+    `&populate[pharmacy][fields][1]=nombre` +
     `&populate[compra][fields][0]=documentId` +
     `&sort=expirationDate:asc` +
     `&pagination[pageSize]=5000`;

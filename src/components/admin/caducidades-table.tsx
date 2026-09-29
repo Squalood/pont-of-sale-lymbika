@@ -27,6 +27,17 @@ import {
 import { DISCARD_REASON_LABELS } from "@/types/lote";
 import type { LoteType } from "@/types/lote";
 import { DiscardLoteDialog } from "@/components/admin/discard-lote-dialog";
+import { loteLocationName, loteLocationStock } from "@/lib/discard-lotes";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const TODAS = "todas";
+const locKey = (l: LoteType) => l.pharmacy?.documentId ?? "bodega";
 
 type Tab = "vencidos" | "porvencer" | "mermas";
 
@@ -57,13 +68,26 @@ export function CaducidadesTable({ lotes, refetch }: CaducidadesTableProps) {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [discarding, setDiscarding] = useState<LoteType[] | null>(null);
+  const [ubicacion, setUbicacion] = useState<string>(TODAS);
 
   const today = todayISO();
+
+  // Ubicaciones presentes en los lotes (la bodega primero), para el filtro.
+  const ubicaciones = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const l of lotes) map.set(locKey(l), loteLocationName(l));
+    return [...map].sort(([a], [b]) => (a === "bodega" ? -1 : b === "bodega" ? 1 : 0));
+  }, [lotes]);
+
+  const enUbicacion = useMemo(
+    () => (ubicacion === TODAS ? lotes : lotes.filter((l) => locKey(l) === ubicacion)),
+    [lotes, ubicacion]
+  );
 
   // Un lote sin existencia no tiene merma que registrar, aunque esté vencido:
   // se vendió completo y solo le faltó el `state: "agotado"`.
   const { vencidos, porVencer, mermas } = useMemo(() => {
-    const activos = lotes.filter((l) => l.state === "activo" && l.currentAmount > 0);
+    const activos = enUbicacion.filter((l) => l.state === "activo" && l.currentAmount > 0);
     return {
       vencidos: activos
         .filter((l) => isExpired(l, today))
@@ -71,11 +95,11 @@ export function CaducidadesTable({ lotes, refetch }: CaducidadesTableProps) {
       porVencer: activos
         .filter((l) => !isExpired(l, today) && isExpiringSoon(l, EXPIRING_SOON_DAYS, today))
         .sort((a, b) => (a.expirationDate ?? "").localeCompare(b.expirationDate ?? "")),
-      mermas: lotes
+      mermas: enUbicacion
         .filter((l) => l.state === "vencido")
         .sort((a, b) => (b.discardedAt ?? "").localeCompare(a.discardedAt ?? "")),
     };
-  }, [lotes, today]);
+  }, [enUbicacion, today]);
 
   const base = tab === "vencidos" ? vencidos : tab === "porvencer" ? porVencer : mermas;
 
@@ -130,9 +154,10 @@ export function CaducidadesTable({ lotes, refetch }: CaducidadesTableProps) {
     if (tab === "mermas") {
       downloadCSV(
         `mermas_${stamp}.csv`,
-        ["Producto", "Lote", "Caducidad", "Cantidad mermada", "Motivo", "Fecha de merma", "Usuario"],
+        ["Producto", "Ubicación", "Lote", "Caducidad", "Cantidad mermada", "Motivo", "Fecha de merma", "Usuario"],
         rows.map((l) => [
           l.product?.productName ?? "—",
+          loteLocationName(l),
           l.lotNumber,
           hasRealExpiration(l) ? fmtDate(l.expirationDate) : "Sin caducidad",
           l.discardedQuantity ?? "",
@@ -145,14 +170,15 @@ export function CaducidadesTable({ lotes, refetch }: CaducidadesTableProps) {
     }
     downloadCSV(
       `${tab === "vencidos" ? "lotes_vencidos" : "lotes_por_vencer"}_${stamp}.csv`,
-      ["Producto", "Lote", "Caducidad", "Días", "Existencia", "Stock del producto"],
+      ["Producto", "Ubicación", "Lote", "Caducidad", "Días", "Existencia del lote", "Stock en la ubicación"],
       rows.map((l) => [
         l.product?.productName ?? "—",
+        loteLocationName(l),
         l.lotNumber,
         fmtDate(l.expirationDate),
         l.expirationDate ? daysUntil(l.expirationDate, today) : "",
         l.currentAmount,
-        l.product?.stock_central ?? "",
+        l.product ? loteLocationStock(l) : "",
       ])
     );
   }
@@ -193,6 +219,25 @@ export function CaducidadesTable({ lotes, refetch }: CaducidadesTableProps) {
         </Tabs>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={ubicacion}
+            onValueChange={(v) => {
+              setUbicacion(v);
+              setSelectedIds(new Set());
+            }}
+          >
+            <SelectTrigger className="h-8 w-48 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODAS}>Todas las ubicaciones</SelectItem>
+              {ubicaciones.map(([key, name]) => (
+                <SelectItem key={key} value={key}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Input
             placeholder="Buscar producto o lote"
             value={search}
@@ -238,6 +283,7 @@ export function CaducidadesTable({ lotes, refetch }: CaducidadesTableProps) {
                 </TableHead>
               )}
               <TableHead>Producto</TableHead>
+              <TableHead>Ubicación</TableHead>
               <TableHead>Lote</TableHead>
               <TableHead>Caducidad</TableHead>
               {esMermas ? (
@@ -251,7 +297,7 @@ export function CaducidadesTable({ lotes, refetch }: CaducidadesTableProps) {
                 <>
                   <TableHead className="text-right">Días</TableHead>
                   <TableHead className="text-right">Existencia</TableHead>
-                  <TableHead className="text-right">Stock producto</TableHead>
+                  <TableHead className="text-right" title="Stock del producto en la ubicación del lote">Stock ubicación</TableHead>
                   <TableHead className="text-right">Acción</TableHead>
                 </>
               )}
@@ -260,7 +306,7 @@ export function CaducidadesTable({ lotes, refetch }: CaducidadesTableProps) {
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">
                   {tab === "vencidos"
                     ? "No hay lotes vencidos con existencia."
                     : tab === "porvencer"
@@ -287,6 +333,7 @@ export function CaducidadesTable({ lotes, refetch }: CaducidadesTableProps) {
                         <span className="text-muted-foreground">Sin producto</span>
                       )}
                     </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">{loteLocationName(l)}</TableCell>
                     <TableCell className="font-mono text-xs">{l.lotNumber}</TableCell>
                     <TableCell>
                       {hasRealExpiration(l) ? (
@@ -324,7 +371,7 @@ export function CaducidadesTable({ lotes, refetch }: CaducidadesTableProps) {
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{l.currentAmount}</TableCell>
                         <TableCell className="text-right tabular-nums text-muted-foreground">
-                          {l.product?.stock_central ?? "—"}
+                          {l.product ? loteLocationStock(l) : "—"}
                         </TableCell>
                         <TableCell className="text-right">
                           {tab === "vencidos" && l.product && (

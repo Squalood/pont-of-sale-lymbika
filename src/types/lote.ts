@@ -34,8 +34,13 @@ export interface LoteType {
     id: number;
     documentId: string;
     productName: string;
+    /** Total del producto en todas las ubicaciones. */
     stock_central: number;
+    /** Stock de cada farmacia: con esto se calcula el de la ubicación del lote. */
+    pharmacy_stocks?: { stock: number; pharmacy: { documentId: string } | null }[];
   } | null;
+  /** Farmacia donde está el lote. Nulo = bodega central. */
+  pharmacy?: { documentId: string; nombre: string } | null;
   /** El lote de apertura no nace de una compra. */
   compra: { id: number; documentId: string } | null;
 

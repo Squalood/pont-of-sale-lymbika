@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ProductType } from "@/types/product";
 import { patchProduct } from "@/api/patchProduct";
-import { newIdemKey, postStockAdjust } from "@/api/posStock";
+import Link from "next/link";
 import {
   useGetProductsPage,
   sortExcludesEmpty,
@@ -98,7 +98,6 @@ function getPageNumbers(current: number, total: number): (number | "…")[] {
 type RowDraft = {
   price: string;
   priceMember: string;
-  stock_central: string;
   impuesto: ImpuestoProducto;
   active: boolean;
 };
@@ -159,7 +158,6 @@ export function ProductsTable() {
     setDraft({
       price: product.price != null ? String(product.price) : "",
       priceMember: product.priceMember != null ? String(product.priceMember) : "",
-      stock_central: product.stock_central != null ? String(product.stock_central) : "",
       // Un producto sin el campo capturado arranca en iva0, igual que lo interpreta el POS.
       impuesto: productImpuesto(product),
       active: product.active,
@@ -181,13 +179,11 @@ export function ProductsTable() {
     const fields: {
       price?: number;
       priceMember?: number;
-      stock_central?: number;
       impuesto?: ImpuestoProducto;
       active?: boolean;
     } = {};
     const newPrice = parseFloat(draft.price);
     const newPriceMember = parseFloat(draft.priceMember);
-    const newStock = parseInt(draft.stock_central, 10);
 
     if (!isNaN(newPrice)) fields.price = newPrice;
     if (!isNaN(newPriceMember)) fields.priceMember = newPriceMember;
@@ -195,21 +191,9 @@ export function ProductsTable() {
     fields.active = draft.active;
 
     try {
+      // El stock no se edita aquí: se mueve en Stock por farmacia (traspasar, cuadrar, corregir),
+      // con motivo y sabiendo en qué ubicación. Esta tabla solo muestra el total.
       await patchProduct(product.documentId, fields);
-      // El stock de esta tabla es el TOTAL (stock_central). Cambiarlo es una corrección que se
-      // carga a la bodega (total − farmacias): se manda la diferencia y no un valor absoluto,
-      // así no pisa ventas en curso ni re-publica el producto.
-      if (!isNaN(newStock) && newStock !== product.stock_central) {
-        const res = await postStockAdjust({
-          productDocumentId: product.documentId,
-          location: null,
-          mode: "delta",
-          value: newStock - product.stock_central,
-          reason: "Edición manual del total (tabla de productos)",
-          idemKey: newIdemKey(),
-        });
-        fields.stock_central = res.levels[0]?.total ?? newStock;
-      }
       updateLocal(product.documentId, fields);
       setEditingRow(null);
       setDraft(null);
@@ -432,18 +416,14 @@ export function ProductsTable() {
 
                   {/* Stock */}
                   <TableCell className="text-right">
-                    {isEditing && draft ? (
-                      <Input
-                        type="number"
-                        value={draft.stock_central}
-                        onChange={(e) => setDraft((d) => d ? { ...d, stock_central: e.target.value } : d)}
-                        className="h-7 w-20 text-right text-sm ml-auto"
-                      />
-                    ) : (
-                      <span className="text-sm">
-                        {product.stock_central != null ? product.stock_central.toLocaleString("es-AR") : "—"}
-                      </span>
-                    )}
+                    {/* Solo lectura: el stock se mueve en Stock por farmacia. */}
+                    <Link
+                      href="/admin/stock"
+                      title="Ver y corregir el stock por ubicación en Stock por farmacia"
+                      className="text-sm hover:text-primary hover:underline"
+                    >
+                      {product.stock_central != null ? product.stock_central.toLocaleString("es-AR") : "—"}
+                    </Link>
                   </TableCell>
 
                   {/* IVA incluido en el precio */}

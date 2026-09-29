@@ -31,12 +31,9 @@ import {
 import { BadgePercent, Building2 } from "lucide-react";
 import { SaleDetailDialog } from "@/components/admin/sale-detail-dialog";
 import { VentaType } from "@/types/venta";
-import { ProductType } from "@/types/product";
 
 interface SalesTableProps {
   ventas: VentaType[];
-  products: ProductType[];
-  onReturnComplete: (returnedItems: { productId: number; quantity: number }[]) => void;
 }
 
 const PAGE_SIZE = 20;
@@ -53,7 +50,7 @@ function getPageNumbers(current: number, total: number): (number | "…")[] {
 
 type Period = "hoy" | "semana" | "mes" | "todo";
 
-export function SalesTable({ ventas, products, onReturnComplete }: SalesTableProps) {
+export function SalesTable({ ventas }: SalesTableProps) {
   const [period, setPeriod] = useState<Period>("hoy");
   const [selectedVenta, setSelectedVenta] = useState<VentaType | null>(null);
   const [operadorFilter, setOperadorFilter] = useState<string>("todos");
@@ -292,8 +289,6 @@ export function SalesTable({ ventas, products, onReturnComplete }: SalesTablePro
         venta={selectedVenta}
         open={!!selectedVenta}
         onClose={() => setSelectedVenta(null)}
-        products={products}
-        onReturnComplete={onReturnComplete}
       />
     </div>
   );

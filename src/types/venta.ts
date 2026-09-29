@@ -47,6 +47,7 @@ export interface VentaItemType {
   expirationDate?: string | null;
   product: {
     id: number;
+    documentId: string;
     productName: string;
   } | null;
   service_rate: {

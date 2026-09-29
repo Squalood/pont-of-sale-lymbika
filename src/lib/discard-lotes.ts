@@ -10,9 +10,29 @@ export interface DiscardResult {
   stockFailed: string[];
 }
 
+/** Nombre de la ubicación del lote. */
+export function loteLocationName(lote: LoteType): string {
+  return lote.pharmacy?.nombre ?? "Bodega central";
+}
+
+/**
+ * Stock de la ubicación donde está el lote: la fila de su farmacia, o en la bodega el total
+ * menos lo que tienen las farmacias. Es de ahí de donde descuenta la merma.
+ */
+export function loteLocationStock(lote: LoteType): number {
+  const p = lote.product;
+  if (!p) return 0;
+  const rows = p.pharmacy_stocks ?? [];
+  if (lote.pharmacy) {
+    return Number(rows.find((r) => r.pharmacy?.documentId === lote.pharmacy!.documentId)?.stock ?? 0);
+  }
+  return Number(p.stock_central ?? 0) - rows.reduce((s, r) => s + Number(r.stock ?? 0), 0);
+}
+
 export interface StockEffect {
   productDocumentId: string;
   productName: string;
+  locationName: string;
   before: number;
   after: number;
   quantity: number;
@@ -24,28 +44,32 @@ function label(lote: LoteType): string {
 }
 
 /**
- * Efecto que tendría desechar `lotes`, agregado por producto. Lo usa el diálogo
- * para mostrar "Producto: 40 → 30" antes de confirmar, con la misma agrupación
- * que después ejecuta `discardLotes`.
+ * Efecto que tendría desechar `lotes`, agregado por producto y ubicación. Lo usa el diálogo
+ * para mostrar "Producto · Farmacia RC: 40 → 30" antes de confirmar.
  */
 export function stockEffects(lotes: LoteType[]): StockEffect[] {
-  const byProduct = new Map<string, StockEffect>();
+  // Por producto y ubicación: la merma baja el stock del lugar donde está cada lote.
+  const byKey = new Map<string, StockEffect>();
   for (const lote of lotes) {
     if (!lote.product) continue;
-    const cur = byProduct.get(lote.product.documentId) ?? {
+    const key = `${lote.product.documentId}|${lote.pharmacy?.documentId ?? "bodega"}`;
+    const before = loteLocationStock(lote);
+    const cur = byKey.get(key) ?? {
       productDocumentId: lote.product.documentId,
       productName: lote.product.productName,
-      before: lote.product.stock_central,
-      after: lote.product.stock_central,
+      locationName: loteLocationName(lote),
+      before,
+      after: before,
       quantity: 0,
       lotes: [],
     };
     cur.quantity += lote.currentAmount;
-    cur.after = Math.max(0, cur.before - cur.quantity);
+    // Resta exacta, como el servidor: son unidades que se dan de baja de ese lote.
+    cur.after = cur.before - cur.quantity;
     cur.lotes.push(lote);
-    byProduct.set(lote.product.documentId, cur);
+    byKey.set(key, cur);
   }
-  return [...byProduct.values()];
+  return [...byKey.values()];
 }
 
 /**

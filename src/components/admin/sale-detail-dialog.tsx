@@ -20,7 +20,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Printer, RotateCcw, NotebookPen, BadgePercent, FileText, Building2 } from "lucide-react";
 import { VentaType } from "@/types/venta";
-import { ProductType } from "@/types/product";
 import { printReceipt } from "@/lib/print-receipt";
 import { ventaCardCharged, ventaCardSurcharge } from "@/lib/checkout-math";
 import { feeSumaAlTotal } from "@/lib/tax";
@@ -32,11 +31,10 @@ interface SaleDetailDialogProps {
   venta: VentaType | null;
   open: boolean;
   onClose: () => void;
-  products: ProductType[];
-  onReturnComplete: (returnedItems: { productId: number; quantity: number }[]) => void;
+  onReturnComplete?: (returnedItems: { productId: number; quantity: number }[]) => void;
 }
 
-export function SaleDetailDialog({ venta, open, onClose, products, onReturnComplete }: SaleDetailDialogProps) {
+export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: SaleDetailDialogProps) {
   const [returnOpen, setReturnOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
 
@@ -298,11 +296,10 @@ export function SaleDetailDialog({ venta, open, onClose, products, onReturnCompl
 
       <ReturnDialog
         venta={venta}
-        products={products}
         open={returnOpen}
         onClose={() => setReturnOpen(false)}
         onReturnComplete={(items) => {
-          onReturnComplete(items);
+          onReturnComplete?.(items);
           setReturnOpen(false);
         }}
       />

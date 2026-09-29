@@ -108,9 +108,12 @@ export function DiscardLoteDialog({ lotes, open, onClose, onDone }: DiscardLoteD
             <Label>Efecto en el stock</Label>
             <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border p-3">
               {effects.map((e) => (
-                <div key={e.productDocumentId} className="text-sm">
+                <div key={`${e.productDocumentId}|${e.locationName}`} className="text-sm">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="min-w-0 truncate font-medium">{e.productName}</span>
+                    <span className="min-w-0 truncate font-medium">
+                      {e.productName}
+                      <span className="font-normal text-muted-foreground"> · {e.locationName}</span>
+                    </span>
                     <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
                       <span className="text-muted-foreground">{e.before}</span>
                       <ArrowRight className="h-3 w-3 text-muted-foreground" />

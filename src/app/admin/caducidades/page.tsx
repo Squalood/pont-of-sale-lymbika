@@ -15,7 +15,8 @@ export default function CaducidadesPage() {
         <p className="text-sm text-muted-foreground">
           Lotes vencidos y los que caducan en los próximos {EXPIRING_SOON_DAYS} días.
           Desechar un lote lo marca como merma —conservando cuántas unidades se dieron de
-          baja— y descuenta esa cantidad del stock del producto. El lote nunca se elimina.
+          baja— y descuenta esa cantidad del stock de la ubicación donde está el lote (bodega o
+          farmacia). El lote nunca se elimina.
         </p>
       </div>
 
