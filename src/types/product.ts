@@ -80,6 +80,12 @@ export type ProductType = {
   /** Solo para ordenar por antigüedad en el POS; no se muestra en ninguna tarjeta. */
   createdAt?: string;
   inventory_lots?: InventoryLotOnProduct[];
+  /**
+   * Stock de la farmacia de la caja. Solo viene cuando el backend está en modo por farmacia:
+   * el catálogo lo filtra a esa farmacia, así que trae 0 o 1 fila. `undefined` = modo legacy,
+   * donde el stock que se vende es `stock_central`. Usar siempre `localStock()`.
+   */
+  pharmacy_stocks?: { stock: number; min_stock: number | null }[];
 };
 
 export type InventoryLotOnProduct = {

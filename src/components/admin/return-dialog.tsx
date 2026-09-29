@@ -24,7 +24,8 @@ import { VentaType, VentaItemType } from "@/types/venta";
 import { ProductType } from "@/types/product";
 import { getDevolucionesByVenta } from "@/api/getDevolucionesByVenta";
 import { postDevolucion } from "@/api/postDevolucion";
-import { patchProductStock } from "@/api/patchProductStock";
+import { toast } from "sonner";
+import { runOrQueue } from "@/lib/pending-stock";
 import { patchVentaEstado } from "@/api/patchVentaEstado";
 import { printReturnReceipt } from "@/lib/print-return-receipt";
 import { getUser } from "@/lib/auth";
@@ -113,8 +114,13 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
     try {
       const operador = getUser()?.username ?? "";
 
+      // La devolución entra a la farmacia donde se hace (la caja abierta) o, si se registra
+      // desde un admin sin caja, a la farmacia que hizo la venta.
+      const pharmacyDocId =
+        caja?.pharmacy?.documentId ?? venta.pharmacies?.[0]?.documentId;
+
       // 1. Create devolucion in Strapi
-      const devolucionId = await postDevolucion({
+      const { id: devolucionId, documentId: devolucionDocId } = await postDevolucion({
         fecha: new Date().toISOString(),
         motivo,
         metodo,
@@ -134,7 +140,7 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
           };
         }),
         venta: venta.documentId,
-        pharmacies: caja?.pharmacy?.documentId,
+        pharmacies: pharmacyDocId,
       });
 
       // 2. Mark venta as cancelada only if all items are fully returned
@@ -143,28 +149,16 @@ export function ReturnDialog({ venta, products, open, onClose, onReturnComplete 
         await patchVentaEstado(venta.documentId, "cancelada");
       }
 
-      // 3. Restaurar stock_central en Strapi, AGREGADO por producto: un producto puede venir
-      //    en varias líneas (varios lotes), así que se suma una sola vez sobre el stock base
-      //    para no sobrescribir el patch anterior (mismo patrón [A3] de la venta).
-      const perProduct = new Map<number, { documentId: string; baseStock: number; qty: number }>();
-      for (const row of selectedRows) {
-        if (!row.product) continue;
-        const product = products.find((p) => p.id === row.product!.id);
-        if (!product) continue;
-        const cur = perProduct.get(row.product.id) ?? {
-          documentId: product.documentId,
-          baseStock: product.stock_central,
-          qty: 0,
-        };
-        cur.qty += row.returnQty;
-        perProduct.set(row.product.id, cur);
-      }
+      // 3. Regresar el stock en el servidor (farmacia de la devolución; bodega en modo legacy).
+      //    El backend agrega por producto y no aplica dos veces la misma devolución.
+      const stock = await runOrQueue("return", devolucionDocId, `Devolución #${String(devolucionId).padStart(5, "0")}`);
+      if (!stock) toast.warning("Devolución registrada. El regreso de inventario quedó pendiente y se reintentará.");
 
-      const returnedItems: { productId: number; quantity: number }[] = [];
-      for (const [productId, info] of perProduct) {
-        await patchProductStock(info.documentId, info.baseStock + info.qty);
-        returnedItems.push({ productId, quantity: info.qty });
+      const returnedMap = new Map<number, number>();
+      for (const row of selectedRows) {
+        if (row.product) returnedMap.set(row.product.id, (returnedMap.get(row.product.id) ?? 0) + row.returnQty);
       }
+      const returnedItems = [...returnedMap].map(([productId, quantity]) => ({ productId, quantity }));
 
       // 4. Update local state
       onReturnComplete(returnedItems);

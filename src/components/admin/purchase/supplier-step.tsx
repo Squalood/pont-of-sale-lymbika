@@ -14,6 +14,10 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Paperclip, X } from "lucide-react";
 import { ProveedorType } from "@/types/proveedor";
+import { PharmacyType } from "@/types/pharmacy";
+
+/** Valor del selector de destino para la bodega central. */
+export const DESTINO_BODEGA = "bodega";
 import { NewSupplierForm } from "./new-supplier-form";
 
 interface SupplierStepProps {
@@ -26,6 +30,9 @@ interface SupplierStepProps {
   onFileChange: (f: File | null) => void;
   notas: string;
   onNotasChange: (n: string) => void;
+  pharmacies: PharmacyType[];
+  destino: string;
+  onDestinoChange: (d: string) => void;
   onNext: () => void;
   onClose: () => void;
 }
@@ -40,6 +47,9 @@ export function SupplierStep({
   onFileChange,
   notas,
   onNotasChange,
+  pharmacies,
+  destino,
+  onDestinoChange,
   onNext,
   onClose,
 }: SupplierStepProps) {
@@ -92,6 +102,23 @@ export function SupplierStep({
             onCancel={() => setShowNewForm(false)}
           />
         )}
+
+        <div className="space-y-1.5">
+          <Label>Entra a</Label>
+          <Select value={destino} onValueChange={onDestinoChange}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={DESTINO_BODEGA}>Bodega central</SelectItem>
+              {pharmacies.map((p) => (
+                <SelectItem key={p.documentId} value={p.documentId}>
+                  {p.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="space-y-1.5">
           <Label>Factura (opcional)</Label>

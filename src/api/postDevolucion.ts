@@ -1,7 +1,7 @@
 import { authFetch } from "@/lib/auth";
 import { DevolucionPayload } from "@/types/devolucion";
 
-export async function postDevolucion(payload: DevolucionPayload): Promise<number> {
+export async function postDevolucion(payload: DevolucionPayload): Promise<{ id: number; documentId: string }> {
   const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/devoluciones-pos`;
 
   const res = await authFetch(url, {
@@ -17,5 +17,5 @@ export async function postDevolucion(payload: DevolucionPayload): Promise<number
   }
 
   const json = await res.json();
-  return json.data.id as number;
+  return { id: json.data.id as number, documentId: json.data.documentId as string };
 }

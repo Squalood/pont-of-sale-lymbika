@@ -1,5 +1,6 @@
 import { ProductType } from "@/types/product";
 import { ServiceRateType } from "@/types/service";
+import { localStock } from "@/lib/stock";
 
 export type SortDir = "asc" | "desc";
 
@@ -60,7 +61,8 @@ export function compareProducts(a: ProductType, b: ProductType, sort: SortState)
     case "price":
       return compareNullable(a.price, b.price, sort.dir);
     case "stock_central":
-      return compareNullable(a.stock_central, b.stock_central, sort.dir);
+      // El stock que ve el cajero: el de su farmacia (o la bodega en modo legacy).
+      return compareNullable(localStock(a), localStock(b), sort.dir);
     case "createdAt":
       return compareText(a.createdAt ?? "", b.createdAt ?? "", sort.dir);
     default:

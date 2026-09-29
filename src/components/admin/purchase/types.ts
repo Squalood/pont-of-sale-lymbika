@@ -17,9 +17,8 @@ export interface LocalPurchaseItem {
   product: string; // product documentId
   productName: string;
   /**
-   * Stock del producto al momento de agregarlo, leído del resultado de búsqueda.
-   * Al confirmar se escribe `stockActual + cantidad`: el dialogo ya no tiene el
-   * catálogo en memoria de donde releerlo.
+   * Stock del producto al momento de agregarlo, leído del resultado de búsqueda. Solo
+   * informativo: el ingreso lo calcula el servidor (/pos-stock/purchase) sobre el valor real.
    */
   stockActual: number;
   iva: "iva8" | "iva16" | "exento";

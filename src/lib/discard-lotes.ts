@@ -1,6 +1,4 @@
-import { patchLote } from "@/api/patchLote";
-import { patchProductStock } from "@/api/patchProductStock";
-import { getUser } from "@/lib/auth";
+import { newIdemKey, postDiscardLots } from "@/api/posStock";
 import type { DiscardReason, LoteType } from "@/types/lote";
 
 export interface DiscardResult {
@@ -51,77 +49,39 @@ export function stockEffects(lotes: LoteType[]): StockEffect[] {
 }
 
 /**
- * Marca lotes como vencidos y ajusta el stock del producto.
+ * Marca lotes como vencidos y descuenta su cantidad del stock de su ubicación.
  *
- * Dos reglas que no se pueden romper:
- *
- * 1. **Un solo `patchProductStock` por producto**, con la suma de todos sus
- *    lotes. `patchProductStock` escribe un valor absoluto calculado desde el
- *    `stock_central` que venía en el fetch, así que patchear dentro del loop de
- *    lotes haría que el último sobrescriba a los anteriores y solo se
- *    descontaría uno. Es el mismo agrupado que hace `useCheckout`.
- *
- * 2. **`patchLote` primero, `patchProductStock` después**, restando solo lo de
- *    los lotes que sí se marcaron. Si falla el lote, el stock no baja y la
- *    reconciliación detecta el desajuste; al revés el lote seguiría vendible y
- *    se despacharía mercancía caducada.
- *
- * `currentAmount` se pone en 0 y la cantidad mermada queda en
- * `discardedQuantity`. Como `sumActiveLots` de la reconciliación solo cuenta
- * lotes `activo`, el lote sale del conteo (−Q) a la vez que baja `stock_central`
- * (−Q): el `diff` del producto no se mueve.
+ * Lo hace el servidor (/pos-stock/discard-lot) en una sola transacción: el lote pasa a
+ * `vencido` con `currentAmount = 0` y `discardedQuantity = Q`, y el stock de la ubicación del
+ * lote baja Q (con piso en 0). Como el lote sale del conteo de activos a la vez que baja el
+ * stock, el `diff` de la reconciliación no se mueve. Ya no puede quedar un lote marcado con el
+ * stock sin ajustar: si algo falla, no se aplica nada.
  */
 export async function discardLotes(
   lotes: LoteType[],
   reason: DiscardReason
 ): Promise<DiscardResult> {
-  const discardedAt = new Date().toISOString();
-  const discardedBy = getUser()?.username ?? "desconocido";
-
-  const failed: string[] = [];
-  const stockFailed: string[] = [];
-  let ok = 0;
-
   // Un lote sin producto no se puede desechar: no hay stock que ajustar.
-  for (const lote of lotes) {
-    if (!lote.product) failed.push(label(lote));
-  }
+  const failed = lotes.filter((l) => !l.product).map(label);
+  const validos = lotes.filter((l) => l.product);
+  if (validos.length === 0) return { ok: 0, failed, stockFailed: [] };
 
-  for (const effect of stockEffects(lotes)) {
-    const results = await Promise.allSettled(
-      effect.lotes.map((lote) =>
-        patchLote(lote.documentId, {
-          currentAmount: 0,
-          state: "vencido",
-          discardedAt,
-          discardedBy,
-          discardedQuantity: lote.currentAmount,
-          discardReason: reason,
-        })
-      )
-    );
-
-    // Solo se descuenta del stock lo que realmente quedó marcado.
-    let discarded = 0;
-    results.forEach((res, i) => {
-      if (res.status === "fulfilled") {
-        ok++;
-        discarded += effect.lotes[i].currentAmount;
-      } else {
-        failed.push(label(effect.lotes[i]));
-      }
+  try {
+    const res = await postDiscardLots({
+      lotDocumentIds: validos.map((l) => l.documentId),
+      reason,
+      idemKey: newIdemKey(),
     });
-
-    if (discarded === 0) continue;
-    try {
-      await patchProductStock(
-        effect.productDocumentId,
-        Math.max(0, effect.before - discarded)
-      );
-    } catch {
-      stockFailed.push(effect.productName);
+    const byDoc = new Map(validos.map((l) => [l.documentId, l]));
+    for (const id of res.result?.failed ?? []) {
+      const lote = byDoc.get(id);
+      failed.push(lote ? label(lote) : id);
     }
+    for (const w of res.warnings) {
+      if (w.code === "LOT_NOT_DISCARDABLE") failed.push(w.message);
+    }
+    return { ok: res.result?.discardedLots ?? 0, failed, stockFailed: [] };
+  } catch {
+    return { ok: 0, failed: [...failed, ...validos.map(label)], stockFailed: [] };
   }
-
-  return { ok, failed, stockFailed };
 }

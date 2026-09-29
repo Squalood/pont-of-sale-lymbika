@@ -10,6 +10,7 @@ import { itemQuantity, itemTotalLine } from "./helpers";
 
 interface ConfirmStepProps {
   selectedProveedor: ProveedorType | null;
+  destinoNombre: string;
   file: File | null;
   notas: string;
   items: LocalPurchaseItem[];
@@ -24,6 +25,7 @@ const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2,
 
 export function ConfirmStep({
   selectedProveedor,
+  destinoNombre,
   file,
   notas,
   items,
@@ -40,6 +42,10 @@ export function ConfirmStep({
           <div>
             <span className="text-muted-foreground">Proveedor</span>
             <p className="font-medium">{selectedProveedor?.name ?? "Sin especificar"}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Entra a</span>
+            <p className="font-medium">{destinoNombre}</p>
           </div>
           <div>
             <span className="text-muted-foreground">Factura</span>

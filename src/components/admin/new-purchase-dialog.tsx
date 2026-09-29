@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -15,7 +15,10 @@ import { useGetProveedores } from "@/api/getProveedores";
 import { postUpload } from "@/api/postUpload";
 import { postCompra } from "@/api/postCompra";
 import { patchProduct } from "@/api/patchProduct";
-import { postLote } from "@/api/postLote";
+import { fetchPharmacies } from "@/api/getPharmacies";
+import { runOrQueue } from "@/lib/pending-stock";
+import { useCaja } from "@/lib/caja-context";
+import { PharmacyType } from "@/types/pharmacy";
 import { getUser } from "@/lib/auth";
 import { LocalPurchaseItem, LoteRow } from "./purchase/types";
 import {
@@ -26,7 +29,7 @@ import {
   ivaToImpuestoProducto,
   ivaDesdeProducto,
 } from "./purchase/helpers";
-import { SupplierStep } from "./purchase/supplier-step";
+import { SupplierStep, DESTINO_BODEGA } from "./purchase/supplier-step";
 import { ItemsStep } from "./purchase/items-step";
 import { ConfirmStep } from "./purchase/confirm-step";
 
@@ -46,6 +49,16 @@ export function NewPurchaseDialog({
   const { result: proveedores, loading: loadingProveedores } = useGetProveedores();
 
   const [step, setStep] = useState<Step>("proveedor");
+  const { caja } = useCaja();
+  const [pharmacies, setPharmacies] = useState<PharmacyType[]>([]);
+  // Por defecto la mercancía entra a la farmacia de la caja abierta; sin caja, a bodega.
+  const defaultDestino = caja?.pharmacy?.documentId ?? DESTINO_BODEGA;
+  const [destino, setDestino] = useState<string>(defaultDestino);
+
+  useEffect(() => {
+    if (!open) return;
+    fetchPharmacies().then(setPharmacies).catch(() => setPharmacies([]));
+  }, [open]);
 
   // Shared state across steps
   const [proveedorDocId, setProveedorDocId] = useState<string>("");
@@ -71,6 +84,7 @@ export function NewPurchaseDialog({
     setLocalProveedores([]);
     setFile(null);
     setNotas("");
+    setDestino(defaultDestino);
     setItems([]);
     setLoading(false);
     setError(null);
@@ -213,35 +227,27 @@ export function NewPurchaseDialog({
           estado: "registrada",
           ...(notas.trim() ? { notas: notas.trim() } : {}),
           ...(proveedorDocId ? { proveedor: proveedorDocId } : {}),
+          ...(destino !== DESTINO_BODEGA ? { destination_pharmacy: destino } : {}),
           items: compraItems,
         },
         uploadId
       );
 
+      // Stock y lotes los ingresa el servidor, en una transacción, al destino de la compra
+      // (a la bodega mientras el stock por farmacia no esté activo). Si falla queda en la cola;
+      // el backend no ingresa dos veces la misma compra.
+      const stock = await runOrQueue("purchase", compraDocId, "Compra");
+      if (!stock) toast.warning("Compra registrada. El ingreso de inventario quedó pendiente y se reintentará.");
+
+      // Costo y tasa de IVA del catálogo: siguen por el PUT normal del producto.
       const updatedItems: { productId: number; quantity: number }[] = [];
       for (const item of items) {
-        const totalQty = itemQuantity(item);
-
-        // Un solo PUT por producto: stock, costo y tasa de IVA quedan en la misma escritura.
-        // El costo solo se manda si se capturó; la tasa siempre, y sobrescribe la que hubiera.
         const costoCatalogo = itemCostoParaCatalogo(item);
         await patchProduct(item.product, {
-          stock_central: item.stockActual + totalQty,
           ...(costoCatalogo > 0 ? { priceMember: costoCatalogo } : {}),
           impuesto: ivaToImpuestoProducto(item.iva),
         });
-        // Un inventory-lot por cada renglón que traiga número de lote.
-        for (const lote of item.lotes) {
-          if (!lote.numeroLote.trim()) continue;
-          await postLote({
-            product: item.product,
-            numeroLote: lote.numeroLote.trim(),
-            fechaCaducidad: lote.fechaCaducidad,
-            cantidadInicial: lote.cantidad,
-            compraDocId,
-          });
-        }
-        updatedItems.push({ productId: item.productId, quantity: totalQty });
+        updatedItems.push({ productId: item.productId, quantity: itemQuantity(item) });
       }
 
       const totalUnidades = updatedItems.reduce((sum, i) => sum + i.quantity, 0);
@@ -287,6 +293,9 @@ export function NewPurchaseDialog({
             onFileChange={setFile}
             notas={notas}
             onNotasChange={setNotas}
+            pharmacies={pharmacies}
+            destino={destino}
+            onDestinoChange={setDestino}
             onNext={() => setStep("items")}
             onClose={handleClose}
           />
@@ -314,6 +323,7 @@ export function NewPurchaseDialog({
         {step === "confirm" && (
           <ConfirmStep
             selectedProveedor={selectedProveedor}
+            destinoNombre={destino === DESTINO_BODEGA ? "Bodega central" : pharmacies.find((p) => p.documentId === destino)?.nombre ?? "Farmacia"}
             file={file}
             notas={notas}
             items={items}

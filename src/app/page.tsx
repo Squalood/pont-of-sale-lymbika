@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { ProductSidebar } from "@/components/product-sidebar";
 import { CartPanel } from "@/components/cart-panel";
 import { LoteSelectorDialog } from "@/components/lote-selector-dialog";
@@ -9,6 +10,8 @@ import { getSellableLots, toSelectedLot } from "@/lib/lotes";
 import { InventoryLotOnProduct } from "@/types/product";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useGetProducts } from "@/api/getProducts";
+import { flushPendingStock } from "@/lib/pending-stock";
+import { isPerPharmacy, localStock } from "@/lib/stock";
 import { useGetCategories } from "@/api/getCategories";
 import { useGetServiceRates } from "@/api/getServiceRates";
 import { ProductType, GridItem } from "@/types/product";
@@ -39,7 +42,25 @@ export default function Home() {
   const router = useRouter();
   const { caja, loading: loadingCaja, refetch: refetchCaja, pharmacyId, setPharmacyId, cierreResumen } = useCaja();
 
-  const { result: fetchedProducts, loading: loadingProducts, error: errorProducts } = useGetProducts();
+  // El catálogo trae el stock y los lotes de la farmacia de la caja.
+  const { result: fetchedProducts, loading: loadingProducts, error: errorProducts } = useGetProducts({
+    pharmacyDocId: caja?.pharmacy?.documentId ?? null,
+    enabled: !loadingCaja,
+  });
+
+  // Movimientos de inventario que quedaron pendientes (se registró la venta pero falló el
+  // descuento): se reintentan al abrir el POS. El backend no los aplica dos veces.
+  useEffect(() => {
+    flushPendingStock().then(({ done, remaining }) => {
+      if (done > 0) toast.success(`${done} movimiento(s) de inventario pendientes aplicados`);
+      const rechazados = remaining.filter((r) => r.permanent);
+      if (rechazados.length > 0) {
+        toast.error(`${rechazados.length} movimiento(s) de inventario rechazados por el servidor`, {
+          description: rechazados.map((r) => `${r.label}: ${r.lastError ?? "error"}`).join(" · "),
+        });
+      }
+    });
+  }, []);
   const { result: categories } = useGetCategories();
   const { result: serviceRates } = useGetServiceRates();
   const [products, setProducts] = useState<ProductType[]>([]);
@@ -161,6 +182,13 @@ export default function Home() {
   //  - 1 lote vendible   → auto-seleccionar.
   //  - varios            → abrir el picker para que el cajero elija.
   function addProductWithLot(cartId: number, product: ProductType) {
+    // Avisar pero permitir: sin stock en la farmacia se vende igual y queda en negativo, que se
+    // corrige después con un traspaso o un ajuste.
+    if (isPerPharmacy(product) && localStock(product) <= 0) {
+      toast.warning(`${product.productName}: sin stock en esta farmacia`, {
+        description: `Stock registrado: ${localStock(product)}. La venta quedará en negativo.`,
+      });
+    }
     const lots = getSellableLots(product);
     if (lots.length === 0) {
       addToCartOf(cartId, { type: "product", product, quantity: 1 });
@@ -266,7 +294,7 @@ export default function Home() {
                 onUpdateImpuesto={(key, impuesto) => updateItemImpuestoOf(cart.id, key, impuesto)}
                 onClear={() => clearCartOf(cart.id)}
                 onSetPriceMode={(mode) => setPriceModeOf(cart.id, mode)}
-                onSaleComplete={(items) => handleSaleComplete(cart.id, items)}
+                onSaleComplete={(items, levels) => handleSaleComplete(cart.id, items, levels)}
                 onClose={carts.length > 1 ? () => removeCart(cart.id) : undefined}
                 onActivate={() => setActiveCartId(cart.id)}
                 onAddCart={index === carts.length - 1 && carts.length < MAX_CARTS ? addCart : undefined}

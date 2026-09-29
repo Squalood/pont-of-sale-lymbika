@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Receipt, Package, ArrowLeft, LogOut, Settings, RotateCcw, ShoppingBag, Vault, FileText, Scale, CalendarClock } from "lucide-react";
+import { LayoutDashboard, Receipt, Package, ArrowLeft, LogOut, Settings, RotateCcw, ShoppingBag, Vault, FileText, CalendarClock, Warehouse, ArrowLeftRight } from "lucide-react";
 import { clearAuth } from "@/lib/auth";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/ventas", label: "Historial de Ventas", icon: Receipt },
-  { href: "/admin/devoluciones", label: "Devoluciones", icon: RotateCcw },
-  { href: "/admin/cajas", label: "Historial de Cajas", icon: Vault },
   { href: "/admin/compras", label: "Compras", icon: ShoppingBag },
   { href: "/admin/productos", label: "Productos", icon: Package },
+  { href: "/admin/ventas", label: "Historial de Ventas", icon: Receipt },
+  { href: "/admin/cajas", label: "Historial de Cajas", icon: Vault },
+  { href: "/admin/traspasos", label: "Traspasos", icon: ArrowLeftRight },
+  { href: "/admin/devoluciones", label: "Devoluciones", icon: RotateCcw },
   { href: "/admin/caducidades", label: "Caducidades", icon: CalendarClock },
   { href: "/admin/facturas", label: "Facturas", icon: FileText },
-  { href: "/admin/reconciliacion", label: "Reconciliación", icon: Scale },
+  { href: "/admin/stock", label: "Stock por farmacia", icon: Warehouse }
 ];
 
 export function AdminSidebar() {

@@ -46,10 +46,38 @@ const POPULATE = [
   "populate[inventory_lots][fields][4]=state",
 ];
 
-export function useGetProducts() {
+interface UseGetProductsOptions {
+  /**
+   * Farmacia cuyo stock y lotes se quieren (la de la caja). Sin farmacia, el catálogo
+   * representa el total: `stock_central` y los lotes de todas las ubicaciones.
+   */
+  pharmacyDocId?: string | null;
+  /** `false` = todavía no pedir (ej. mientras se sabe el modo). */
+  enabled?: boolean;
+}
+
+/**
+ * Con farmacia: su stock y SOLO sus lotes. La caja no debe ver (ni elegir) lotes que están
+ * físicamente en otra farmacia. Sin farmacia (pantallas de admin): todos los lotes, para
+ * compararlos contra el total.
+ */
+function locationPopulate(pharmacyDocId: string | null): string[] {
+  if (!pharmacyDocId) return [];
+  const ph = encodeURIComponent(pharmacyDocId);
+  return [
+    `populate[inventory_lots][filters][pharmacy][documentId][$eq]=${ph}`,
+    `populate[pharmacy_stocks][filters][pharmacy][documentId][$eq]=${ph}`,
+    "populate[pharmacy_stocks][fields][0]=stock",
+    "populate[pharmacy_stocks][fields][1]=min_stock",
+  ];
+}
+
+export function useGetProducts({ pharmacyDocId = null, enabled = true }: UseGetProductsOptions = {}) {
+  const location = pharmacyDocId;
   const params = [
     ...FIELDS.map((f, i) => `fields[${i}]=${f}`),
     ...POPULATE,
+    ...locationPopulate(location),
     "pagination[page]=1",
     "pagination[pageSize]=5000",
     "sort=createdAt:desc",
@@ -60,6 +88,7 @@ export function useGetProducts() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
+    if (!enabled) return;
     setLoading(true);
     try {
       const res = await authFetch(url);
@@ -67,14 +96,18 @@ export function useGetProducts() {
         throw new Error(`Error ${res.status}: ${res.statusText}`);
       }
       const json = await res.json();
-      setResult(json.data);
+      const data: ProductType[] = json.data;
+      // Sin permiso de lectura sobre pharmacy-stock, Strapi omite el populate en silencio y el
+      // producto llegaría sin `pharmacy_stocks`, que `localStock` leería como el total. Con
+      // farmacia, "no vino" es "no hay stock aquí".
+      setResult(location ? data.map((p) => ({ ...p, pharmacy_stocks: p.pharmacy_stocks ?? [] })) : data);
       setError(null);
       setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
       setLoading(false);
     }
-  }, [url]);
+  }, [url, enabled, location]);
 
   useEffect(() => {
     fetchProducts();

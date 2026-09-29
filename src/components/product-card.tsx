@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ExternalLink, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { urlImagen } from "@/lib/media";
+import { isPerPharmacy, localMinStock, localStock } from "@/lib/stock";
 
 interface ProductCardProps {
   product: ProductType;
@@ -16,6 +17,13 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
   // Se muestra a 40 px: la variante de 128 cubre pantallas de alta densidad
   // y pesa ~2.5 KB en lugar de los ~75 KB del original.
   const imageUrl = urlImagen(product.images?.[0]?.url, 128);
+  // Stock de la farmacia de la caja (o de la bodega en modo legacy). Los avisos solo aplican
+  // por farmacia: en legacy se ve el número de siempre, sin colores nuevos.
+  const stock = localStock(product);
+  const porFarmacia = isPerPharmacy(product);
+  const minimo = localMinStock(product);
+  const sinStock = porFarmacia && stock <= 0;
+  const bajoMinimo = porFarmacia && minimo !== null && stock < minimo;
 
   return (
     <Card
@@ -74,8 +82,10 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
         <span className="text-xs text-muted-foreground text-right">
           {product.category?.categoryName}
         </span>
-        <span className="col-span-2 text-xs text-muted-foreground">
-          Stock: {product.stock_central}
+        <span className={`col-span-2 text-xs ${sinStock ? "font-medium text-destructive" : bajoMinimo ? "font-medium text-amber-600" : "text-muted-foreground"}`}>
+          Stock: {stock}
+          {sinStock && " · sin stock en esta farmacia"}
+          {!sinStock && bajoMinimo && " · bajo mínimo"}
         </span>
       </div>
       <Button

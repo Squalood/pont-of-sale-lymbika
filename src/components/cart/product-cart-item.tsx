@@ -2,7 +2,8 @@
 
 import { CartItem as CartItemType, cartItemKey } from "@/types/product";
 import { Button } from "@/components/ui/button";
-import { Layers, ShieldCheck, Trash2 } from "lucide-react";
+import { AlertTriangle, Layers, ShieldCheck, Trash2 } from "lucide-react";
+import { isPerPharmacy, localStock, lotAvailable } from "@/lib/stock";
 import { urlImagen } from "@/lib/media";
 import { PriceEditor } from "./price-editor";
 import { QuantityControls } from "./quantity-controls";
@@ -37,6 +38,11 @@ export function ProductCartItem({ item, priceMode, onUpdateQuantity, onRemoveIte
   const imageUrl = urlImagen(product.images?.[0]?.url, 128);
   const lot = item.selectedLot;
   const showCaducidad = lot?.expirationDate && lot.expirationDate < SENTINEL_EXPIRATION;
+  // Avisos, no topes: la venta se permite y el servidor completa con otros lotes o sin lote.
+  const enLote = lotAvailable(item);
+  const excedeLote = enLote !== null && item.quantity > enLote;
+  const stockFarmacia = isPerPharmacy(item.product) ? localStock(item.product) : null;
+  const excedeStock = stockFarmacia !== null && item.quantity > stockFarmacia;
 
   return (
     <div className="group rounded-lg border p-2">
@@ -81,6 +87,17 @@ export function ProductCartItem({ item, priceMode, onUpdateQuantity, onRemoveIte
           <span className="truncate">
             Lote: {lot.lotNumber}
             {showCaducidad ? ` · Cad: ${lot.expirationDate}` : ""}
+          </span>
+        </div>
+      )}
+
+      {(excedeLote || excedeStock) && (
+        <div className="mt-1 flex items-start gap-1 pl-12 text-xs text-amber-700">
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+          <span>
+            {excedeStock
+              ? `Solo hay ${stockFarmacia} en esta farmacia: quedará en ${(stockFarmacia ?? 0) - item.quantity}.`
+              : `El lote ${lot?.lotNumber} tiene ${enLote}: el resto se toma de otro lote.`}
           </span>
         </div>
       )}

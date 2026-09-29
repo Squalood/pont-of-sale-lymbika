@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ProductType } from "@/types/product";
 import { patchProduct } from "@/api/patchProduct";
+import { newIdemKey, postStockAdjust } from "@/api/posStock";
 import {
   useGetProductsPage,
   sortExcludesEmpty,
@@ -67,7 +68,7 @@ const SORT_OPTIONS: {
 }[] = [
   { field: "productName", label: "Nombre", asc: "A → Z", desc: "Z → A" },
   { field: "price", label: "Precio", asc: "Menor a mayor", desc: "Mayor a menor" },
-  { field: "stock_central", label: "Stock", asc: "Menor a mayor", desc: "Mayor a menor" },
+  { field: "stock_central", label: "Stock total", asc: "Menor a mayor", desc: "Mayor a menor" },
   { field: "createdAt", label: "Fecha de alta", asc: "Más antiguos", desc: "Más recientes" },
 ];
 
@@ -186,16 +187,29 @@ export function ProductsTable() {
     } = {};
     const newPrice = parseFloat(draft.price);
     const newPriceMember = parseFloat(draft.priceMember);
-    const newStock = parseFloat(draft.stock_central);
+    const newStock = parseInt(draft.stock_central, 10);
 
     if (!isNaN(newPrice)) fields.price = newPrice;
     if (!isNaN(newPriceMember)) fields.priceMember = newPriceMember;
-    if (!isNaN(newStock)) fields.stock_central = newStock;
     fields.impuesto = draft.impuesto;
     fields.active = draft.active;
 
     try {
       await patchProduct(product.documentId, fields);
+      // El stock de esta tabla es el TOTAL (stock_central). Cambiarlo es una corrección que se
+      // carga a la bodega (total − farmacias): se manda la diferencia y no un valor absoluto,
+      // así no pisa ventas en curso ni re-publica el producto.
+      if (!isNaN(newStock) && newStock !== product.stock_central) {
+        const res = await postStockAdjust({
+          productDocumentId: product.documentId,
+          location: null,
+          mode: "delta",
+          value: newStock - product.stock_central,
+          reason: "Edición manual del total (tabla de productos)",
+          idemKey: newIdemKey(),
+        });
+        fields.stock_central = res.levels[0]?.total ?? newStock;
+      }
       updateLocal(product.documentId, fields);
       setEditingRow(null);
       setDraft(null);
@@ -313,7 +327,7 @@ export function ProductsTable() {
               <TableHead className="hidden lg:table-cell text-center">Categoría</TableHead>
               <TableHead className="text-right">Precio</TableHead>
               <TableHead className="text-right">Health Pass</TableHead>
-              <TableHead className="text-right">Stock</TableHead>
+              <TableHead className="text-right" title="Suma de bodega y todas las farmacias">Stock total</TableHead>
               <TableHead className="text-center">IVA</TableHead>
               <TableHead className="text-center">Activo</TableHead>
               <TableHead className="w-16"></TableHead>

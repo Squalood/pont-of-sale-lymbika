@@ -1,8 +1,8 @@
 import { toast } from "sonner";
 import { CartItem } from "@/types/product";
 import { postVenta } from "@/api/postVenta";
-import { patchProductStock } from "@/api/patchProductStock";
-import { patchLote } from "@/api/patchLote";
+import type { StockLevel } from "@/api/posStock";
+import { flushPendingStock, runOrQueue } from "@/lib/pending-stock";
 import { printReceipt } from "@/lib/print-receipt";
 import { CARD_SURCHARGE_RATE } from "@/lib/checkout-math";
 import { itemImpuesto, type PriceMode } from "@/lib/pricing";
@@ -21,7 +21,8 @@ interface UseCheckoutParams {
   managementFee: number;
   feeBase: number;
   getPrice: (item: CartItem) => number;
-  onSaleComplete: (items: CartItem[]) => void;
+  /** `levels` = niveles reales que devolvió el servidor; ausente si el descuento quedó en la cola. */
+  onSaleComplete: (items: CartItem[], levels?: StockLevel[]) => void;
   setCheckoutOpen: (val: boolean) => void;
   setSaleResult: (val: { paymentMethod: MetodoPago; change: number; cardCharge: number } | null) => void;
 }
@@ -71,14 +72,11 @@ export function useCheckout({
     const totalCobrado = money(effectiveTotal);
     const recargoPersistido = money(totalCobrado - subtotal - iva);
 
-    const productLines = items.filter(
-      (i): i is Extract<CartItem, { type: "product" }> => i.type === "product"
-    );
-
     // 1. Registrar la venta PRIMERO. Si falla, abortar: no se descuenta inventario ni se imprime. [A5]
     let receiptId = 0;
+    let ventaDocumentId = "";
     try {
-      receiptId = await postVenta({
+      const created = await postVenta({
         fecha: new Date().toISOString(),
         subtotal,
         iva,
@@ -132,6 +130,8 @@ export function useCheckout({
           }
         }),
       });
+      receiptId = created.id;
+      ventaDocumentId = created.documentId;
     } catch (err) {
       console.error("Error al registrar venta:", err);
       toast.error("No se registró la venta. No se descontó inventario.", {
@@ -140,43 +140,22 @@ export function useCheckout({
       return;
     }
 
-    // 2. Descuento en lockstep: stock_central agregado por producto + currentAmount por lote-línea. [A3]
-    const perProduct = new Map<string, { documentId: string; baseStock: number; totalQty: number }>();
-    productLines.forEach((l) => {
-      const cur = perProduct.get(l.product.documentId) ?? {
-        documentId: l.product.documentId,
-        baseStock: l.product.stock_central,
-        totalQty: 0,
-      };
-      cur.totalQty += l.quantity;
-      perProduct.set(l.product.documentId, cur);
-    });
-
-    const ops: Promise<void>[] = [];
-    // stock_central: siempre, agregado por producto (con o sin lote).
-    perProduct.forEach((p) => ops.push(patchProductStock(p.documentId, p.baseStock - p.totalQty)));
-    // patchLote: solo para líneas que salieron de un lote concreto.
-    productLines.forEach((l) => {
-      if (!l.selectedLot) return; // línea sin lote → ya se descontó stock_central, nada más
-      const selected = l.selectedLot;
-      const lot = l.product.inventory_lots?.find((x) => x.documentId === selected.documentId);
-      const newAmount = Math.max(0, (lot?.currentAmount ?? 0) - l.quantity);
-      ops.push(
-        patchLote(
-          selected.documentId,
-          newAmount === 0 ? { currentAmount: 0, state: "agotado" } : { currentAmount: newAmount }
-        )
-      );
-    });
-
-    const results = await Promise.allSettled(ops);
-    const failures = results.filter((r) => r.status === "rejected").length;
-    if (failures > 0) {
-      toast.warning(
-        `Venta registrada, pero ${failures} ajuste(s) de inventario fallaron. Corre la reconciliación de lotes.`
-      );
+    // 2. Descontar en el servidor: una transacción que resta el stock de la farmacia de la caja
+    //    (la bodega en modo legacy) y sus lotes. Si falla queda en la cola y se reintenta; el
+    //    backend no descuenta dos veces la misma venta.
+    const stock = await runOrQueue("sale", ventaDocumentId, `Venta #${String(receiptId).padStart(5, "0")}`);
+    if (!stock) {
+      toast.warning("Venta registrada. El descuento de inventario quedó pendiente y se reintentará.");
+    } else {
+      const negativos = stock.warnings.filter((w) => w.code === "NEGATIVE_STOCK");
+      if (negativos.length) {
+        toast.warning("Stock en negativo en esta farmacia", {
+          description: negativos.map((w) => w.message).join(" · "),
+        });
+      }
     }
-    onSaleComplete(items);
+    void flushPendingStock();
+    onSaleComplete(items, stock?.levels);
 
     printReceipt({
       receiptId,

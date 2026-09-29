@@ -56,5 +56,7 @@ export interface CompraPayload {
   estado: "registrada" | "cancelada";
   notas?: string;
   proveedor?: string; // proveedor documentId
+  /** Farmacia a la que entra la mercancía (documentId). Ausente = bodega central. */
+  destination_pharmacy?: string;
   items: CompraItem[];
 }

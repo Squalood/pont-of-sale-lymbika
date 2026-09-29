@@ -1,7 +1,7 @@
 import { VentaPayload } from "@/types/venta";
 import { authFetch } from "@/lib/auth";
 
-export async function postVenta(venta: VentaPayload): Promise<number> {
+export async function postVenta(venta: VentaPayload): Promise<{ id: number; documentId: string }> {
   const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ventas-pos`;
 
   const res = await authFetch(url, {
@@ -17,5 +17,5 @@ export async function postVenta(venta: VentaPayload): Promise<number> {
   }
 
   const json = await res.json();
-  return json.data.id as number;
+  return { id: json.data.id as number, documentId: json.data.documentId as string };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import type { StockLevel } from "@/api/posStock";
 import { useState } from "react";
 import { CartItem as CartItemType, cartItemKey, ProductType } from "@/types/product";
 import { CartItem } from "@/components/cart-item";
@@ -26,7 +27,7 @@ interface CartPanelProps {
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;
   onUpdateImpuesto: (itemKey: string, impuesto: ImpuestoLinea | undefined) => void;
   onClear: () => void;
-  onSaleComplete: (items: CartItemType[]) => void;
+  onSaleComplete: (items: CartItemType[], levels?: StockLevel[]) => void;
   priceMode: PriceMode;
   onSetPriceMode: (mode: PriceMode) => void;
   isActive: boolean;
