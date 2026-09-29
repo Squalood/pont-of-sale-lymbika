@@ -238,7 +238,7 @@ export function CajasTable({ cajas }: CajasTableProps) {
               <SelectValue placeholder="Sucursal" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todas">Todas</SelectItem>
+              <SelectItem value="todas">Farmacias</SelectItem>
               {pharmacias.map((p) => (
                 <SelectItem key={p.documentId} value={p.documentId}>
                   {p.nombre}
@@ -256,7 +256,7 @@ export function CajasTable({ cajas }: CajasTableProps) {
             <SelectValue placeholder="Operador" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="todos">Operadores</SelectItem>
             {operadores.map((op) => (
               <SelectItem key={op} value={op}>
                 {op}
@@ -273,7 +273,7 @@ export function CajasTable({ cajas }: CajasTableProps) {
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todas">Todas</SelectItem>
+            <SelectItem value="todas">Estado</SelectItem>
             <SelectItem value="Abierta">Abierta</SelectItem>
             <SelectItem value="Cerrada">Cerrada</SelectItem>
           </SelectContent>

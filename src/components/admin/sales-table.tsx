@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Pagination,
   PaginationContent,
@@ -31,6 +31,8 @@ import {
 import { BadgePercent, Building2 } from "lucide-react";
 import { SaleDetailDialog } from "@/components/admin/sale-detail-dialog";
 import { VentaType } from "@/types/venta";
+import { getUser } from "@/lib/auth";
+import { useCaja } from "@/lib/caja-context";
 
 interface SalesTableProps {
   ventas: VentaType[];
@@ -53,14 +55,19 @@ type Period = "hoy" | "semana" | "mes" | "todo";
 export function SalesTable({ ventas }: SalesTableProps) {
   const [period, setPeriod] = useState<Period>("hoy");
   const [selectedVenta, setSelectedVenta] = useState<VentaType | null>(null);
-  const [operadorFilter, setOperadorFilter] = useState<string>("todos");
-  const [pharmacyFilter, setPharmacyFilter] = useState<string>("todas");
+  // null = el usuario no ha elegido; se usa el operador / farmacia actual
+  const [operadorChoice, setOperadorChoice] = useState<string | null>(null);
+  const [pharmacyChoice, setPharmacyChoice] = useState<string | null>(null);
+  const [currentOperador, setCurrentOperador] = useState<string | null>(null);
+  const { pharmacyId: currentPharmacy } = useCaja();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
+  useEffect(() => { setCurrentOperador(getUser()?.username ?? null); }, []);
+
   function handlePeriod(v: string) { setPeriod(v as Period); setPage(1); }
-  function handleOperador(v: string) { setOperadorFilter(v); setPage(1); }
-  function handlePharmacy(v: string) { setPharmacyFilter(v); setPage(1); }
+  function handleOperador(v: string) { setOperadorChoice(v); setPage(1); }
+  function handlePharmacy(v: string) { setPharmacyChoice(v); setPage(1); }
   function handleSearch(v: string) { setSearch(v); setPage(1); }
 
   const operadores = useMemo(() => {
@@ -76,6 +83,16 @@ export function SalesTable({ ventas }: SalesTableProps) {
     }
     return Array.from(map.entries()).map(([documentId, nombre]) => ({ documentId, nombre }));
   }, [ventas]);
+
+  // Por defecto el actual, solo si aparece entre las opciones; si no, todos / todas
+  const operadorFilter =
+    operadorChoice ??
+    (currentOperador && operadores.includes(currentOperador) ? currentOperador : "todos");
+  const pharmacyFilter =
+    pharmacyChoice ??
+    (currentPharmacy && pharmacias.length > 1 && pharmacias.some((p) => p.documentId === currentPharmacy)
+      ? currentPharmacy
+      : "todas");
 
   const filteredVentas = useMemo(() => {
     const now = new Date();
@@ -126,7 +143,7 @@ export function SalesTable({ ventas }: SalesTableProps) {
                 <SelectValue placeholder="Sucursal" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
+                <SelectItem value="todas">all Farmacias</SelectItem>
                 {pharmacias.map((p) => (
                   <SelectItem key={p.documentId} value={p.documentId}>
                     {p.nombre}
@@ -140,7 +157,7 @@ export function SalesTable({ ventas }: SalesTableProps) {
               <SelectValue placeholder="Operador" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos</SelectItem>
+              <SelectItem value="todos">all Operadores</SelectItem>
               {operadores.map((op) => (
                 <SelectItem key={op} value={op}>
                   {op}

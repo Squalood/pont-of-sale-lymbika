@@ -16,12 +16,15 @@ export type SortOption = {
   /** Cada campo nombra sus sentidos: "A → Z" dice más que "ascendente". */
   asc: string;
   desc: string;
+  /** Sentido con el que arranca al elegir el campo; si falta, "asc". */
+  defaultDir?: SortDir;
 };
 
 export const PRODUCT_SORT_OPTIONS: SortOption[] = [
   { field: "productName", label: "Nombre", asc: "A → Z", desc: "Z → A" },
   { field: "price", label: "Precio", asc: "Menor a mayor", desc: "Mayor a menor" },
-  { field: "stock_central", label: "Stock", asc: "Menor a mayor", desc: "Mayor a menor" },
+  // Lo que se busca al ordenar por stock es lo que hay, no lo que falta.
+  { field: "stock_central", label: "Stock", asc: "Menor a mayor", desc: "Mayor a menor", defaultDir: "desc" },
   { field: "createdAt", label: "Fecha de alta", asc: "Más antiguos", desc: "Más recientes" },
 ];
 

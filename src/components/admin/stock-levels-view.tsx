@@ -60,12 +60,22 @@ export function StockLevelsView() {
   const [adjust, setAdjust] = useState<{ target: AdjustTarget | null; location: string } | null>(null);
   const [count, setCount] = useState<{ target: CountTarget; location: string } | null>(null);
   const [moveAll, setMoveAll] = useState(false);
-  const { caja } = useCaja();
+  const { caja, pharmacyId } = useCaja();
+  // La vista abre en la farmacia de esta computadora; sin farmacia configurada, en "Todas".
+  const [initialized, setInitialized] = useState(false);
 
   const esTodas = location === TODAS;
   const esBodega = location === BODEGA;
 
+  useEffect(() => {
+    if (initialized || pharmacyId === undefined || loadingPharmacies) return;
+    if (pharmacyId && pharmacies.some((p) => p.documentId === pharmacyId)) changeLocation(pharmacyId);
+    setInitialized(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialized, pharmacyId, loadingPharmacies, pharmacies]);
+
   const load = useCallback(async () => {
+    if (!initialized) return;
     if (location === TODAS && loadingPharmacies) return;
     setLoading(true);
     try {
@@ -87,7 +97,7 @@ export function StockLevelsView() {
     } finally {
       setLoading(false);
     }
-  }, [location, pharmacies, loadingPharmacies]);
+  }, [initialized, location, pharmacies, loadingPharmacies]);
 
   useEffect(() => {
     load();

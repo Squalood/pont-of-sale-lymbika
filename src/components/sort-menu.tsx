@@ -33,7 +33,8 @@ interface SortMenuProps {
 
 /**
  * Menú de orden del POS. Sirve a productos y a consultas con las mismas piezas
- * porque cada tipo trae sus propias opciones: los servicios no tienen stock ni
+ * porque cada tipo trae sus propias opciones: los servicios no tienen 
+ *  ni
  * fecha de alta, y los productos no tienen duración.
  */
 export function SortMenu({
@@ -67,7 +68,11 @@ export function SortMenu({
       <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuRadioGroup
           value={value.field}
-          onValueChange={(field) => onChange({ ...value, field })}
+          onValueChange={(field) => {
+            if (field === value.field) return;
+            const opt = options.find((o) => o.field === field);
+            onChange({ field, dir: opt?.defaultDir ?? "asc" });
+          }}
         >
           <DropdownMenuRadioItem value={SIN_ORDEN}>
             {defaultItemLabel}
