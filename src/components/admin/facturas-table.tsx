@@ -26,7 +26,7 @@ type EstadoPago = "pendiente" | "pagada" | "pagada_parcial";
 interface FacturasTableProps {
   facturas: FacturaType[];
   onNuevaFactura: () => void;
-  onEditarBorrador: (factura: FacturaType) => void;
+  onEditar: (factura: FacturaType) => void;
 }
 
 function fmt(n: number) {
@@ -71,7 +71,7 @@ function EstadoPagoBadge({ ep }: { ep: EstadoPago | null | undefined }) {
   return <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-300">{ESTADO_PAGO_LABEL[estado]}</Badge>;
 }
 
-export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEditarBorrador }: FacturasTableProps) {
+export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEditar }: FacturasTableProps) {
   const [facturas, setFacturas] = useState<FacturaType[]>(initialFacturas);
   const [period, setPeriod] = useState<Period>("todo");
   const [estadoPagoFilter, setEstadoPagoFilter] = useState<EstadoPagoFilter>("todos");
@@ -217,10 +217,9 @@ export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEdi
         open={!!selected}
         onClose={() => setSelected(null)}
         onUpdated={(patch) => selected && handleUpdated(selected.documentId, patch)}
-        onEdit={() => {
-          if (!selected) return;
+        onEdit={(factura) => {
           setSelected(null);
-          onEditarBorrador(selected);
+          onEditar(factura);
         }}
       />
     </div>

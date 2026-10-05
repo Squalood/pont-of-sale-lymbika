@@ -112,8 +112,8 @@ function isBlankLine(l: InvoiceLine): boolean {
   return !l.descripcion.trim() && l.precioUnitario === 0;
 }
 
-/** Rehidrata el formulario desde un borrador guardado. */
-function stateFromDraft(f: FacturaType): InvoiceState {
+/** Rehidrata el formulario desde una factura guardada (borrador o emitida). */
+function stateFromFactura(f: FacturaType): InvoiceState {
   return {
     invoiceNumber: folioVisible(f.folio),
     cliente: f.cliente ?? "",
@@ -371,13 +371,16 @@ interface NewInvoiceDialogProps {
   open: boolean;
   onClose: () => void;
   onSaved?: () => void;
-  /** Borrador a continuar. Sin él, el dialog crea una factura nueva. */
-  draft?: FacturaType | null;
+  /**
+   * Borrador a continuar, incluida una emitida que se restableció a borrador (conserva su folio).
+   * Sin él, el dialog crea una factura nueva.
+   */
+  factura?: FacturaType | null;
 }
 
-// El estado inicial se lee una sola vez: quien lo monta cambia el `key` al cambiar de borrador.
-export function NewInvoiceDialog({ open, onClose, onSaved, draft }: NewInvoiceDialogProps) {
-  const initialState = () => (draft ? stateFromDraft(draft) : makeInitialState());
+// El estado inicial se lee una sola vez: quien lo monta cambia el `key` en cada apertura.
+export function NewInvoiceDialog({ open, onClose, onSaved, factura }: NewInvoiceDialogProps) {
+  const initialState = () => (factura ? stateFromFactura(factura) : makeInitialState());
   const [invoice, setInvoice] = useState<InvoiceState>(initialState);
   const [saving, setSaving] = useState(false);
   const { pharmacyId, caja } = useCaja();
@@ -451,13 +454,14 @@ export function NewInvoiceDialog({ open, onClose, onSaved, draft }: NewInvoiceDi
       total,
       estado,
       items: buildLines(),
-      pharmacy: pharmacyId ?? undefined,
+      // Al editar se conserva la sucursal original, no la de la caja desde donde se edita.
+      pharmacy: factura?.pharmacy?.documentId ?? pharmacyId ?? undefined,
     };
   }
 
-  /** Crea la factura o, si viene de un borrador, reescribe ese mismo documento. */
+  /** Crea la factura o, si se está editando, reescribe ese mismo documento. */
   async function persist(payload: FacturaPayload) {
-    if (draft) await putFactura(draft.documentId, payload);
+    if (factura) await putFactura(factura.documentId, payload);
     else await postFactura(payload);
   }
 
@@ -501,6 +505,7 @@ export function NewInvoiceDialog({ open, onClose, onSaved, draft }: NewInvoiceDi
 
   async function handlePrint() {
     if (!validate(true)) return;
+    // Un borrador restablecido trae su folio original en el campo, así que se conserva.
     const folio = invoice.invoiceNumber.trim() || "FAC-" + Date.now();
     const lines = buildLines();
 
@@ -516,7 +521,7 @@ export function NewInvoiceDialog({ open, onClose, onSaved, draft }: NewInvoiceDi
       diario: invoice.diario,
       cfdiOrigen: invoice.cfdiOrigen,
       lines,
-      pharmacy: caja?.pharmacy ?? null,
+      pharmacy: factura?.pharmacy ?? caja?.pharmacy ?? null,
     });
 
     setSaving(true);
@@ -553,7 +558,7 @@ export function NewInvoiceDialog({ open, onClose, onSaved, draft }: NewInvoiceDi
     <Dialog open={open} onOpenChange={(v) => !v && !saving && handleClose()}>
       <DialogContent className="grid-cols-[minmax(0,1fr)] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{draft ? "Editar borrador" : "Nueva Factura"}</DialogTitle>
+          <DialogTitle>{factura ? "Editar borrador" : "Nueva Factura"}</DialogTitle>
           <DialogDescription>
             Completa los datos y genera el PDF, o guárdalo como borrador para terminarlo después.
           </DialogDescription>
@@ -797,7 +802,7 @@ export function NewInvoiceDialog({ open, onClose, onSaved, draft }: NewInvoiceDi
 
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={handleReset} disabled={saving} className="sm:mr-auto">
-            {draft ? "Deshacer cambios" : "Limpiar"}
+            {factura ? "Deshacer cambios" : "Limpiar"}
           </Button>
           <Button type="button" variant="outline" onClick={handleSaveDraft} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />

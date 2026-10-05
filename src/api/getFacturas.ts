@@ -10,6 +10,7 @@ export function useGetFacturas() {
     `?populate[items][populate][product][fields][0]=productName` +
     `&populate[items][populate][product][fields][1]=documentId` +
     `&populate[pharmacy]=true` +
+    `&populate[venta_pos][fields][0]=documentId` +
     `&sort=fecha:desc` +
     `&pagination[pageSize]=1000`;
   const [result, setResult] = useState<FacturaType[]>([]);

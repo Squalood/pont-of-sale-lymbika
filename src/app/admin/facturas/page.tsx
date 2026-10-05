@@ -10,17 +10,17 @@ import type { FacturaType } from "@/types/factura";
 export default function FacturasPage() {
   const { result: facturas, loading, error, refetch } = useGetFacturas();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [draft, setDraft] = useState<FacturaType | null>(null);
+  const [editing, setEditing] = useState<FacturaType | null>(null);
   const [openCount, setOpenCount] = useState(0);
 
   function openNueva() {
-    setDraft(null);
+    setEditing(null);
     setOpenCount((n) => n + 1);
     setDialogOpen(true);
   }
 
-  function openBorrador(factura: FacturaType) {
-    setDraft(factura);
+  function openEditar(factura: FacturaType) {
+    setEditing(factura);
     setOpenCount((n) => n + 1);
     setDialogOpen(true);
   }
@@ -41,7 +41,7 @@ export default function FacturasPage() {
         <FacturasTable
           facturas={facturas}
           onNuevaFactura={openNueva}
-          onEditarBorrador={openBorrador}
+          onEditar={openEditar}
         />
       )}
 
@@ -50,7 +50,7 @@ export default function FacturasPage() {
       <NewInvoiceDialog
         key={openCount}
         open={dialogOpen}
-        draft={draft}
+        factura={editing}
         onClose={() => setDialogOpen(false)}
         onSaved={refetch}
       />

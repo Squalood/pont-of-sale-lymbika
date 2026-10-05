@@ -30,11 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Printer } from "lucide-react";
+import { Pencil, Printer, Undo2 } from "lucide-react";
 import { FacturaType } from "@/types/factura";
 import { printInvoice } from "@/lib/print-invoice";
 import { patchFacturaEstadoPago } from "@/api/patchFacturaEstadoPago";
 import { EstadoFacturaBadge } from "@/components/admin/estado-factura-badge";
+import { puedeRestablecerABorrador } from "@/lib/factura-edicion";
+import { patchFacturaEstado } from "@/api/patchFacturaEstado";
+import { toast } from "sonner";
 import { folioVisible } from "@/lib/factura-folio";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -52,8 +55,8 @@ interface FacturaDetailDialogProps {
   open: boolean;
   onClose: () => void;
   onUpdated?: (patch: Partial<FacturaType>) => void;
-  /** Solo se ofrece en borradores: una factura emitida ya se entregó y no se edita. */
-  onEdit?: () => void;
+  /** Abre el editor con la factura ya como borrador (recién restablecida, o que ya lo era). */
+  onEdit?: (factura: FacturaType) => void;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -118,6 +121,8 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
   const [localEstadoPago, setLocalEstadoPago] = useState<EstadoPago | null>(null);
   const [localMontoPagado, setLocalMontoPagado] = useState<number | null>(null);
   const [localFechaPago, setLocalFechaPago] = useState<string | null | undefined>(undefined);
+  const [confirmRestablecer, setConfirmRestablecer] = useState(false);
+  const [restableciendo, setRestableciendo] = useState(false);
 
   if (!factura) return null;
 
@@ -126,6 +131,24 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
   const estadoPago: EstadoPago = localEstadoPago ?? factura.estadoPago ?? "pendiente";
   const montoPagado: number = localMontoPagado ?? factura.montoPagado ?? 0;
   const fechaPago: string | null = localFechaPago !== undefined ? localFechaPago : (factura.fechaPago ?? null);
+  const restablecible = puedeRestablecerABorrador(factura, estadoPago);
+
+  async function handleRestablecer() {
+    setRestableciendo(true);
+    try {
+      await patchFacturaEstado(factura!.documentId, "borrador");
+      onUpdated?.({ estado: "borrador" });
+      setConfirmRestablecer(false);
+      onEdit?.({ ...factura!, estado: "borrador" });
+    } catch (err) {
+      console.error(err);
+      toast.error("No se pudo restablecer a borrador", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setRestableciendo(false);
+    }
+  }
 
   function openPaymentForm() {
     setPaymentForm({
@@ -189,7 +212,7 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) { setShowPaymentForm(false); onClose(); } }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) { setShowPaymentForm(false); setConfirmRestablecer(false); onClose(); } }}>
       <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]" aria-describedby={undefined}>
         <DialogHeader className="shrink-0">
           <DialogTitle>
@@ -414,19 +437,44 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
           )}
         </div>
 
-        <DialogFooter>
-          {esBorrador ? (
-            <Button onClick={onEdit}>
-              <Pencil className="h-4 w-4" />
-              Editar
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={handleReprint}>
-              <Printer className="h-4 w-4" />
-              Reimprimir
-            </Button>
-          )}
-        </DialogFooter>
+        {confirmRestablecer ? (
+          // Confirmación en línea: la factura sale del total y de Pendientes hasta que se vuelva a generar.
+          <div className="shrink-0 space-y-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm">
+            <p>
+              La factura <span className="font-mono">{factura.folio}</span> pasará a borrador, conservando su
+              folio. No contará en el total ni en Pendientes hasta que se vuelva a generar.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setConfirmRestablecer(false)} disabled={restableciendo}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={handleRestablecer} disabled={restableciendo}>
+                {restableciendo ? "Restableciendo..." : "Restablecer a borrador"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <DialogFooter>
+            {!esBorrador && (
+              <Button variant="outline" onClick={handleReprint}>
+                <Printer className="h-4 w-4" />
+                Reimprimir
+              </Button>
+            )}
+            {restablecible && (
+              <Button variant="outline" onClick={() => setConfirmRestablecer(true)}>
+                <Undo2 className="h-4 w-4" />
+                Restablecer a borrador
+              </Button>
+            )}
+            {esBorrador && (
+              <Button onClick={() => onEdit?.(factura)}>
+                <Pencil className="h-4 w-4" />
+                Editar borrador
+              </Button>
+            )}
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

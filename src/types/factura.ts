@@ -67,6 +67,8 @@ export interface FacturaType {
   montoPagado: number;
   fechaPago: string | null;
   items: FacturaItemType[];
+  /** Presente si la factura salió de una venta del POS; esas no se editan. */
+  venta_pos: { documentId: string } | null;
   pharmacy: {
     id: number;
     documentId: string;
