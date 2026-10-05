@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ServiceRateType } from "@/types/service";
+import { servicePriceConImpuesto } from "@/lib/pricing";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -84,8 +85,9 @@ export function ServiceCard({ service, onClick }: ServiceCardProps) {
       </div>
       <div className="mt-auto pt-2">
         <div className="flex items-baseline justify-between">
+          {/* Con la tasa aplicada, igual que la tarjeta de producto y el carrito. */}
           <span className="text-lg font-bold text-primary">
-            ${service.price.toFixed(2)}
+            ${servicePriceConImpuesto(service.price).toFixed(2)}
           </span>
           {service.duration_min > 0 && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">

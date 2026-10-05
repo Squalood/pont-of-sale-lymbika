@@ -12,7 +12,13 @@ import {
   type SortDir,
 } from "@/api/getProductsPage";
 import { useGetCategoryNames } from "@/api/getCategories";
-import { IMPUESTO_OPTIONS, impuestoLabel, productImpuesto, type ImpuestoProducto } from "@/lib/pricing";
+import {
+  IMPUESTO_OPTIONS,
+  impuestoLabel,
+  productImpuesto,
+  productPriceConImpuesto,
+  type ImpuestoProducto,
+} from "@/lib/pricing";
 import { urlImagen } from "@/lib/media";
 import {
   Table,
@@ -309,8 +315,8 @@ export function ProductsTable() {
               <TableHead>Nombre</TableHead>
               <TableHead className="hidden md:table-cell">Sustancia</TableHead>
               <TableHead className="hidden lg:table-cell text-center">Categoría</TableHead>
-              <TableHead className="text-right">Precio</TableHead>
-              <TableHead className="text-right">Health Pass</TableHead>
+              <TableHead className="text-right" title="Precio con IVA: lo que paga el cliente. Al editar se captura sin IVA.">Precio</TableHead>
+              <TableHead className="text-right" title="Precio de socio con IVA. Al editar se captura sin IVA.">Health Pass</TableHead>
               <TableHead className="text-right" title="Suma de bodega y todas las farmacias">Stock total</TableHead>
               <TableHead className="text-center">IVA</TableHead>
               <TableHead className="text-center">Activo</TableHead>
@@ -385,15 +391,22 @@ export function ProductsTable() {
                   {/* Precio */}
                   <TableCell className="text-right">
                     {isEditing && draft ? (
-                      <Input
-                        type="number"
-                        value={draft.price}
-                        onChange={(e) => setDraft((d) => d ? { ...d, price: e.target.value } : d)}
-                        className="h-7 w-24 text-right text-sm ml-auto"
-                      />
+                      // Se edita el valor guardado, que va sin impuesto.
+                      <div className="ml-auto flex w-fit items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground">sin IVA</span>
+                        <Input
+                          type="number"
+                          value={draft.price}
+                          onChange={(e) => setDraft((d) => d ? { ...d, price: e.target.value } : d)}
+                          className="h-7 w-24 text-right text-sm"
+                        />
+                      </div>
                     ) : (
+                      // Se muestra con la tasa: es lo que paga el cliente, igual que en el POS.
                       <span className="text-sm">
-                        {product.price != null ? `$${product.price.toLocaleString("es-AR")}` : "—"}
+                        {product.price != null
+                          ? `$${productPriceConImpuesto(product, "regular").toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          : "—"}
                       </span>
                     )}
                   </TableCell>
@@ -401,15 +414,20 @@ export function ProductsTable() {
                   {/* Precio Health Pass */}
                   <TableCell className="text-right">
                     {isEditing && draft ? (
-                      <Input
-                        type="number"
-                        value={draft.priceMember}
-                        onChange={(e) => setDraft((d) => d ? { ...d, priceMember: e.target.value } : d)}
-                        className="h-7 w-24 text-right text-sm ml-auto"
-                      />
+                      <div className="ml-auto flex w-fit items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground">sin IVA</span>
+                        <Input
+                          type="number"
+                          value={draft.priceMember}
+                          onChange={(e) => setDraft((d) => d ? { ...d, priceMember: e.target.value } : d)}
+                          className="h-7 w-24 text-right text-sm"
+                        />
+                      </div>
                     ) : (
                       <span className="text-sm">
-                        {product.priceMember != null ? `$${product.priceMember.toLocaleString("es-AR")}` : "—"}
+                        {product.priceMember != null
+                          ? `$${productPriceConImpuesto(product, "member").toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                          : "—"}
                       </span>
                     )}
                   </TableCell>

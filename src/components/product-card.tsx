@@ -7,6 +7,7 @@ import { ExternalLink, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { urlImagen } from "@/lib/media";
 import { isPerPharmacy, localMinStock, localStock } from "@/lib/stock";
+import { productPriceConImpuesto } from "@/lib/pricing";
 
 interface ProductCardProps {
   product: ProductType;
@@ -76,8 +77,9 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
         </p>
       </div>
       <div className="mt-auto grid grid-cols-2 gap-x-2 gap-y-1 pt-2">
+        {/* Con la tasa aplicada, para que coincida con lo que entra al carrito. */}
         <span className="text-lg font-bold text-primary">
-          ${(product.price ?? 0).toFixed(2)}
+          ${productPriceConImpuesto(product, "regular").toFixed(2)}
         </span>
         <span className="text-xs text-muted-foreground text-right">
           {product.category?.categoryName}

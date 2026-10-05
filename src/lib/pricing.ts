@@ -22,6 +22,25 @@ export function productUnitPrice(product: ProductType, mode: PriceMode): number 
   return (mode === "regular" ? product.price : product.priceMember) ?? 0;
 }
 
+/**
+ * Precio de catálogo con su tasa encima: lo que se va a cobrar.
+ *
+ * Existe para las pantallas que listan catálogo —tarjetas del POS, tabla de productos— que
+ * no arman un `CartItem` y por eso no pueden usar `itemUnitPrice`. Sin esto el cajero ve un
+ * número en la tarjeta y otro distinto al pasarlo al carrito, que es justo la confusión que
+ * dejó el catálogo con dos convenciones mezcladas.
+ *
+ * No aplica el management fee: las listas se muestran a precio de mostrador.
+ */
+export function productPriceConImpuesto(product: ProductType, mode: PriceMode): number {
+  return productUnitPrice(product, mode) * (1 + taxRate(productImpuesto(product)));
+}
+
+/** Lo mismo para la tarifa de un servicio, que siempre va a `SERVICE_IMPUESTO`. */
+export function servicePriceConImpuesto(price: number): number {
+  return price * (1 + taxRate(SERVICE_IMPUESTO));
+}
+
 /** Precio de lista de la línea, antes del fee: tarifa del producto o del servicio. */
 function listPrice(item: CartItem, mode: PriceMode): number {
   if (item.type === "service") return item.serviceRate.price;
@@ -33,66 +52,30 @@ function withFee(amount: number, mode: PriceMode): number {
   return mode === "proveedor" ? amount * (1 + MANAGEMENT_FEE_RATE) : amount;
 }
 
-/** Impuesto que el precio de lista de la línea trae dentro. */
-function impuestoIncluido(item: CartItem): ImpuestoLinea {
-  return item.type === "service" ? SERVICE_IMPUESTO : productImpuesto(item.product);
-}
-
 /**
- * Si el precio de lista de la línea ya trae el impuesto dentro. Los dos campos de precio del
- * producto NO están en la misma base:
+ * Precio **sin impuesto** de una línea, y el invariante del que cuelga todo lo demás.
  *
- *   `product.price`       precio de anaquel  → lo trae dentro
- *   `product.priceMember` costo del proveedor → viene SIN IVA
- *
- * `priceMember` se captura neto en la compra, que le suma la tasa aparte para el total (ver
- * `purchase/helpers.ts → itemTotalLine`). Así que las tarifas que cotizan con ese campo
- * tienen que **sumar** el impuesto encima en vez de despejarlo: despejarlo cobraba el neto
- * como si fuera total y regalaba el IVA en cada pieza gravada.
- *
- * La tarifa de un servicio sí lo trae dentro.
- */
-function listPriceIncluyeImpuesto(item: CartItem, mode: PriceMode): boolean {
-  if (item.type === "service") return true;
-  return mode === "regular";
-}
-
-/**
- * Precio **sin impuesto** de una línea. Es el invariante: se despeja del precio cobrado
- * (lista + fee) con el impuesto que ese precio trae dentro, y no se mueve al corregir la
- * tasa en el mostrador.
+ * Todo precio de catálogo viene neto —`price`, `priceMember` y la tarifa de un servicio—
+ * así que el precio de lista ya *es* la base: no hay nada que despejar. La única excepción
+ * es el precio tecleado a mano, que es lo que paga el cliente y por eso se extrae de ahí.
  */
 export function itemNetPrice(item: CartItem, mode: PriceMode): number {
   if (item.overridePrice !== undefined) {
-    // Un precio tecleado a mano es lo que paga el cliente, así que de ahí se extrae.
     return item.overridePrice / (1 + taxRate(itemImpuesto(item)));
   }
-  const cobrado = withFee(listPrice(item, mode), mode);
-  // Si el precio de lista trae el impuesto dentro hay que despejarlo; si viene neto, ya es
-  // la base y no se toca.
-  return listPriceIncluyeImpuesto(item, mode)
-    ? cobrado / (1 + taxRate(impuestoIncluido(item)))
-    : cobrado;
+  return withFee(listPrice(item, mode), mode);
 }
 
 /**
- * Precio unitario que se cobra: base sin impuesto × la tasa efectiva.
+ * Precio unitario que se cobra: la base sin impuesto, con la tasa efectiva encima. Una sola
+ * multiplicación, sin casos por tipo de línea ni por tarifa.
  *
- * Sin correcciones devuelve el precio cobrado tal cual — se corta el cálculo para que sea
- * bit-exacto y no aparezca deriva de `precio / 1.08 * 1.08`.
+ * Corregir la tasa con el chip mueve el total, porque mueve lo que se le suma a la base.
  */
 export function itemUnitPrice(item: CartItem, mode: PriceMode): number {
-  // El precio tecleado a mano es final: no se le agrega el fee.
+  // El precio tecleado a mano es final: no se le agrega el fee ni el impuesto.
   if (item.overridePrice !== undefined) return item.overridePrice;
-  const cobrado = withFee(listPrice(item, mode), mode);
-  const dentro = impuestoIncluido(item);
-  const efectivo = itemImpuesto(item);
-
-  // El costo de proveedor viene neto: la tasa se suma encima, no se despeja.
-  if (!listPriceIncluyeImpuesto(item, mode)) return cobrado * (1 + taxRate(efectivo));
-
-  if (efectivo === dentro) return cobrado;
-  return (cobrado / (1 + taxRate(dentro))) * (1 + taxRate(efectivo));
+  return withFee(listPrice(item, mode), mode) * (1 + taxRate(itemImpuesto(item)));
 }
 
 /**
@@ -111,9 +94,9 @@ export function isSpecialPrice(mode: PriceMode): boolean {
 }
 
 /**
- * Código de impuesto de una línea. El precio de lista trae su impuesto dentro; la base sin
- * impuesto es el invariante y la tasa efectiva define qué se cobra encima de esa base. Por
- * eso corregir la tasa **sí mueve** el total: cambia el impuesto que se le suma a la base.
+ * Código de impuesto de una línea. El precio de lista es la base sin impuesto, y la tasa
+ * efectiva define qué se cobra encima de ella. Por eso corregir la tasa **sí mueve** el
+ * total: cambia el impuesto que se le suma a la base.
  *
  * Nombre distinto a propósito: `ImpuestoType` ya existe en types/factura.ts y en
  * admin/purchase/types.ts con OTRO conjunto de valores.
@@ -134,8 +117,8 @@ export const IMPUESTO_OPTIONS = ["iva0", "iva8", "iva16"] as const satisfies rea
 export type ImpuestoProducto = (typeof IMPUESTO_OPTIONS)[number];
 
 /**
- * Impuesto de los servicios médicos. Fijo y no editable: el backend no lo manda y el precio
- * de la tarifa ya lo trae dentro, así que solo se desglosa para mostrarlo.
+ * Impuesto de los servicios médicos. Fijo y no editable porque el backend no lo manda: la
+ * tarifa viene neta, igual que el precio de un producto, y el 8% se le suma al cobrar.
  */
 export const SERVICE_IMPUESTO: ImpuestoLinea = "iva8";
 

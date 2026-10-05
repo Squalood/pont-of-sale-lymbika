@@ -104,44 +104,50 @@ El núcleo está en el backend: `backend-ecommerce/src/api/pos-stock/services/st
 
 ## 4.1. IVA por línea
 
-El precio de lista trae su impuesto dentro. **La base sin impuesto es el invariante**: se
-despeja una vez con el impuesto que el producto tiene marcado, y la tasa efectiva decide
-qué se cobra encima de esa base.
+**Todo precio de catálogo viene sin impuesto** — `price`, `priceMember` y la tarifa de un
+servicio— así que el precio de lista ya *es* la base y no hay nada que despejar. La tasa
+efectiva se le suma encima:
 
 ```
-base  = precioLista / (1 + tasa(product.impuesto))
-cobra = base × (1 + tasa(tasa efectiva de la línea))
+cobra = precioLista × (1 + tasa(tasa efectiva de la línea))
 ```
 
-Un producto de $100 marcado `iva8` tiene base 92.59, así que:
+Un producto de $100 marcado `iva8` se cobra así:
 
 | Corregido a | Cobra |
 |---|---|
-| `iva0` | 92.59 |
-| `iva8` (sin tocar) | 100.00 |
-| `iva16` | 107.41 |
+| `iva0` | 100.00 |
+| `iva8` (sin tocar) | 108.00 |
+| `iva16` | 116.00 |
 
-Sin correcciones el cobro es **el precio de lista tal cual** — [`itemUnitPrice`](../src/lib/pricing.ts)
-corta el cálculo en ese caso para que sea bit-exacto y no aparezca deriva de
-`precio / 1.08 × 1.08`.
+Una sola multiplicación, sin casos por tipo de línea ni por tarifa
+([`itemUnitPrice`](../src/lib/pricing.ts)).
+
+> **Esto cambió el 2026-10-05.** Antes `price` se leía como precio de anaquel, con el IVA
+> dentro, y el cobro lo despejaba. La farmacia no tiene anaquel con precios —solo los ve el
+> cajero— así que no había una cifra que el cobro tuviera que respetar al centavo, y la base
+> única salió más simple: el cambio borró `impuestoIncluido` y `listPriceIncluyeImpuesto`.
+> Las pantallas que listan catálogo muestran el precio con la tasa ya aplicada
+> ([`productPriceConImpuesto`](../src/lib/pricing.ts)) para que coincidan con el carrito.
 
 - La tasa efectiva sale de [`itemImpuesto`](../src/lib/pricing.ts): corrección del cajero,
   si no la del producto ([`productImpuesto`](../src/lib/pricing.ts)).
-- `productImpuesto` es el divisor con el que se despeja la base, así que **nunca** mira la
+- `productImpuesto` es la tasa marcada en el catálogo, así que **nunca** mira la
   corrección. Lee `product.impuesto` y nada más: **el backend es la única autoridad**, no
   hay inferencia por categoría. Un producto sin el campo capturado se cobra sin IVA; se
   corrige en Strapi, o con el chip si es solo para esa venta.
 - Un precio editado a mano gana sobre todo: es lo que paga el cliente, y de ahí se extrae
   la base con la tasa efectiva.
 - Los **servicios médicos** son siempre **8%**, fijo y no editable
-  ([`SERVICE_IMPUESTO`](../src/lib/pricing.ts)). El backend no manda impuesto para las
-  tarifas y su precio ya lo trae dentro, así que el 8% solo se desglosa para mostrarlo: el
-  total no se mueve, únicamente aparece la base y el importe del impuesto.
+  ([`SERVICE_IMPUESTO`](../src/lib/pricing.ts)), porque el backend no manda impuesto para
+  las tarifas. La tarifa viene neta igual que el precio de un producto: una consulta de
+  $200 se cobra en $216.
 - El cajero corrige la tasa desde el chip de cada línea
-  ([tax-chip.tsx](../src/components/cart/tax-chip.tsx)). El override vive **solo durante
-  la venta**: no se persiste por línea, solo el agregado `venta.iva`. Por eso el ticket
-  de la venta viva imprime una fila por tasa, y una reimpresión desde el admin imprime
-  una sola fila `IVA incluido` con el agregado.
+  ([tax-chip.tsx](../src/components/cart/tax-chip.tsx)). La corrección **sí se guarda**, en
+  el campo `tax` de la línea de venta, junto al `unitCost`. Por eso el reporte por producto
+  puede desglosar la tasa que de verdad se cobró y no la que el catálogo diga hoy. El ticket
+  de la venta viva imprime una fila por tasa; una reimpresión desde el admin imprime una
+  sola fila `IVA incluido` con el agregado de `venta.iva`.
 
 ### Regla de redondeo
 
