@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { impuestoLabel, servicePriceConImpuesto, SERVICE_IMPUESTO } from "@/lib/pricing";
 import { normalize } from "@/lib/search";
 import { urlImagen } from "@/lib/media";
+import { strapiServiceRateUrl } from "@/lib/strapi-links";
 import {
   Table,
   TableBody,
@@ -20,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowUpDown, Loader2, SquarePen, Save, CircleX } from "lucide-react";
+import { ArrowUpDown, Loader2, SquarePen, Save, CircleX, ExternalLink } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,7 +75,6 @@ export function ServicesTable({ services, loading, error }: Props) {
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [draftPrice, setDraftPrice] = useState("");
   const [rowSaving, setRowSaving] = useState(false);
-  const [rowError, setRowError] = useState<string | null>(null);
 
   // Copia local, para que una edición se vea sin volver a pedir las tarifas.
   const [list, setList] = useState<ServiceRateType[]>([]);
@@ -86,24 +86,22 @@ export function ServicesTable({ services, loading, error }: Props) {
   function startEdit(service: ServiceRateType) {
     setEditingRow(service.documentId);
     setDraftPrice(String(service.price));
-    setRowError(null);
   }
 
   function cancelEdit() {
     setEditingRow(null);
     setDraftPrice("");
-    setRowError(null);
   }
 
   async function saveEdit(service: ServiceRateType) {
+    const name = service.medical_service?.name ?? "Consulta";
     const price = parseFloat(draftPrice);
     // `price` es requerido en Strapi: vacío o negativo no se manda.
     if (isNaN(price) || price < 0) {
-      setRowError("Precio inválido");
+      toast.error(`${name}: precio inválido`);
       return;
     }
     setRowSaving(true);
-    setRowError(null);
     try {
       await patchServiceRate(service.documentId, { price });
       setList((prev) =>
@@ -111,14 +109,13 @@ export function ServicesTable({ services, loading, error }: Props) {
       );
       setEditingRow(null);
       setDraftPrice("");
-      toast.success(
-        `${service.medical_service?.name ?? "Consulta"}: precio actualizado a $${price.toLocaleString("es-AR")}`
-      );
+      toast.success(`${name}: precio actualizado a $${price.toLocaleString("es-AR")}`);
     } catch (err) {
-      setRowError(
+      // La fila sigue en edición, para corregir y reintentar sin volver a teclear.
+      toast.error(
         err instanceof ForbiddenError
-          ? "Sin permiso para editar tarifas en Strapi"
-          : "Error al guardar"
+          ? `${name}: sin permiso para editar tarifas en Strapi`
+          : `${name}: no se pudo guardar el precio`
       );
     } finally {
       setRowSaving(false);
@@ -278,7 +275,18 @@ export function ServicesTable({ services, loading, error }: Props) {
                   {/* Consulta */}
                   <TableCell className="font-medium max-w-60">
                     <div className="flex flex-col gap-0.5 min-w-0">
-                      <span className="truncate" title={name}>{name || "—"}</span>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate" title={name}>{name || "—"}</span>
+                        <a
+                          href={strapiServiceRateUrl(service.documentId)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Abrir tarifa en Strapi"
+                          className="shrink-0 text-muted-foreground hover:text-primary"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
                       {service.notes && (
                         <span className="text-xs text-muted-foreground truncate" title={service.notes}>
                           {service.notes}
@@ -364,9 +372,6 @@ export function ServicesTable({ services, loading, error }: Props) {
                         </Button>
                       )}
                     </div>
-                    {isEditing && rowError && (
-                      <p className="text-xs text-destructive text-right mt-1">{rowError}</p>
-                    )}
                   </TableCell>
                 </TableRow>
               );

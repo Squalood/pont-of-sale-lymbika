@@ -19,6 +19,7 @@ import { getStockLevels, type LocationLevelItem } from "@/api/posStock";
 import { usePharmacies } from "@/hooks/usePharmacies";
 import { useCaja } from "@/lib/caja-context";
 import { normalize } from "@/lib/search";
+import { strapiProductUrl } from "@/lib/strapi-links";
 import { BODEGA, LocationSelect, TODAS, locationName, toLocation } from "./location-select";
 import { StockAdjustDialog, transferHref, type AdjustTarget } from "./stock-adjust-dialog";
 import { StockCountDialog, type CountTarget } from "./stock-count-dialog";
@@ -33,11 +34,8 @@ interface Row extends LocationLevelItem {
   minDefault: number;
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 // "Pasar bodega a farmacia" fue para la migración inicial (ya hecha): oculto salvo que se pida.
 const MOVE_ALL_ENABLED = process.env.NEXT_PUBLIC_ENABLE_MOVE_ALL === "true";
-const strapiProductUrl = (documentId: string) =>
-  `${BACKEND_URL}/admin/content-manager/collection-types/api::product.product/${documentId}`;
 
 const hasDescuadre = (r: Row) => r.lotsCount > 0 && r.stock !== r.lotsSum;
 const sinLotes = (r: Row) => r.lotsCount === 0 && r.stock !== 0;

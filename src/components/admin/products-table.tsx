@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { ProductType } from "@/types/product";
 import { patchProduct } from "@/api/patchProduct";
+import { ForbiddenError } from "@/lib/auth";
+import { toast } from "sonner";
 import Link from "next/link";
 import {
   useGetProductsPage,
@@ -20,6 +22,7 @@ import {
   type ImpuestoProducto,
 } from "@/lib/pricing";
 import { urlImagen } from "@/lib/media";
+import { strapiProductUrl } from "@/lib/strapi-links";
 import {
   Table,
   TableBody,
@@ -40,7 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, SquarePen, Save, CircleX, ArrowUpDown } from "lucide-react";
+import { Loader2, SquarePen, Save, CircleX, ArrowUpDown, ExternalLink } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,7 +117,6 @@ export function ProductsTable() {
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [draft, setDraft] = useState<RowDraft | null>(null);
   const [rowSaving, setRowSaving] = useState(false);
-  const [rowError, setRowError] = useState<string | null>(null);
 
   const { result, total, pageCount, loading, error } = useGetProductsPage(query);
   const categories = useGetCategoryNames();
@@ -135,7 +137,6 @@ export function ProductsTable() {
     setProducts(result);
     setEditingRow(null);
     setDraft(null);
-    setRowError(null);
   }, [result]);
 
   useEffect(() => {
@@ -168,19 +169,16 @@ export function ProductsTable() {
       impuesto: productImpuesto(product),
       active: product.active,
     });
-    setRowError(null);
   }
 
   function cancelEdit() {
     setEditingRow(null);
     setDraft(null);
-    setRowError(null);
   }
 
   async function saveEdit(product: ProductType) {
     if (!draft) return;
     setRowSaving(true);
-    setRowError(null);
 
     const fields: {
       price?: number;
@@ -203,8 +201,14 @@ export function ProductsTable() {
       updateLocal(product.documentId, fields);
       setEditingRow(null);
       setDraft(null);
-    } catch {
-      setRowError("Error al guardar");
+      toast.success(`${product.productName}: cambios guardados`);
+    } catch (err) {
+      // La fila sigue en edición, para corregir y reintentar sin volver a teclear.
+      toast.error(
+        err instanceof ForbiddenError
+          ? `${product.productName}: sin permiso para editar productos en Strapi`
+          : `${product.productName}: no se pudieron guardar los cambios`
+      );
     } finally {
       setRowSaving(false);
     }
@@ -374,7 +378,18 @@ export function ProductsTable() {
                   {/* Nombre */}
                   <TableCell className="font-medium max-w-50">
                     <div className="flex flex-col gap-0.5 min-w-0">
-                      <span className="truncate" title={product.productName}>{product.productName}</span>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate" title={product.productName}>{product.productName}</span>
+                        <a
+                          href={strapiProductUrl(product.documentId)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Abrir producto en Strapi"
+                          className="shrink-0 text-muted-foreground hover:text-primary"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </div>
                       {product.sku && (
                         <span className="text-xs text-muted-foreground">{product.sku}</span>
                       )}
@@ -542,9 +557,6 @@ export function ProductsTable() {
                         </Button>
                       )}
                     </div>
-                    {isEditing && rowError && (
-                      <p className="text-xs text-destructive text-right mt-1">{rowError}</p>
-                    )}
                   </TableCell>
                 </TableRow>
               );
