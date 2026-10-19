@@ -1,22 +1,30 @@
-# Reportes de ventas en CSV
+# Reportes del dashboard en CSV
 
 Guía interna · Punto de Venta Lymbika
 
-El dashboard exporta dos archivos de ventas. No son uno resumido y otro detallado: son la
-misma información vista a dos alturas distintas. Esta guía explica cuál bajar, qué significa
-cada columna y qué cifras se pueden auditar al centavo.
+El dashboard exporta **cuatro archivos**: dos de ventas y dos de compras. En cada par no hay
+uno resumido y otro detallado — son la misma información vista a dos alturas: **una fila por
+documento**, o **una fila por mercancía**. Esta guía explica cuál bajar, qué significa cada
+columna y qué cifras se pueden auditar al centavo.
 
 ---
 
 ## Dónde están y qué alcance tienen
 
-Entra al **Panel de administración → Dashboard**. En el encabezado de la sección **Ventas**
-hay dos botones de descarga. Más abajo, la sección **Compras** tiene el suyo aparte, que no
-cubre esta guía. La página `/admin/compras` no exporta nada: todo sale del Dashboard.
+Entra al **Panel de administración → Dashboard**. Cada sección tiene su par de botones en el
+encabezado:
 
-Los dos archivos respetan **los filtros que tengas activos** en ese momento: el período (Hoy,
-Semana, Mes, Todo o un rango del calendario), la sucursal y el operador. Lo que ves en
-pantalla es exactamente lo que se descarga.
+| Sección | Botones |
+|---|---|
+| **Ventas** | `CSV por venta` · `CSV por producto vendido` |
+| **Compras** | `CSV por compra` · `CSV por producto comprado` |
+
+La página `/admin/compras` no exporta nada: todo sale del Dashboard.
+
+Los cuatro archivos respetan **los filtros que tengas activos** en ese momento: el período
+(Hoy, Semana, Mes, Todo o un rango del calendario), la sucursal y el operador. Lo que ves en
+pantalla es exactamente lo que se descarga — con una excepción, la sucursal en compras, que
+se explica en su sección.
 
 El nombre del archivo deja constancia de esos filtros, para que no se confundan dos descargas
 distintas:
@@ -31,11 +39,11 @@ ventas_2026-08-11_2026-08-18_centro_ana.csv
 
 ---
 
-## Cuál de los dos bajar
+## Ventas: cuál de los dos bajar
 
 La diferencia está en qué representa una fila.
 
-| Comparación | **Por venta** | **Por producto** |
+| Comparación | **Por venta** | **Por producto vendido** |
 |---|---|---|
 | **Archivo** | `ventas_….csv` | `ventas-por-producto_….csv` |
 | **Una fila es** | un ticket | un producto dentro de un ticket |
@@ -100,7 +108,7 @@ hay que reportar.
 
 ---
 
-## Archivo por producto
+## Archivo por producto vendido
 
 Una fila por producto vendido. Es el archivo de márgenes.
 
@@ -197,8 +205,8 @@ Subtotal − Costo total     = Retorno
 
 ### Qué cambió y desde cuándo
 
-Dos cosas cambiaron el **17 de septiembre de 2026**, y las dos se notan al comparar reportes de
-antes y después de esa fecha. Las ventas viejas se quedan como fueron: no se recalculan.
+Hay dos fechas de corte, y los cambios se notan al comparar reportes de antes y después. Las
+ventas viejas se quedan como fueron: **no se recalculan nunca**.
 
 **1. El costo y el IVA ahora quedan congelados en la venta.** Antes el reporte le preguntaba al
 catálogo *"¿cuánto cuesta este producto?"* al momento de exportar, y el catálogo solo recuerda
@@ -213,6 +221,18 @@ viejas puede dar cifras distintas cada vez que cambian los costos del catálogo*
 Pass** sobre productos gravados (no en medicamentos, que son tasa 0). No es un error del
 reporte: hasta esa fecha el sistema le cobraba al socio el costo de proveedor **sin sumarle el
 impuesto**, así que esas ventas realmente perdieron el IVA.
+
+**3. El precio del catálogo pasó a ser sin IVA** — el **5 de octubre de 2026**. Antes el precio
+del producto traía el impuesto dentro y el cobro lo despejaba; desde esa fecha el precio se
+captura sin IVA y el punto de venta se lo suma al cobrar.
+
+Para leer el reporte importa esto: en los productos gravados el cliente paga más, así que el
+**Retorno de mostrador da un escalón hacia arriba** a partir de ese día. El IVA que antes salía
+de adentro del precio ahora se cobra encima. Las columnas significan lo mismo que siempre
+—`Subtotal` y `Costo total` siguen sin impuesto— y lo único que cambió es cuánto se cobró. En
+los productos a tasa 0, que son la mayor parte del catálogo, no cambia nada.
+
+Si exportas un período que cruza esa fecha, ese escalón es el cambio, no un error.
 
 **Lo que sigue siendo aproximado, incluso en ventas nuevas.** El costo que se congela es el que
 el catálogo tenía ese día, no el de la caja concreta que se vendió: si hay dos lotes del mismo
@@ -246,7 +266,7 @@ a mano es final.
 
 ---
 
-## Cómo cruzar los dos archivos
+## Cómo cruzar los dos archivos de ventas
 
 Toma un folio y suma la columna **Total cobrado** de sus renglones en el archivo por
 producto. Debe dar el **Subtotal + IVA** de ese ticket en el archivo por venta:
@@ -301,7 +321,7 @@ de una pieza declara 8.15 de IVA y no 7.41.
 
 ---
 
-## Qué tan exacto es el archivo por producto
+## Qué tan exacto es el archivo por producto vendido
 
 Desde el 17/9/2026 el costo y la tasa de IVA se copian a la venta al cobrar, así que las
 columnas son estables: exportar el mismo período dos veces da lo mismo.
@@ -321,6 +341,103 @@ El **Retorno** hereda las dos salvedades, porque sale de restar el costo al subt
 
 ---
 
+## Compras
+
+La sección **Compras** exporta su propio par, con la misma lógica que ventas: una fila por
+documento, o una fila por mercancía.
+
+| Comparación | **Por compra** | **Por producto comprado** |
+|---|---|---|
+| **Archivo** | `compras_….csv` | `compras-por-producto_….csv` |
+| **Una fila es** | una compra registrada | un renglón recibido |
+| **Qué detalla** | cuánto se le pagó a cada proveedor | qué entró, a qué costo y en qué lote |
+| **Úsalo para** | cuadrar egresos | cuadrar contra la factura del proveedor |
+| **Columnas** | 11 | 13 |
+
+Igual que en ventas, la columna **Folio** es la que los une.
+
+> **Las compras no se filtran por sucursal.** Se registran a nivel central, así que el
+> selector de sucursal no las acota: si lo usas, el nombre del archivo lo deja claro con
+> `_todas-las-farmacias` en vez de mentir con el nombre de la sucursal. El período y el
+> operador sí aplican.
+
+### Archivo por compra
+
+Una fila por compra registrada. Las canceladas no aparecen. Las de total 0 sí, marcadas, para
+que se puedan reconciliar.
+
+| Columna | Qué contiene |
+|---|---|
+| Fecha | Fecha y hora en que se registró la compra. |
+| Folio | Número de la compra, a cinco dígitos. Liga con el otro archivo. |
+| Proveedor | A quién se le compró. |
+| Operador | Usuario que capturó la compra. |
+| Total | Lo que se pagó, **con** impuesto. |
+| Productos | Cuántos artículos distintos trae. |
+| Unidades | Piezas totales que entraron. |
+| Costos registrados | **No** cuando la compra se capturó sin costos: su total es 0. |
+| IVA registrado | Tasas presentes: `8%`, `16%`, `8% + 16%`, o **No** si ninguna se capturó. |
+| Factura adjunta | Nombre del archivo de la factura, si se subió. |
+| Notas | Comentario que se escribió al registrar. |
+
+### Archivo por producto comprado
+
+Una fila por **renglón**, no por producto: el mismo artículo comprado en dos lotes son dos
+filas, cada una con su lote y su costo. Es la única vista donde se ve a qué precio entró cada
+lote.
+
+#### 1. De qué compra viene
+
+Describen la compra completa, así que **se repiten en cada renglón del mismo folio**.
+
+| Columna | Qué contiene |
+|---|---|
+| Fecha | Fecha y hora de la compra. |
+| Folio | Compra a la que pertenece el renglón. |
+| Proveedor | A quién se le compró. |
+| Operador | Usuario que capturó la compra. |
+
+#### 2. Qué entró
+
+| Columna | Qué contiene |
+|---|---|
+| Producto | Nombre con el que se capturó, **no** el del catálogo: si el producto se renombró después, la compra conserva el nombre con el que entró. |
+| Cantidad | Piezas de ese renglón. |
+| Lote | Número de lote. Vacío si no se capturó. |
+| Caducidad | Caducidad de ese lote. Vacía si no se capturó. |
+
+#### 3. Lo que costó
+
+| Columna | Qué contiene |
+|---|---|
+| Costo unitario | Lo que costó una pieza, **sin** impuesto. |
+| Importe | Cantidad × costo unitario. Sin impuesto. |
+| Tasa IVA | `IVA 8 %`, `IVA 16 %` o `Exento`. Vacía en compras anteriores a que se capturara la tasa. |
+| IVA | Impuesto de ese renglón. |
+| Total línea | Lo que costó el renglón **con** impuesto. |
+
+### Las sumas que siempre deben cerrar
+
+```
+Cantidad × Costo unitario = Importe
+Importe + IVA             = Total línea
+Σ Total línea de un folio = Total de esa compra
+```
+
+La última cierra **al centavo**, y no por suerte: el importe y el impuesto se redondean
+renglón por renglón antes de sumarse, que es como el CFDI del proveedor redondea cada
+concepto. Si una compra no cuadra contra su factura, este archivo es donde se ve qué concepto
+difiere.
+
+> **Cuidado al comparar un costo contra el de ventas**
+>
+> El costo de este archivo es el de **esa compra**. El `Costo unitario` del archivo por
+> producto vendido es el que el producto tenía marcado **el día de la venta**, que viene de su
+> última compra hasta ese momento. No tienen por qué coincidir: si el proveedor cambió el
+> precio entre una compra y otra, difieren, y las dos cifras son correctas.
+
+---
+
 ## Casos que verás seguido
 
 - **Celdas vacías en costo y retorno.** El renglón es un servicio, o el producto no tenía
@@ -337,8 +454,12 @@ El **Retorno** hereda las dos salvedades, porque sale de restar el costo al subt
 - **Un mismo producto repetido en un folio.** Normal: la venta se surtió de más de un lote.
 - **Efectivo USD.** Está en dólares sin convertir. Para pasarlo a pesos usa la columna Tipo de
   cambio de esa misma fila.
-- **Compras y sucursal.** Las compras se registran a nivel central, así que el filtro de
-  sucursal no las acota. El dashboard lo advierte con una etiqueta cuando eliges una sucursal.
+- **Compras y sucursal.** No se acotan por sucursal; el dashboard lo advierte con una
+  etiqueta y el archivo lo dice en su nombre. Ver *Compras*.
+- **El mismo producto repetido en una compra.** Normal: entró en más de un lote, y cada uno
+  pudo costar distinto.
+- **Tasa IVA vacía en una compra.** Se registró antes de que se capturara la tasa. Su total
+  es el crudo que se tecleó, así que no sirve para contrastar contra la factura.
 
 ---
 

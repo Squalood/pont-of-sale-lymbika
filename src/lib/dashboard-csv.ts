@@ -2,7 +2,7 @@ import { downloadCSV } from "@/lib/csv";
 import { ventaCardCharged, ventaCardSurcharge } from "@/lib/checkout-math";
 import { productImpuesto, SERVICE_IMPUESTO, taxRate } from "@/lib/pricing";
 import { feeSumaAlTotal } from "@/lib/tax";
-import type { CompraType } from "@/types/compra";
+import type { CompraItemType, CompraType } from "@/types/compra";
 import type { ProductType } from "@/types/product";
 import type { VentaType } from "@/types/venta";
 
@@ -287,6 +287,83 @@ export function exportVentasPorProductoCSV(
         ];
       });
     })
+  );
+}
+
+/** Etiqueta de la tasa de una línea de compra. Vocabulario propio: usa `exento`, no `iva0`. */
+function ivaCompraLabel(iva?: CompraItemType["iva"]): string {
+  if (iva === "iva8") return "IVA 8%";
+  if (iva === "iva16") return "IVA 16%";
+  if (iva === "exento") return "Exento";
+  // Compras anteriores a que se capturara la tasa: el total es el crudo tecleado.
+  return "";
+}
+
+/**
+ * Una fila por renglón de compra. Es a `compras.csv` lo que `ventas-por-producto` es a
+ * `ventas`: la misma información vista a la altura de la mercancía en vez del documento.
+ *
+ * Una fila es un **renglón**, no un producto: el mismo artículo comprado en dos lotes son
+ * dos filas, con su lote y su caducidad. Ahí está el valor que el resumen no puede dar —
+ * es la única vista donde se ve a qué precio entró cada lote, que es justo lo que hace
+ * falta para cuadrar contra la factura del proveedor concepto por concepto.
+ *
+ * La identidad que debe cerrar, por folio:
+ *
+ *     Σ Total línea = Total de la compra en `compras.csv`
+ *
+ * Cierra exacta y no por suerte: `loteTotalLine` redondea importe e impuesto a centavos
+ * **por renglón** antes de sumar, igual que el CFDI del proveedor, y `compra.total` es esa
+ * misma suma. Por eso el IVA de la fila se deriva restando (`Total línea − Importe`) en vez
+ * de recalcular `importe × tasa`: así la fila cierra aunque el dato guardado sea raro.
+ */
+export function exportComprasPorProductoCSV(compras: CompraType[], naming: CsvNaming): void {
+  // Igual que el resumen: las compras no se acotan por sucursal y el nombre lo dice.
+  const alcance = naming.sucursal ? "_todas-las-farmacias" : "";
+
+  downloadCSV(
+    `compras-por-producto_${naming.stamp}${alcance}${operadorSuffix(naming)}.csv`,
+    [
+      // De qué compra viene. Se repiten en cada renglón del mismo folio.
+      "Fecha",
+      "Folio",
+      "Proveedor",
+      "Operador",
+      // Qué entró
+      "Producto",
+      "Cantidad",
+      "Lote",
+      "Caducidad",
+      // Lo que costó: costo × cantidad = importe, + IVA = total de la línea.
+      "Costo unitario",
+      "Importe",
+      "Tasa IVA",
+      "IVA",
+      "Total línea",
+    ],
+    compras.flatMap((c) =>
+      (c.items ?? []).map((item) => {
+        const importe = Math.round(item.quantity * item.costoUnitario * 100) / 100;
+        const iva = Math.round((item.totalLine - importe) * 100) / 100;
+        return [
+          fecha(c.fecha),
+          folio(c.id),
+          c.proveedor?.name ?? "",
+          c.operador ?? "",
+          // El nombre guardado en la línea, no el del catálogo: si el producto se renombró
+          // después, la compra sigue diciendo con qué nombre entró.
+          item.productName,
+          item.quantity,
+          item.numeroLote ?? "",
+          item.fechaCaducidad ?? "",
+          item.costoUnitario.toFixed(2),
+          importe.toFixed(2),
+          ivaCompraLabel(item.iva),
+          iva.toFixed(2),
+          item.totalLine.toFixed(2),
+        ];
+      })
+    )
   );
 }
 

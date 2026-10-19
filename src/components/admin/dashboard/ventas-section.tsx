@@ -29,7 +29,9 @@ export function VentasSection({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Ventas</h2>
         {/* Los dos archivos se distinguen por lo que representa una fila, no por cuánto
-            detalle traen: el de cobros tiene más columnas que el de productos. */}
+            detalle traen: el de cobros tiene más columnas que el de productos.
+            "vendido" no es adorno: Compras tiene su propio CSV por producto, y sin el
+            participio los dos botones se leen igual fuera de su sección. */}
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -49,7 +51,7 @@ export function VentasSection({
             title="Una fila por producto vendido, con costo y margen"
           >
             <Download className="mr-1.5 h-4 w-4" />
-            CSV por producto
+            CSV por producto vendido
           </Button>
         </div>
       </div>

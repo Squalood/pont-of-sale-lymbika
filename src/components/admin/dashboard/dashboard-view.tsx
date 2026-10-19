@@ -14,6 +14,7 @@ import {
 } from "@/lib/dashboard-aggregate";
 import {
   exportComprasCSV,
+  exportComprasPorProductoCSV,
   exportVentasCSV,
   exportVentasPorProductoCSV,
   type CsvNaming,
@@ -127,6 +128,9 @@ export function DashboardView({
         comprasError={comprasError}
         sucursal={sucursal}
         onExport={() => exportComprasCSV(data.comprasRango, naming)}
+        onExportPorProducto={() =>
+          exportComprasPorProductoCSV(data.comprasRango, naming)
+        }
       />
     </div>
   );

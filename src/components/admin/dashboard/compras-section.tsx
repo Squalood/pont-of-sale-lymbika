@@ -16,6 +16,7 @@ interface ComprasSectionProps {
   /** Nombre de la sucursal filtrada, para avisar que las compras no se acotan. */
   sucursal?: string;
   onExport: () => void;
+  onExportPorProducto: () => void;
 }
 
 export function ComprasSection({
@@ -23,7 +24,9 @@ export function ComprasSection({
   comprasError,
   sucursal,
   onExport,
+  onExportPorProducto,
 }: ComprasSectionProps) {
+  const vacio = data.comprasRango.length === 0;
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -35,15 +38,29 @@ export function ComprasSection({
             </Badge>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onExport}
-          disabled={data.comprasRango.length === 0}
-        >
-          <Download className="mr-1.5 h-4 w-4" />
-          CSV
-        </Button>
+        {/* Mismo par que en Ventas: una fila por documento, o una por mercancía. */}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            disabled={vacio}
+            title="Una fila por compra, con el total y el proveedor"
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            CSV por compra
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExportPorProducto}
+            disabled={vacio}
+            title="Una fila por renglón recibido, con lote, caducidad y costo unitario"
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            CSV por producto comprado
+          </Button>
+        </div>
       </div>
 
       {sucursal && (
