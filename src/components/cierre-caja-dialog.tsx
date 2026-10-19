@@ -111,6 +111,10 @@ export function CierreCajaDialog({ open, onClose }: CierreCajaDialogProps) {
 
       const resumen: CierreResumenData = {
         pharmacyName: caja.pharmacy?.nombre,
+        pharmacyDireccion: caja.pharmacy?.direccion,
+        pharmacyTelefono: caja.pharmacy?.contacto_tel,
+        operador: caja.operador,
+        tipoCambio: caja.tipoCambio,
         apertura: caja.fecha,
         cierre: closedAt,
         cerradoPor,

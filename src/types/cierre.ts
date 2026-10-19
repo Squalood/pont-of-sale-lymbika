@@ -1,5 +1,11 @@
 export interface CierreResumenData {
   pharmacyName?: string;
+  /** Solo los usa el ticket resumen para el encabezado. */
+  pharmacyDireccion?: string | null;
+  pharmacyTelefono?: string | null;
+  /** Quien abrió el turno; `cerradoPor` puede ser otra persona. */
+  operador?: string;
+  tipoCambio?: number;
   apertura: string;
   cierre: string;
   cerradoPor: string;

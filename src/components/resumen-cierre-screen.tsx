@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, LogOut, Printer } from "lucide-react";
+import { CheckCircle2, LogOut, Printer, ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clearAuth } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
 import { CierreResumenData } from "@/types/cierre";
 import { fetchReporteCierre } from "@/api/getReporteCierre";
 import { printCierre } from "@/lib/print-cierre";
+import { printCierreTicket } from "@/lib/print-cierre-ticket";
 
 function StatRow({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
   return (
@@ -40,7 +41,7 @@ interface ResumenCierreScreenProps {
 export function ResumenCierreScreen({ data }: ResumenCierreScreenProps) {
   const router = useRouter();
   const { setCierreResumen, pharmacyId } = useCaja();
-  const [printLoading, setPrintLoading] = useState(false);
+  const [printLoading, setPrintLoading] = useState<"detallado" | "ticket" | null>(null);
 
   function handleLogout() {
     clearAuth();
@@ -48,14 +49,15 @@ export function ResumenCierreScreen({ data }: ResumenCierreScreenProps) {
     router.push("/login");
   }
 
-  async function handlePrint() {
+  async function handlePrint(tipo: "detallado" | "ticket") {
     if (!pharmacyId) return;
-    setPrintLoading(true);
+    setPrintLoading(tipo);
     try {
       const reporte = await fetchReporteCierre(pharmacyId);
-      printCierre(data, reporte);
+      if (tipo === "detallado") printCierre(data, reporte);
+      else printCierreTicket(data, reporte.pagos);
     } finally {
-      setPrintLoading(false);
+      setPrintLoading(null);
     }
   }
 
@@ -133,10 +135,16 @@ export function ResumenCierreScreen({ data }: ResumenCierreScreenProps) {
             )}
           </div>
 
-          <Button className="w-full" variant="outline" onClick={handlePrint} disabled={printLoading}>
-            <Printer className="mr-2 h-4 w-4" />
-            {printLoading ? "Generando reporte..." : "Imprimir / Guardar PDF"}
-          </Button>
+          <div className="grid grid-cols-2 gap-3">
+            <Button variant="outline" onClick={() => handlePrint("detallado")} disabled={printLoading !== null}>
+              <Printer className="mr-2 h-4 w-4" />
+              {printLoading === "detallado" ? "Generando..." : "Reporte detallado"}
+            </Button>
+            <Button variant="outline" onClick={() => handlePrint("ticket")} disabled={printLoading !== null}>
+              <ReceiptText className="mr-2 h-4 w-4" />
+              {printLoading === "ticket" ? "Generando..." : "Ticket resumen"}
+            </Button>
+          </div>
 
           <Button className="w-full" variant="destructive" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
