@@ -69,7 +69,7 @@ export interface VentaType {
   /** Base cubierta con tarjeta, sin recargo. */
   montoTarjeta?: number;
   montoTransferencia?: number;
-  /** Recargo Health Pass cobrado en la terminal. Ausente en ventas previas al campo. */
+  /** Recargo de membresía cobrado en la terminal. Ausente en ventas previas al campo. */
   recargoTarjeta?: number;
   recibido: number;
   cambio: number;
@@ -95,7 +95,7 @@ export interface VentaPayload {
   /** Base cubierta con tarjeta, sin recargo. */
   montoTarjeta?: number;
   montoTransferencia?: number;
-  /** Recargo Health Pass cobrado en la terminal. `total` ya lo incluye. */
+  /** Recargo de membresía cobrado en la terminal. `total` ya lo incluye. */
   recargoTarjeta?: number;
   recibido: number;
   cambio: number;

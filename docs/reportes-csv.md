@@ -73,13 +73,13 @@ son los importes que quedaron grabados en el momento del cobro y no se recalcula
 | Folio | Número del ticket, a cinco dígitos. Liga con el otro archivo. |
 | Farmacia | Sucursal donde se hizo la venta. |
 | Operador | Usuario que cobró. |
-| Tarifa | Mostrador, Health Pass o Proveedor. Ver la sección de tarifas. |
+| Tarifa | Mostrador, Lymbika+ o Proveedor. Ver la sección de tarifas. |
 | Método de pago | Efectivo, tarjeta, transferencia o mixto. |
 | Subtotal | Mercancía sin impuesto. |
 | IVA | Impuesto de todo el ticket. |
 | Management fee | El 10 % de la tarifa Proveedor. Ver la columna siguiente antes de sumarlo. |
 | Fee en el precio | **Sí**: el fee ya está dentro de Subtotal + IVA. **No**: se cobró aparte y sí se suma. Vacío si el ticket no lleva fee. |
-| Recargo tarjeta | 3 % que paga un cliente Health Pass al pagar con tarjeta. |
+| Recargo tarjeta | 3 % que paga un cliente Lymbika+ al pagar con tarjeta. |
 | Total | Lo que realmente pagó el cliente. |
 | Efectivo MXN | Pesos recibidos menos el cambio entregado. |
 | Efectivo USD | Dólares recibidos, **sin convertir**. |
@@ -125,7 +125,7 @@ son exactas.
 | Fecha | Fecha y hora del ticket. |
 | Folio | Ticket al que pertenece el renglón. Liga con el archivo por venta. |
 | Método de pago | Efectivo, tarjeta, transferencia o mixto. |
-| Tarifa | Mostrador, Health Pass o Proveedor. |
+| Tarifa | Mostrador, Lymbika+ o Proveedor. |
 | Fee en el precio | Igual que en el archivo por venta. |
 
 #### 2. Qué se vendió
@@ -194,10 +194,10 @@ Subtotal − Costo total     = Retorno
 > | Tarifa | Qué deberías ver | Por qué |
 > |---|---|---|
 > | **Mostrador** | Variable, positivo | Es la única con precio propio de venta. |
-> | **Health Pass** | **0.00** | Se vende al costo de proveedor, sin margen. |
+> | **Lymbika+** | **0.00** | Se vende al costo de proveedor, sin margen. |
 > | **Proveedor** | El **10 %** del costo | Es el management fee, que va dentro del precio. |
 >
-> Un cero en Health Pass **no es una venta a pérdida**: es el precio funcionando como se
+> Un cero en Lymbika+ **no es una venta a pérdida**: es el precio funcionando como se
 > diseñó. Lo que deja el programa (cuota, volumen, recurrencia) no se mide en esta línea.
 >
 > **Si un renglón se sale de su valor esperado, es una señal real** — un costo mal capturado,
@@ -217,8 +217,8 @@ Desde esa fecha, el costo y la tasa se copian a la venta al cobrar y ya nadie lo
 ventas anteriores el reporte sigue usando el costo de hoy, así que **una exportación de ventas
 viejas puede dar cifras distintas cada vez que cambian los costos del catálogo**.
 
-**2. Health Pass ya cobra el IVA.** En ventas anteriores verás **Retorno negativo en Health
-Pass** sobre productos gravados (no en medicamentos, que son tasa 0). No es un error del
+**2. Lymbika+ ya cobra el IVA.** En ventas anteriores verás **Retorno negativo en
+Lymbika+** sobre productos gravados (no en medicamentos, que son tasa 0). No es un error del
 reporte: hasta esa fecha el sistema le cobraba al socio el costo de proveedor **sin sumarle el
 impuesto**, así que esas ventas realmente perdieron el IVA.
 
@@ -250,11 +250,15 @@ archivos.
 | Tarifa | Qué precio se aplica | Cargo adicional |
 |---|---|---|
 | **Mostrador** | Precio de lista. Es la venta normal. | Ninguno. |
-| **Health Pass** | Precio preferente de socio. | Si paga con tarjeta, **3 %** de recargo en la terminal. |
+| **Lymbika+** | Precio preferente de socio. | Si paga con tarjeta, **3 %** de recargo en la terminal. |
 | **Proveedor** | Precio de proveedor **con el management fee del 10 % ya dentro**. | Ninguno al final del ticket. |
 
 Las ventas anteriores a que existieran estas tarifas aparecen como **Mostrador**, que es la
 lectura correcta: en ese entonces todo se cobraba a precio de lista.
+
+**Lymbika+** es la membresía, que antes se llamaba **Health Pass**. Los archivos descargados
+antes del cambio de nombre dicen *Health Pass*; es la misma tarifa. El nombre se cambia en
+Strapi (*Site Config → membershipName*) y el reporte usa el que esté vigente al descargar.
 
 En la tarifa Proveedor el fee **no es un cargo al final**: multiplica el precio de cada
 producto, y como el precio incluye IVA, el fee carga el impuesto de su propia línea. En el
@@ -445,9 +449,9 @@ difiere.
   cero se leería como una venta que no dejó nada.
 - **Consultas y servicios médicos.** Nunca tienen costo. Su IVA es fijo de 8 %, ya incluido en
   la tarifa.
-- **Retorno en cero en Health Pass.** Es lo correcto: en esa tarifa se vende al costo de
+- **Retorno en cero en Lymbika+.** Es lo correcto: en esa tarifa se vende al costo de
   proveedor, sin margen.
-- **Retorno negativo en Health Pass, en ventas anteriores al 17/9/2026.** También es real,
+- **Retorno negativo en Lymbika+, en ventas anteriores al 17/9/2026.** También es real,
   no un error del reporte. Ver la nota del archivo por producto.
 - **En Proveedor, el Retorno es el 10 % del costo.** Es el management fee, que va dentro del
   precio. El monto a nivel ticket está en el archivo por venta.

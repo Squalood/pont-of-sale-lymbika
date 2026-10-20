@@ -33,11 +33,14 @@ const fecha = (iso: string) => new Date(iso).toLocaleString("es-MX");
 
 /**
  * Tarifa con la que se cotizó el ticket. Una sola columna y no dos banderas porque son
- * excluyentes por construcción: `PriceMode` es un valor, no tres flags, así que Health Pass
+ * excluyentes por construcción: `PriceMode` es un valor, no tres flags, así que membresía
  * y Precio de proveedor no pueden estar activos a la vez.
  *
  * Las ventas anteriores a estos campos no traen ninguno y caen en "Mostrador", que es la
  * lectura correcta: antes de que existiera la tarifa, todo se cobraba a precio de lista.
+ *
+ * La membresía sale con su nombre comercial (`site-config.membershipName`), así que los
+ * exports anteriores a un cambio de nombre dicen el nombre viejo ("Health Pass").
  */
 /**
  * Rol del management fee en un ticket. Desde que el fee entró al precio de cada línea, el
@@ -59,9 +62,9 @@ function feeEnPrecio(v: {
   return feeSumaAlTotal(v.subtotal, v.iva, v.total, fee) ? "No" : "Sí";
 }
 
-function tarifa(v: { esProveedor?: boolean; esMembresia?: boolean }): string {
+function tarifa(v: { esProveedor?: boolean; esMembresia?: boolean }, membershipName: string): string {
   if (v.esProveedor) return "Proveedor";
-  if (v.esMembresia) return "Health Pass";
+  if (v.esMembresia) return membershipName;
   return "Mostrador";
 }
 
@@ -77,9 +80,9 @@ function tarifa(v: { esProveedor?: boolean; esMembresia?: boolean }): string {
  * "Sí" es la semántica actual: el 10% va dentro del precio de cada línea, así que ya está
  * contado en subtotal + iva y el monto guardado es informativo. "No" son los tickets
  * anteriores al cambio, donde el fee se sumaba al final. El recargo solo aparece en
- * tickets Health Pass pagados con tarjeta.
+ * tickets de membresía pagados con tarjeta.
  */
-export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
+export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming, membershipName: string): void {
   const sucursal = naming.sucursal ? `_${slug(naming.sucursal)}` : "";
 
   downloadCSV(
@@ -130,7 +133,7 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
         folio(v.id),
         v.pharmacies?.[0]?.nombre ?? "",
         v.operador,
-        tarifa(v),
+        tarifa(v, membershipName),
         v.metodoPago,
         v.subtotal.toFixed(2),
         v.iva.toFixed(2),
@@ -173,7 +176,7 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
  * que leerlos hoy reescribía el costo y el IVA de todas sus ventas pasadas.
  *
  * El costo y el precio se copian del MISMO objeto `item.product` en el MISMO instante del
- * checkout. Por eso `Retorno = 0` en Health Pass deja de ser coincidencia y pasa a ser un
+ * checkout. Por eso `Retorno = 0` en membresía deja de ser coincidencia y pasa a ser un
  * invariante estructural, que es lo que hace válido a `scripts/validar-margen.mjs`.
  *
  * Lo que el snapshot NO arregla: congela lo que el catálogo decía ese día, no lo que costó la
@@ -192,14 +195,15 @@ export function exportVentasCSV(ventas: VentaType[], naming: CsvNaming): void {
  * es un cargo de la forma de pago, no del precio, y vive solo en `ventas.csv`.
  *
  * `Retorno` es `Subtotal − Costo total`, sin casos por tarifa: los dos vienen sin impuesto,
- * así que la resta mide el negocio. Health Pass cae en 0 y Proveedor en el 10 % del fee por
+ * así que la resta mide el negocio. Membresía cae en 0 y Proveedor en el 10 % del fee por
  * la tarifa misma, no porque el reporte lo imponga — si alguno se sale de ahí, es una señal
  * real y no un artefacto.
  */
 export function exportVentasPorProductoCSV(
   ventas: VentaType[],
   productsById: Map<number, ProductType>,
-  naming: CsvNaming
+  naming: CsvNaming,
+  membershipName: string
 ): void {
   const sucursal = naming.sucursal ? `_${slug(naming.sucursal)}` : "";
 
@@ -231,7 +235,7 @@ export function exportVentasPorProductoCSV(
       "Retorno",
     ],
     ventas.flatMap((v) => {
-      const tarifaTicket = tarifa(v);
+      const tarifaTicket = tarifa(v, membershipName);
       const feeEnPrecioTicket = feeEnPrecio(v);
 
       return (v.venta ?? []).map((item) => {
@@ -261,7 +265,7 @@ export function exportVentasPorProductoCSV(
         // total están los dos sin impuesto, así que la resta mide el negocio de verdad —
         // y cada tarifa cae donde debe sin que el reporte lo imponga:
         //   Mostrador   → el margen real
-        //   Health Pass → 0, porque se vende al costo de proveedor
+        //   Membresía   → 0, porque se vende al costo de proveedor
         //   Proveedor   → el 10 % del fee, que va dentro del precio
         // Si alguna se sale de ahí, es una señal que hay que ver, no un artefacto.
         //

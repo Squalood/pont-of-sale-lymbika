@@ -3,14 +3,18 @@
  *
  *     npm run validar-margen -- ruta/al/ventas-por-producto_....csv
  *
- * En Health Pass y Proveedor el precio de venta se deriva del mismo `priceMember` que el
+ * En membresía y Proveedor el precio de venta se deriva del mismo `priceMember` que el
  * reporte usa como costo, así que el retorno de esas dos tarifas está determinado por la
  * tarifa y se puede verificar fila por fila:
  *
  *     Mostrador                     → variable, no hay valor esperado
- *     Health Pass                   → 0            (se vende al costo de proveedor)
+ *     Membresía                     → 0            (se vende al costo de proveedor)
  *     Proveedor · Fee en precio Sí  → +10% del costo
  *     Proveedor · Fee en precio No  → 0            (el fee se cobró aparte del renglón)
+ *
+ * La membresía se reconoce por descarte (ni Mostrador ni Proveedor) y no por nombre: el export
+ * escribe el nombre comercial de `site-config.membershipName`, que puede cambiar, y los
+ * archivos viejos dicen "Health Pass".
  *
  * Las violaciones se separan en tres, y la fecha de la venta es lo que decide cuál es cuál:
  * el 2026-09-17 se arreglaron dos cosas a la vez (el cobro del IVA en proveedor, y el
@@ -173,13 +177,12 @@ function main() {
     }
 
     let esperado;
-    if (tarifa === "Health Pass") {
-      esperado = 0;
-    } else if (tarifa === "Proveedor") {
+    if (tarifa === "Proveedor") {
       if (iFee === -1) continue;
       esperado = r[iFee] === "Sí" ? costo * FEE_RATE : 0;
     } else {
-      continue;
+      // Membresía, con el nombre que tuviera al exportar. Ver el encabezado.
+      esperado = 0;
     }
 
     const desv = margen - esperado;

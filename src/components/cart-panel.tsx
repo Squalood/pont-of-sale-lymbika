@@ -2,6 +2,7 @@
 
 import type { StockLevel } from "@/api/posStock";
 import { useState } from "react";
+import { useMembershipName } from "@/api/getSiteConfig";
 import { CartItem as CartItemType, cartItemKey, ProductType } from "@/types/product";
 import { CartItem } from "@/components/cart-item";
 import { CartPanelHeader } from "@/components/cart-panel-header";
@@ -56,6 +57,7 @@ export function CartPanel({
   cartNumber,
 }: CartPanelProps) {
   const { caja } = useCaja();
+  const membershipName = useMembershipName();
   const tipoCambio = caja?.tipoCambio ?? 1;
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -149,7 +151,7 @@ export function CartPanel({
           <div className="flex items-center justify-between border-t px-4 py-3" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2">
               <BadgePercent className="h-4 w-4 text-emerald-500" />
-              <span className="text-sm font-medium">Precio Health Pass</span>
+              <span className="text-sm font-medium">Precio {membershipName}</span>
             </div>
             <Switch
               checked={priceMode === "member"}

@@ -78,7 +78,8 @@ El núcleo está en el backend: `backend-ecommerce/src/api/pos-stock/services/st
 - La cantidad se cambia con − / + o **escribiéndola** en la línea. **No hay tope**: si la línea
   pide más de lo que tiene su lote o la farmacia, la línea lo avisa en ámbar y al cobrar el
   servidor completa con otros lotes o sin lote.
-- Cada carrito tiene una **tarifa** (`priceMode`): `regular`, `member` (Health Pass) o
+- Cada carrito tiene una **tarifa** (`priceMode`): `regular`, `member` (la membresía; su nombre comercial sale de
+  `site-config.membershipName` en Strapi) o
   `proveedor` ([pricing.ts](../src/lib/pricing.ts)). Es un solo valor, así que los dos
   switches del panel no pueden quedar encendidos a la vez.
 - El precio de lista de la línea sale de esta prelación:

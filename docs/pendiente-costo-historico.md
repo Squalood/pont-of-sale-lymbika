@@ -73,10 +73,10 @@ conocido ("IVA de línea" y "deriva del catálogo"), y todo lo que no cuadra des
 en **"Revisar"**, que es lo único que mueve el exit code. Ese cubo debe quedar en cero; si algo
 aparece ahí ya no puede ser deriva, así que es un precio tecleado a mano o una anomalía real.
 
-El experimento decisivo es el de Marco al revés: vender un producto gravado en Health Pass,
+El experimento decisivo es el de Marco al revés: vender un producto gravado con membresía,
 cambiarle el `priceMember` en Strapi, exportar, y confirmar que la fila no se movió.
 
-El script solo audita Health Pass y Proveedor: en Mostrador no hay un valor esperado contra el
+El script solo audita membresía y Proveedor: en Mostrador no hay un valor esperado contra el
 cual comparar, así que ahí la deriva no se detecta automáticamente.
 
 ## Limpieza futura

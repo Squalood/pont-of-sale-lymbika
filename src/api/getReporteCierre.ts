@@ -91,7 +91,7 @@ export async function fetchReporteCierre(pharmacyId: string, fechaCaja?: string)
       pagos.efectivoUSD += usd;
     }
     // La terminal cobra base + recargo, así que el cuadre suma ambos. Antes la rama
-    // `mixto` sumaba solo la base y el corte salía corto en ventas Health Pass.
+    // `mixto` sumaba solo la base y el corte salía corto en ventas con membresía.
     if (v.metodoPago === "tarjeta" || v.metodoPago === "mixto") {
       pagos.tarjeta += ventaCardCharged(v);
     }

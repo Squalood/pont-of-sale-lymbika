@@ -6,7 +6,7 @@ import { Pencil, X } from "lucide-react";
 interface PriceEditorProps {
   displayPrice: number;
   hasOverride: boolean;
-  /** La tarifa no es la de mostrador (Health Pass o proveedor): se resalta el precio. */
+  /** La tarifa no es la de mostrador (membresía o proveedor): se resalta el precio. */
   specialPrice: boolean;
   itemKey: string;
   onUpdatePrice: (itemKey: string, newPrice: number | undefined) => void;

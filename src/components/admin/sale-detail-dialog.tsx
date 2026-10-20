@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, RotateCcw, NotebookPen, BadgePercent, FileText, Building2 } from "lucide-react";
 import { VentaType } from "@/types/venta";
 import { printReceipt } from "@/lib/print-receipt";
+import { useMembershipName } from "@/api/getSiteConfig";
 import { ventaCardCharged, ventaCardSurcharge } from "@/lib/checkout-math";
 import { feeSumaAlTotal } from "@/lib/tax";
 import { MANAGEMENT_FEE_RATE } from "@/lib/pricing";
@@ -37,6 +38,7 @@ interface SaleDetailDialogProps {
 export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: SaleDetailDialogProps) {
   const [returnOpen, setReturnOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const membershipName = useMembershipName();
 
   if (!venta) return null;
 
@@ -81,6 +83,7 @@ export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: Sal
       change: venta!.cambio,
       fecha: venta!.fecha,
       isMember: venta!.esMembresia ?? false,
+      membershipName,
       managementFee,
       cardSurcharge,
       montoTarjeta: cardBase,
@@ -139,7 +142,7 @@ export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: Sal
               {venta.esMembresia && (
                 <div className="col-span-2 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
                   <BadgePercent className="h-4 w-4 shrink-0" />
-                  <span className="text-sm font-medium">Venta con Health Pass</span>
+                  <span className="text-sm font-medium">Venta con {membershipName}</span>
                 </div>
               )}
               {venta.esProveedor && (
@@ -248,7 +251,7 @@ export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: Sal
             {cardSurcharge > 0 && (
               <>
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Subtotal Health Pass</span>
+                  <span>Subtotal {membershipName}</span>
                   <span>${baseTotal.toFixed(2)}</span>
                 </div>
                 {venta.metodoPago === "mixto" && (

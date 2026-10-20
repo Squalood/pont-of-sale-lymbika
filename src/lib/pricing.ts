@@ -2,7 +2,7 @@ import type { CartItem, ProductType } from "@/types/product";
 
 /**
  * Tarifa con la que se cotiza un carrito. Es un solo valor y no tres banderas, así que
- * "Health Pass" y "Precio de proveedor" no pueden quedar activos a la vez.
+ * La membresía y "Precio de proveedor" no pueden quedar activos a la vez.
  *
  * `proveedor` cotiza con `priceMember` porque todavía no existe `priceProveedor` en el
  * backend; el día que exista, solo cambia `productUnitPrice`.

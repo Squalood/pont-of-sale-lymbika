@@ -1,6 +1,6 @@
 import type { MetodoPago } from "@/types/venta";
 
-/** Recargo que se cobra al cliente Health Pass por pagar con tarjeta. */
+/** Recargo que se cobra al cliente con membresía por pagar con tarjeta. */
 export const CARD_SURCHARGE_RATE = 0.03;
 
 /** Tolerancia al comparar montos en pesos, para que un centavo flotante no deje la venta como incompleta. */
@@ -19,7 +19,7 @@ export interface ChargeBreakdown {
   cash: number;
   /** Dólares recibidos, sin convertir. */
   usd: number;
-  /** Lo que se pasa en la terminal: incluye el recargo si el carrito es Health Pass. */
+  /** Lo que se pasa en la terminal: incluye el recargo si el carrito es de membresía. */
   cardSwipe: number;
   /** Porción del swipe que cubre el total de la venta (swipe − recargo). */
   cardBase: number;

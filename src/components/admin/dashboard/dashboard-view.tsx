@@ -19,6 +19,7 @@ import {
   exportVentasPorProductoCSV,
   type CsvNaming,
 } from "@/lib/dashboard-csv";
+import { useMembershipName } from "@/api/getSiteConfig";
 import { csvStamp } from "@/lib/csv";
 import { resolveRange, type Period } from "@/lib/date-range";
 import { fmtInt } from "@/lib/format";
@@ -52,6 +53,7 @@ export function DashboardView({
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [pharmacyId, setPharmacyId] = useState(TODAS);
   const [operador, setOperador] = useState(TODOS);
+  const membershipName = useMembershipName();
 
   function handlePeriod(p: Period) {
     setPeriod(p);
@@ -116,9 +118,9 @@ export function DashboardView({
 
       <VentasSection
         data={data}
-        onExport={() => exportVentasCSV(data.ventasFiltradas, naming)}
+        onExport={() => exportVentasCSV(data.ventasFiltradas, naming, membershipName)}
         onExportPorProducto={() =>
-          exportVentasPorProductoCSV(data.ventasFiltradas, productsById, naming)
+          exportVentasPorProductoCSV(data.ventasFiltradas, productsById, naming, membershipName)
         }
         porProductoDisabled={loadingProducts}
       />

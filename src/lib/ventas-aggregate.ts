@@ -68,7 +68,7 @@ export function accumulatePago(pagos: PagosResumen, v: VentaPagoRow): void {
     pagos.efectivoMXN += recibidoMXN - (v.cambio ?? 0);
     pagos.efectivoUSD += usd;
   }
-  // La terminal cobra base + recargo Health Pass, así que el cuadre suma ambos.
+  // La terminal cobra base + recargo de membresía, así que el cuadre suma ambos.
   if (v.metodoPago === "tarjeta" || v.metodoPago === "mixto") {
     pagos.tarjeta += ventaCardCharged(v);
   }

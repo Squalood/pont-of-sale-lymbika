@@ -23,6 +23,8 @@ interface ReceiptData {
   fecha?: Date | string;
   pharmacyName?: string;
   isMember?: boolean;
+  /** Nombre comercial de la membresía (`useMembershipName`). */
+  membershipName: string;
   /** Solo marca la venta como de proveedor: el fee ya está dentro del precio de cada línea. */
   managementFee?: number;
   cardSurcharge?: number;
@@ -53,6 +55,7 @@ export function buildReceiptHtml(data: ReceiptData): string {
     received,
     change,
     isMember,
+    membershipName,
     managementFee = 0,
     cardSurcharge = 0,
     montoTarjeta = 0,
@@ -259,7 +262,7 @@ export function buildReceiptHtml(data: ReceiptData): string {
           }
           return rows.join("");
         })()}
-        ${isMember ? `<div class="row member-note"><span>&#9733; Precio Health Pass</span></div>` : ""}
+        ${isMember ? `<div class="row member-note"><span>&#9733; Precio ${membershipName}</span></div>` : ""}
         ${managementFee > 0 ? `<div class="row member-note"><span>&#9670; Precio de proveedor</span></div>` : ""}
         ${feeEsCargo ? `<div class="row"><span>Management fee</span><span>+$${managementFee.toFixed(2)}</span></div>` : ""}
         ${surchargeCents > 0 ? `<div class="row"><span>Cargo tarjeta (3%)</span><span>+$${(surchargeCents / 100).toFixed(2)}</span></div>` : ""}

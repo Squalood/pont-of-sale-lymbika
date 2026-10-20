@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/chart";
 import { SinDatos } from "@/components/admin/dashboard/charts/sin-datos";
 import { fmtMoney } from "@/lib/format";
+import { useMembershipName } from "@/api/getSiteConfig";
 import type { PagosResumen } from "@/lib/ventas-aggregate";
 
 const PAGO_SLOTS = [
@@ -34,6 +35,7 @@ interface MetodosPagoChartProps {
 }
 
 export function MetodosPagoChart({ pagos, className }: MetodosPagoChartProps) {
+  const membershipName = useMembershipName();
   // El USD queda fuera de la barra: está en dólares sin convertir, y apilarlo con pesos
   // mentiría sobre las proporciones. Va como fila aparte en la lista.
   const enBarra = PAGO_SLOTS.map((s) => ({ ...s, value: pagos[s.key] }));
@@ -53,7 +55,7 @@ export function MetodosPagoChart({ pagos, className }: MetodosPagoChartProps) {
       <CardHeader>
         <CardTitle>Métodos de pago</CardTitle>
         <CardDescription>
-          Montos cobrados (la tarjeta incluye el recargo Health Pass del 3%).
+          Montos cobrados (la tarjeta incluye el recargo {membershipName} del 3%).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

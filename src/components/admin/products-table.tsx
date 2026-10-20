@@ -14,6 +14,7 @@ import {
   type SortDir,
 } from "@/api/getProductsPage";
 import { useGetCategoryNames } from "@/api/getCategories";
+import { useMembershipName } from "@/api/getSiteConfig";
 import {
   IMPUESTO_OPTIONS,
   impuestoLabel,
@@ -113,6 +114,7 @@ type RowDraft = {
 
 export function ProductsTable() {
   const [query, setQuery] = useState<ProductsQuery>(INITIAL_QUERY);
+  const membershipName = useMembershipName();
   const [searchInput, setSearchInput] = useState("");
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [draft, setDraft] = useState<RowDraft | null>(null);
@@ -326,7 +328,7 @@ export function ProductsTable() {
                 Precio final
               </TableHead>
               <TableHead className="text-right" title="Precio de socio sin impuesto. Es el valor que se guarda y el único editable.">
-                Health Pass s/IVA
+                {membershipName} s/IVA
               </TableHead>
               <TableHead className="text-right" title="Suma de bodega y todas las farmacias">Stock total</TableHead>
               <TableHead className="text-center">IVA</TableHead>
@@ -444,7 +446,7 @@ export function ProductsTable() {
                     </span>
                   </TableCell>
 
-                  {/* Precio Health Pass */}
+                  {/* Precio de membresía */}
                   <TableCell className="text-right">
                     {isEditing && draft ? (
                       <Input

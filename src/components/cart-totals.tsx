@@ -3,6 +3,7 @@ import { BadgePercent, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MANAGEMENT_FEE_RATE, impuestoLabel, type PriceMode } from "@/lib/pricing";
 import type { IvaBreakdown } from "@/lib/tax";
+import { useMembershipName } from "@/api/getSiteConfig";
 
 interface CartTotalsProps {
   subtotal: number;
@@ -16,6 +17,7 @@ interface CartTotalsProps {
 }
 
 export function CartTotals({ subtotal, total, ahorro, priceMode, ivaBreakdown, tipoCambio, onCheckout }: CartTotalsProps) {
+  const membershipName = useMembershipName();
 
   return (
     <div className="border-t px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -43,7 +45,7 @@ export function CartTotals({ subtotal, total, ahorro, priceMode, ivaBreakdown, t
           <>
             <span className="flex items-center gap-1 text-emerald-600">
               <BadgePercent className="h-3 w-3" />
-              Ahorro Health Pass
+              Ahorro {membershipName}
             </span>
             <span className="text-right tabular-nums text-emerald-600">-${ahorro.toFixed(2)}</span>
             <span className="text-right tabular-nums text-emerald-600">-${(ahorro / tipoCambio).toFixed(2)}</span>

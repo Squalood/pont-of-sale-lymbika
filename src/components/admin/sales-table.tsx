@@ -33,6 +33,7 @@ import { SaleDetailDialog } from "@/components/admin/sale-detail-dialog";
 import { VentaType } from "@/types/venta";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
+import { useMembershipName } from "@/api/getSiteConfig";
 
 interface SalesTableProps {
   ventas: VentaType[];
@@ -62,6 +63,7 @@ export function SalesTable({ ventas }: SalesTableProps) {
   const { pharmacyId: currentPharmacy } = useCaja();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const membershipName = useMembershipName();
 
   useEffect(() => { setCurrentOperador(getUser()?.username ?? null); }, []);
 
@@ -224,7 +226,7 @@ export function SalesTable({ ventas }: SalesTableProps) {
                         {venta.esMembresia && (
                           <Badge className="gap-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200 font-normal text-xs px-1.5 py-0">
                             <BadgePercent className="h-3 w-3" />
-                            Health Pass
+                            {membershipName}
                           </Badge>
                         )}
                         {venta.esProveedor && (

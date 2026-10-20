@@ -9,6 +9,7 @@ import { itemImpuesto, type PriceMode } from "@/lib/pricing";
 import type { IvaBreakdown } from "@/lib/tax";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
+import { useMembershipName } from "@/api/getSiteConfig";
 import type { MetodoPago } from "@/types/venta";
 
 interface UseCheckoutParams {
@@ -42,6 +43,7 @@ export function useCheckout({
   setSaleResult,
 }: UseCheckoutParams) {
   const { caja, refetchEfectivo } = useCaja();
+  const membershipName = useMembershipName();
   const isMember = priceMode === "member";
 
   async function handleConfirm(
@@ -177,6 +179,7 @@ export function useCheckout({
       received,
       change: change > 0 ? change : 0,
       isMember,
+      membershipName,
       managementFee,
 
       cardSurcharge,
