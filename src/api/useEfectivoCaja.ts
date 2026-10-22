@@ -14,17 +14,17 @@ export interface EfectivoCaja {
   ventasTransfe: number;
 }
 
-export function useEfectivoCaja(fondoInicial: number | null, pharmacyId: string | null) {
+// Desde la apertura y no desde la medianoche: si la farmacia cierra y reabre en el día, la caja
+// nueva no debe heredar las ventas que ya se arquearon en la anterior.
+export function useEfectivoCaja(fondoInicial: number | null, pharmacyId: string | null, desde: string | null) {
   const [result, setResult] = useState<EfectivoCaja | null>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchEfectivo = useCallback(async () => {
-    if (fondoInicial === null || !pharmacyId) return;
+    if (fondoInicial === null || !pharmacyId || !desde) return;
     setLoading(true);
 
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const fechaDesde = hoy.toISOString();
+    const fechaDesde = new Date(desde).toISOString();
     const pharmacyFilter = `&filters[pharmacies][documentId][$eq]=${pharmacyId}`;
 
     try {
@@ -95,7 +95,7 @@ export function useEfectivoCaja(fondoInicial: number | null, pharmacyId: string 
     } finally {
       setLoading(false);
     }
-  }, [fondoInicial, pharmacyId]);
+  }, [fondoInicial, pharmacyId, desde]);
 
   useEffect(() => {
     fetchEfectivo();

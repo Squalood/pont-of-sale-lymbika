@@ -53,7 +53,7 @@ export function ResumenCierreScreen({ data }: ResumenCierreScreenProps) {
     if (!pharmacyId) return;
     setPrintLoading(tipo);
     try {
-      const reporte = await fetchReporteCierre(pharmacyId);
+      const reporte = await fetchReporteCierre(pharmacyId, data.apertura, data.cierre);
       if (tipo === "detallado") printCierre(data, reporte);
       else printCierreTicket(data, reporte.pagos);
     } finally {

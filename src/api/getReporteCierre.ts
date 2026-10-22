@@ -21,24 +21,10 @@ export interface ReporteCierreData {
   productos: ProductoResumen[];
 }
 
-export async function fetchReporteCierre(pharmacyId: string, fechaCaja?: string): Promise<ReporteCierreData> {
-  let fechaDesde: string;
-  let fechaHasta: string | null = null;
-
-  if (fechaCaja) {
-    const d = new Date(fechaCaja);
-    d.setHours(0, 0, 0, 0);
-    fechaDesde = d.toISOString();
-    const d2 = new Date(d);
-    d2.setDate(d2.getDate() + 1);
-    fechaHasta = d2.toISOString();
-  } else {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    fechaDesde = hoy.toISOString();
-  }
-
-  const fechaHastaFilter = fechaHasta ? `&filters[fecha][$lt]=${fechaHasta}` : "";
+/** Las ventas de una caja: de su apertura a su cierre (sin `hasta`, hasta ahora). */
+export async function fetchReporteCierre(pharmacyId: string, desde: string, hasta?: string | null): Promise<ReporteCierreData> {
+  const fechaDesde = new Date(desde).toISOString();
+  const fechaHastaFilter = hasta ? `&filters[fecha][$lte]=${new Date(hasta).toISOString()}` : "";
 
   const url =
     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ventas-pos` +

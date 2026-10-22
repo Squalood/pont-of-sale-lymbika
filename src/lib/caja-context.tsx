@@ -53,6 +53,7 @@ export function CajaProvider({ children }: { children: React.ReactNode }) {
   const { result: efectivo, refetch: refetchEfectivo } = useEfectivoCaja(
     result?.fondoInicial ?? null,
     result?.pharmacy?.documentId ?? null,
+    result?.fecha ?? null,
   );
 
   return (

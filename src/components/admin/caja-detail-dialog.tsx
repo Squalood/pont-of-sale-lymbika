@@ -91,7 +91,11 @@ export function CajaDetailDialog({ caja, open, onClose }: CajaDetailDialogProps)
         finalTransfe: caja.finalTransfe ?? 0,
         diffTransfe: caja.diffTransfe ?? 0,
       };
-      const reporte = await fetchReporteCierre(caja.pharmacy.documentId, caja.fecha);
+      // El auto-cierre ocurre al día siguiente: su `closedAt` no marca el fin de las ventas.
+      const finDelDia = new Date(caja.fecha);
+      finDelDia.setHours(23, 59, 59, 999);
+      const hasta = isAutoCierre || !caja.closedAt ? finDelDia.toISOString() : caja.closedAt;
+      const reporte = await fetchReporteCierre(caja.pharmacy.documentId, caja.fecha, hasta);
       printCierre(resumenData, reporte);
     } catch (e) {
       console.error("Error al generar PDF:", e);
