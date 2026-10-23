@@ -21,5 +21,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|logo.svg|.*\\.svg).*)"],
+  // manifest.webmanifest y los PNG van sin cookies cuando Chrome instala la app
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.svg|.*\\.png).*)"],
 };
