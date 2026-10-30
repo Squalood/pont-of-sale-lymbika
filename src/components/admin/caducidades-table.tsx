@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Download, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -334,7 +335,15 @@ export function CaducidadesTable({ lotes, refetch }: CaducidadesTableProps) {
                       )}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{loteLocationName(l)}</TableCell>
-                    <TableCell className="font-mono text-xs">{l.lotNumber}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      <Link
+                        href={`/admin/lotes?lote=${encodeURIComponent(l.documentId)}`}
+                        className="hover:text-primary hover:underline"
+                        title="Rastrear este lote: existencia y ventas"
+                      >
+                        {l.lotNumber}
+                      </Link>
+                    </TableCell>
                     <TableCell>
                       {hasRealExpiration(l) ? (
                         fmtDate(l.expirationDate)

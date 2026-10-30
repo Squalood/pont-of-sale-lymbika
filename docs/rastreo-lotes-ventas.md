@@ -28,7 +28,7 @@ La venta ya congelaba por línea el lote que **eligió el cajero** (`lotDocument
 | 1 | Mostrar el lote en el detalle de la venta y en la reimpresión | **Hecho** (commit `e4d115a`) |
 | 2 | Buscar en el historial por producto o número de lote, y columna Folio | **Hecho** (commit `e4d115a`) |
 | 3 | Guardar en la venta los lotes que de verdad salieron (`dispensedLots`) | **Hecho y probado en dev-local**, falta subir |
-| 4 | Vista "Ventas de este lote" (trazabilidad inversa, para retiros de lote) | Pendiente |
+| 4 | Página **Rastreo de lotes** (trazabilidad inversa, para retiros de lote) | **Hecho**; backend probado en dev-local, UI sin probar en navegador; falta subir |
 | 5 | Que la devolución regrese al lote original | Pendiente, opcional |
 
 ---
@@ -115,6 +115,59 @@ Decisiones:
 
 ---
 
+## 4b. Paso 4 — Rastreo de lotes (`/admin/lotes`)
+
+La pregunta de un retiro de lote: **"¿a quién se le vendió este lote, y cuánto queda?"**.
+
+### Por qué una página y no un botón en Caducidades
+
+Caducidades solo lista lotes `activo` y `vencido`. Los **agotados** —los que ya se vendieron
+completos, justo los que importan en un retiro— no aparecen en ninguna pantalla. La página
+busca en todos los estados.
+
+### Backend: `GET /api/pos-stock/lot-trace?lot=<documentId>` (`lotTrace` en stock-core.ts)
+
+**Requiere habilitar la acción `lotTrace`** para Authenticated (Settings → Users &
+Permissions → Roles → Pos-stock), en dev-local y en producción. Sin ella, la página muestra el
+mensaje de permiso.
+
+1. **Lote físico** = todos los registros del mismo producto con el mismo número. Un traspaso
+   parcial parte el lote en dos registros; también hay compras distintas que capturaron el
+   mismo número (se juntan, que es lo correcto para un retiro).
+2. **Operaciones**: las de `stock-operation` cuyos `movements` contienen alguno de esos
+   lotes, buscadas en Postgres con `movements::jsonb @> '[{"lotDocumentId": …}]'` (solo
+   Postgres; local y prod lo son). De cada una se queda con los movimientos de este lote.
+3. **Ventas exactas**: las operaciones `sale`; piezas = −Σ delta del lote.
+4. **Ventas anteriores a la bitácora** (antes del 28-sep-2026): las que tienen
+   `venta-item.lotDocumentId` en esos lotes y **no** tienen operación `sale:<id>`. Se marcan
+   `exact: false`. Si la venta sí tiene operación, manda la operación aunque el lote elegido
+   coincida.
+5. Folio = id de la versión **publicada** (`byDocumentPreferPublished`), el mismo que muestra
+   el historial. Las compras traen folio y proveedor.
+
+**No depende de `dispensedLots`**: lee la bitácora directo, así que es exacta desde el
+28-sep-2026 sin rellenar ventas viejas.
+
+### POS
+
+| Archivo | Qué hace |
+|---|---|
+| [app/admin/lotes/page.tsx](../src/app/admin/lotes/page.tsx) | Buscador + rastreo. El lote abierto va en la URL (`?lote=`), por eso se puede enlazar. `useSearchParams` va dentro de `Suspense` para que Next prerenderice. |
+| [api/searchLotes.ts](../src/api/searchLotes.ts) | Busca en `/api/inventory-lots` por número o producto, todos los estados, y agrupa por producto + número. |
+| [components/admin/lot-trace-view.tsx](../src/components/admin/lot-trace-view.tsx) | KPIs (existencia, vendidas, mermadas), registros por ubicación, pestañas **Ventas** y **Movimientos**, CSV de ventas. Cada folio abre el detalle de la venta. |
+| [api/posStock.ts](../src/api/posStock.ts) | `getLotTrace` y sus tipos. |
+| [api/getVentas.ts](../src/api/getVentas.ts) | `fetchVenta(documentId)`: una venta con el mismo populate del historial. |
+| Menú | Inventario → **Rastreo de lotes**. |
+| Atajos | El lote en el detalle de una venta y en Caducidades enlaza a `/admin/lotes?lote=…`. |
+
+Decisiones de la vista:
+- **Ventas canceladas** se listan con su badge, pero **no** cuentan en "Piezas vendidas".
+  En un retiro conviene verlas: la cancelación no regresa el stock.
+- "Movimientos" muestra la migración bodega → farmacia del 29-sep con Δ0: el lote cambió de
+  registro, no de cantidad.
+
+---
+
 ## 5. Cómo se probó (30-oct-2026)
 
 Contra la BD **dev-local** de Neon (`ep-twilight-…`; se verificó el host antes de correr), sin
@@ -143,6 +196,18 @@ Además:
 **No se probó:** el recorrido completo en el navegador (cobrar en la caja → historial →
 buscar) y la ruta de error `DISPENSED_NOT_SAVED`.
 
+### Paso 4 (`lotTrace`, solo lectura, dev-local)
+
+| Lote | Resultado |
+|---|---|
+| Labello `L122027` (el de la prueba anterior) | 1 venta (#02373, cancelada), movimientos: la venta y la migración del 29-sep |
+| Agua ciel 1 L `0801` (el lote con más ventas en la bitácora) | 2 registros del mismo número, 32 ventas: 11 exactas y 21 "elegido al cobrar" (anteriores al 28-sep). ~0.6 s |
+| Desvenlafaxina `2601059` | 4 registros; movimientos: compra #00373 de Nadro y la migración |
+| Lote inexistente | 404 `LOT_NOT_FOUND` |
+
+La UI pasó `tsc` y `npm run build` (genera `/admin/lotes`), pero **no se abrió en el
+navegador**, y el endpoint no se llamó por HTTP (solo la función del servicio).
+
 **Efecto en dev-local:** la venta #2373 quedó **cancelada** pero su descuento se aplicó (los dos
 lotes de Labello agotados, la farmacia en −1). Para limpiar: Neon → `dev-local` → "Reset from
 parent".
@@ -153,8 +218,9 @@ parent".
 
 - [ ] Commit y push del **backend** primero. Render, al arrancar, agrega la columna.
       Si `npm run develop` regenera `types/generated`, incluirlo en el commit.
+- [ ] En Strapi de producción: Roles → Authenticated → Pos-stock → habilitar **`lotTrace`**.
 - [ ] Después commit y push del **POS**. Si el POS sube antes no se rompe nada: ve `null` y
-      cae al lote elegido.
+      cae al lote elegido (y Rastreo de lotes muestra el aviso de permiso o de ruta inexistente).
 - [ ] Probar en producción con una venta real de un producto loteado: el ticket y el detalle
       deben mostrar el lote.
 
@@ -168,14 +234,16 @@ parent".
    28-sep-2026 (stock por farmacia). Ojo: la bitácora agrupa por **producto**, no por línea;
    si una venta tiene dos líneas del mismo producto, el reparto entre ellas hay que
    reconstruirlo con la misma regla de `consume()` (preferido primero, luego FEFO).
-2. **Paso 4 pendiente: "Ventas de este lote".** Desde Caducidades o Stock por farmacia: en qué
-   folios, fechas y farmacia salió un lote, y cuántas piezas. Es lo que se necesita ante un
-   retiro de lote. Depende de `dispensedLots` para ser exacta.
-3. **El historial carga como máximo 5000 ventas** (`getVentas`, filtrado en cliente). Para
-   retiros que vayan más atrás, la búsqueda por lote tendría que ir al backend.
-4. **Los CSV de ventas no tienen columnas de lote.** Agregarlas al archivo por producto sería
+2. **Rastreo de lotes antes del 28-sep-2026 es aproximado**: solo se sabe el lote elegido. No
+   hay de dónde sacar más: antes de la bitácora el POS escribía los lotes sin registro.
+3. **El historial de ventas carga como máximo 5000 ventas** (filtrado en cliente). Para
+   retiros, usar **Rastreo de lotes**, que busca en el backend sin ese tope (el respaldo de
+   ventas sin bitácora sí tiene `limit: 5000`).
+4. **El buscador de lotes trae hasta 100 registros**: con un término muy genérico ("a") pueden
+   faltar lotes; basta con escribir más.
+5. **Los CSV de ventas no tienen columnas de lote.** Agregarlas al archivo por producto sería
    natural: una fila por porción de lote.
-5. **La devolución no regresa al lote** (paso 5): el rastro se corta ahí y deja descuadre
+6. **La devolución no regresa al lote** (paso 5): el rastro se corta ahí y deja descuadre
    entre stock y lotes.
-6. **El ticket en vivo** solo trae reparto si el descuento se aplicó en el momento; si quedó en
+7. **El ticket en vivo** solo trae reparto si el descuento se aplicó en el momento; si quedó en
    la cola, imprime el lote elegido (el historial sí se corrige cuando el reintento pasa).

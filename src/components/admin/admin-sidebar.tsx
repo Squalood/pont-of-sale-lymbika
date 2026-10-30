@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Receipt, Package, ArrowLeft, LogOut, Settings, RotateCcw, ShoppingBag, Vault, FileText, CalendarClock, Warehouse, ArrowLeftRight } from "lucide-react";
+import { LayoutDashboard, Receipt, Package, ArrowLeft, LogOut, Settings, RotateCcw, ShoppingBag, Vault, FileText, CalendarClock, Warehouse, ArrowLeftRight, ScanSearch } from "lucide-react";
 import { clearAuth } from "@/lib/auth";
 
 // Dos bloques: lo que pasa en caja (ventas, dinero) y lo que hay en anaqueles (inventario).
@@ -25,6 +25,7 @@ const navGroups = [
       { href: "/admin/traspasos", label: "Traspasos", icon: ArrowLeftRight },
       { href: "/admin/stock", label: "Stock por farmacia", icon: Warehouse },
       { href: "/admin/caducidades", label: "Caducidades", icon: CalendarClock },
+      { href: "/admin/lotes", label: "Rastreo de lotes", icon: ScanSearch },
     ],
   },
 ];

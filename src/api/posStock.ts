@@ -210,6 +210,68 @@ export interface LocationLevelItem {
   lotsCount: number;
 }
 
+/** Un registro del lote físico (un traspaso parcial lo parte en uno por ubicación). */
+export interface LotTraceLocation {
+  documentId: string;
+  /** "bodega" o el documentId de la farmacia. */
+  location: string;
+  locationName: string;
+  currentAmount: number;
+  initialQuantity: number | null;
+  discardedQuantity: number | null;
+  state: "activo" | "agotado" | "vencido";
+}
+
+export interface LotTraceSale {
+  ventaDocumentId: string;
+  folio: number | null;
+  fecha: string | null;
+  estado: "completada" | "cancelada" | null;
+  operador: string | null;
+  pharmacyName: string | null;
+  /** Piezas de este lote en la venta. */
+  quantity: number;
+  /** false = venta anterior a la bitácora: solo se sabe el lote que eligió el cajero. */
+  exact: boolean;
+}
+
+export interface LotTraceMovement {
+  opKey: string;
+  kind: "sale" | "return" | "purchase" | "transfer" | "adjust" | "discard" | "migration" | string;
+  refType: string | null;
+  refDocumentId: string | null;
+  notes: string | null;
+  fecha: string;
+  moves: { lotDocumentId: string; location: string; locationName: string; delta: number }[];
+  /** Σ de los movimientos sobre este lote. Un traspaso entre registros del mismo lote da 0. */
+  delta: number;
+  /** Folio de la venta o la compra. */
+  folio: number | null;
+  /** Proveedor, en las compras. */
+  refLabel: string | null;
+}
+
+export interface LotTrace {
+  lot: {
+    documentId: string;
+    lotNumber: string | null;
+    expirationDate: string | null;
+    product: { documentId: string; productName: string } | null;
+  };
+  locations: LotTraceLocation[];
+  /** Más reciente primero. */
+  sales: LotTraceSale[];
+  /** Más reciente primero. */
+  movements: LotTraceMovement[];
+}
+
+/**
+ * Historia de un lote físico (mismo producto y número): existencia por ubicación, ventas en que
+ * salió y movimientos de la bitácora. Exacto desde el 28-sep-2026.
+ */
+export const getLotTrace = (lotDocumentId: string) =>
+  call<LotTrace>(`/lot-trace?lot=${encodeURIComponent(lotDocumentId)}`);
+
 export const getStockLevels = (location: StockLocation) =>
   call<{ location: string; minStockDefault: number; items: LocationLevelItem[] }>(
     `/levels?pharmacy=${encodeURIComponent(location ?? "bodega")}`

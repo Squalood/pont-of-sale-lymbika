@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -40,12 +41,16 @@ interface SaleDetailDialogProps {
  * Lotes de la línea, uno por renglón. Sin reparto del servidor solo se conoce el lote que eligió
  * el cajero, y se marca así porque pudo haberse completado con otros.
  */
-function lotLines(item: VentaItemType): string[] {
+function lotLines(item: VentaItemType): { text: string; lotDocumentId: string | null }[] {
   const { lots, exact } = lineLots(item);
   if (!exact) {
-    return [item.lotNumber ? `${lotPortionLabel(lots[0], false)} (elegido al cobrar)` : "Sin lote registrado"];
+    return [
+      item.lotNumber
+        ? { text: `${lotPortionLabel(lots[0], false)} (elegido al cobrar)`, lotDocumentId: lots[0].lotDocumentId }
+        : { text: "Sin lote registrado", lotDocumentId: null },
+    ];
   }
-  return lots.map((l) => lotPortionLabel(l, lots.length > 1));
+  return lots.map((l) => ({ text: lotPortionLabel(l, lots.length > 1), lotDocumentId: l.lotDocumentId }));
 }
 
 export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: SaleDetailDialogProps) {
@@ -235,9 +240,20 @@ export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: Sal
                     <TableCell className="max-w-48">
                       <p className="truncate">{item.productName}</p>
                       {item.type === "product" &&
-                        lotLines(item).map((text, j) => (
-                          <p key={j} className="truncate text-xs text-muted-foreground">{text}</p>
-                        ))}
+                        lotLines(item).map((l, j) =>
+                          l.lotDocumentId ? (
+                            <Link
+                              key={j}
+                              href={`/admin/lotes?lote=${encodeURIComponent(l.lotDocumentId)}`}
+                              className="block truncate text-xs text-muted-foreground hover:text-primary hover:underline"
+                              title="Ver en qué otras ventas salió este lote"
+                            >
+                              {l.text}
+                            </Link>
+                          ) : (
+                            <p key={j} className="truncate text-xs text-muted-foreground">{l.text}</p>
+                          )
+                        )}
                     </TableCell>
                     <TableCell className="text-center">{item.quantity}</TableCell>
                     <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
