@@ -30,7 +30,8 @@ import {
 } from "@/components/ui/table";
 import { BadgePercent, Building2 } from "lucide-react";
 import { SaleDetailDialog } from "@/components/admin/sale-detail-dialog";
-import { VentaType } from "@/types/venta";
+import { VentaItemType, VentaType } from "@/types/venta";
+import { normalize } from "@/lib/search";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
 import { useMembershipName } from "@/api/getSiteConfig";
@@ -52,6 +53,22 @@ function getPageNumbers(current: number, total: number): (number | "…")[] {
 }
 
 type Period = "hoy" | "semana" | "mes" | "todo";
+
+/** Texto de una línea contra el que se busca: producto y número de lote, ya normalizados. */
+function lineHaystack(item: VentaItemType): string {
+  return normalize(`${item.productName ?? ""}\n${item.lotNumber ?? ""}`);
+}
+
+/**
+ * Cómo se interpreta lo tecleado. Solo dígitos → folio, pero también producto o lote, porque
+ * hay números de lote puramente numéricos. Con `#` delante → solo folio.
+ */
+function parseSearch(raw: string): { folio: string | null; term: string | null } {
+  const t = raw.trim();
+  if (!t) return { folio: null, term: null };
+  if (t.startsWith("#")) return { folio: t.slice(1), term: null };
+  return { folio: /^\d+$/.test(t) ? t : null, term: normalize(t) };
+}
 
 export function SalesTable({ ventas }: SalesTableProps) {
   const [period, setPeriod] = useState<Period>("hoy");
@@ -96,6 +113,22 @@ export function SalesTable({ ventas }: SalesTableProps) {
       ? currentPharmacy
       : "todas");
 
+  // Se normaliza una vez por carga y no en cada pulsación: son hasta 5000 ventas con sus líneas.
+  const lineIndex = useMemo(() => {
+    const map = new Map<number, string[]>();
+    for (const v of ventas) map.set(v.id, (v.venta ?? []).map(lineHaystack));
+    return map;
+  }, [ventas]);
+
+  const { folio: folioQuery, term: termQuery } = parseSearch(search);
+
+  /** Líneas de la venta que coinciden con el producto o lote buscado. */
+  function matchingLines(v: VentaType): VentaItemType[] {
+    if (!termQuery) return [];
+    const hay = lineIndex.get(v.id) ?? [];
+    return (v.venta ?? []).filter((_, i) => hay[i]?.includes(termQuery));
+  }
+
   const filteredVentas = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -120,10 +153,13 @@ export function SalesTable({ ventas }: SalesTableProps) {
       })();
       const matchesOperador = operadorFilter === "todos" || v.operador === operadorFilter;
       const matchesPharmacy = pharmacyFilter === "todas" || v.pharmacies?.[0]?.documentId === pharmacyFilter;
-      const matchesSearch = search === "" || String(v.id).padStart(5, "0").includes(search.replace(/^#/, ""));
+      const matchesSearch =
+        (folioQuery === null && termQuery === null) ||
+        (folioQuery !== null && String(v.id).padStart(5, "0").includes(folioQuery)) ||
+        (termQuery !== null && (lineIndex.get(v.id) ?? []).some((h) => h.includes(termQuery)));
       return matchesPeriod && matchesOperador && matchesPharmacy && matchesSearch;
     });
-  }, [ventas, period, operadorFilter, pharmacyFilter, search]);
+  }, [ventas, period, operadorFilter, pharmacyFilter, folioQuery, termQuery, lineIndex]);
 
   const totalPages = Math.max(1, Math.ceil(filteredVentas.length / PAGE_SIZE));
   const paginatedVentas = filteredVentas.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -134,10 +170,10 @@ export function SalesTable({ ventas }: SalesTableProps) {
         <h2 className="text-lg font-semibold">Historial de ventas</h2>
         <div className="flex items-center gap-3">
           <Input
-            placeholder="Buscar por # recibo"
+            placeholder="Folio, producto o lote"
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
-            className="w-44 h-8 text-sm"
+            className="w-56 h-8 text-sm"
           />
           {pharmacias.length > 1 && (
             <Select value={pharmacyFilter} onValueChange={handlePharmacy}>
@@ -182,8 +218,10 @@ export function SalesTable({ ventas }: SalesTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Folio</TableHead>
               <TableHead>Fecha / Hora</TableHead>
               <TableHead className="text-center"># Items</TableHead>
+              {termQuery && <TableHead>Coincide</TableHead>}
               <TableHead>Método</TableHead>
               <TableHead>Operador</TableHead>
               <TableHead>Sucursal</TableHead>
@@ -194,8 +232,10 @@ export function SalesTable({ ventas }: SalesTableProps) {
           <TableBody>
             {filteredVentas.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                  No hay ventas en este período
+                <TableCell colSpan={termQuery ? 9 : 8} className="py-8 text-center text-muted-foreground">
+                  {search.trim()
+                    ? `Ninguna venta de este período coincide con «${search.trim()}».${period !== "todo" ? " Prueba con «Todo»." : ""}`
+                    : "No hay ventas en este período"}
                 </TableCell>
               </TableRow>
             ) : (
@@ -209,6 +249,9 @@ export function SalesTable({ ventas }: SalesTableProps) {
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setSelectedVenta(venta)}
                   >
+                    <TableCell className="font-mono text-sm font-medium">
+                      #{String(venta.id).padStart(5, "0")}
+                    </TableCell>
                     <TableCell>
                       <div className="text-sm font-medium">
                         {fecha.toLocaleDateString("es-MX")}
@@ -218,6 +261,18 @@ export function SalesTable({ ventas }: SalesTableProps) {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">{itemCount}</TableCell>
+                    {termQuery && (
+                      <TableCell className="max-w-64 text-xs">
+                        {matchingLines(venta).map((item, i) => (
+                          <div key={i} className="truncate">
+                            <span>{item.productName}</span>
+                            <span className="text-muted-foreground">
+                              {item.lotNumber ? ` · Lote ${item.lotNumber}` : ""} · ×{item.quantity}
+                            </span>
+                          </div>
+                        ))}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="flex flex-col items-start gap-1">
                         <Badge variant="outline" className="capitalize">

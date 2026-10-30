@@ -19,7 +19,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Printer, RotateCcw, NotebookPen, BadgePercent, FileText, Building2 } from "lucide-react";
-import { VentaType } from "@/types/venta";
+import { VentaItemType, VentaType } from "@/types/venta";
+import { hasRealExpiration } from "@/lib/lotes";
 import { printReceipt } from "@/lib/print-receipt";
 import { useMembershipName } from "@/api/getSiteConfig";
 import { ventaCardCharged, ventaCardSurcharge } from "@/lib/checkout-math";
@@ -33,6 +34,18 @@ interface SaleDetailDialogProps {
   open: boolean;
   onClose: () => void;
   onReturnComplete?: (returnedItems: { productId: number; quantity: number }[]) => void;
+}
+
+/**
+ * Lote con el que se cobró la línea. Es el que eligió el cajero: si no alcanzaba, el servidor
+ * completó con otros lotes por caducidad y ese reparto solo está en la bitácora de stock.
+ */
+function lotLabel(item: VentaItemType): string {
+  if (!item.lotNumber) return "Sin lote registrado";
+  const exp = item.expirationDate;
+  if (!exp || !hasRealExpiration({ expirationDate: exp })) return `Lote ${item.lotNumber}`;
+  const [y, m, d] = exp.split("-");
+  return `Lote ${item.lotNumber} · Cad. ${d}/${m}/${y}`;
 }
 
 export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: SaleDetailDialogProps) {
@@ -74,6 +87,9 @@ export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: Sal
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         totalLine: item.totalLine,
+        // Mismo snapshot que imprimió el ticket original: sin esto la reimpresión salía sin lote.
+        lotNumber: item.lotNumber,
+        expirationDate: item.expirationDate,
       })),
       subtotal,
       iva,
@@ -215,7 +231,12 @@ export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: Sal
               <TableBody>
                 {venta.venta?.map((item, i) => (
                   <TableRow key={i}>
-                    <TableCell className="max-w-48 truncate">{item.productName}</TableCell>
+                    <TableCell className="max-w-48">
+                      <p className="truncate">{item.productName}</p>
+                      {item.type === "product" && (
+                        <p className="truncate text-xs text-muted-foreground">{lotLabel(item)}</p>
+                      )}
+                    </TableCell>
                     <TableCell className="text-center">{item.quantity}</TableCell>
                     <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
                     <TableCell className="text-right">${item.totalLine.toFixed(2)}</TableCell>
