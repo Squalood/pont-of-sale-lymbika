@@ -22,7 +22,7 @@ Variables: `NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_WEBSHOP_URL` (link a la ficha
 - `src/app/api/descargar/route.ts`: proxy de descarga de adjuntos de CloudFront (sin CORS); solo permite `*.cloudfront.net` (anti-SSRF).
 - `src/api/`: un archivo por llamada (`getX` = hook de lectura, `postX`/`patchX`/`putX` = escritura). `src/api/posStock.ts` = cliente de `/api/pos-stock/*`.
 - `src/lib/`: lógica pura (precios, impuestos, cobro, lotes, stock, CSV, impresión de tickets/facturas). `src/hooks/`: `useCheckout`, `useMultiCart`, `useCartTotals`, `usePharmacies`. `src/types/`: tipos por entidad.
-- `docs/`: documentación interna de decisiones; **leer antes de tocar esas áreas**: `flujo-venta.md`, `stock-por-farmacia.md`, `caducidades-mermas.md`, `reportes-csv.md`, `optimizacion-catalogo.md`, `pendiente-costo-historico.md`.
+- `docs/`: documentación interna de decisiones; **leer antes de tocar esas áreas**: `flujo-venta.md`, `stock-por-farmacia.md`, `caducidades-mermas.md`, `reportes-csv.md`, `optimizacion-catalogo.md`, `pendiente-costo-historico.md`, `rastreo-lotes-ventas.md`.
 
 ## Cómo habla con Strapi
 - Siempre con `authFetch` (`src/lib/auth.ts`): agrega `Bearer` con el JWT (`localStorage pos_jwt` + cookie `pos_jwt` de 8 h) y lanza `ForbiddenError` en 403.

@@ -1,4 +1,5 @@
 import { authFetch, ForbiddenError } from "@/lib/auth";
+import type { DispensedLot } from "@/types/venta";
 
 /**
  * Cliente de /api/pos-stock: todas las escrituras de stock pasan por aquí.
@@ -106,6 +107,17 @@ export function newIdemKey(): string {
 
 export const postStockSale = (ventaDocumentId: string) =>
   post<StockOpResult>("/sale", { ventaDocumentId });
+
+/**
+ * Reparto por lote de cada línea de la venta (por posición; `null` en servicios). Solo viene en
+ * la primera aplicación: un reintento duplicado no trae `result`. `runOrQueue` tipa el resultado
+ * como `unknown` porque comparte runner con compras y devoluciones, de ahí la validación.
+ */
+export function saleDispensed(op: StockOpResult | null): (DispensedLot[] | null)[] | null {
+  const result = op?.result;
+  if (typeof result !== "object" || result === null || !("dispensed" in result)) return null;
+  return Array.isArray(result.dispensed) ? result.dispensed : null;
+}
 
 export const postStockReturn = (devolucionDocumentId: string) =>
   post<StockOpResult>("/return", { devolucionDocumentId });

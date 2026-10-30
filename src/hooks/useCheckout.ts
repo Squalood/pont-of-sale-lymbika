@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { CartItem } from "@/types/product";
 import { postVenta } from "@/api/postVenta";
-import type { StockLevel } from "@/api/posStock";
+import { saleDispensed, type StockLevel } from "@/api/posStock";
 import { flushPendingStock, runOrQueue } from "@/lib/pending-stock";
 import { printReceipt } from "@/lib/print-receipt";
 import { CARD_SURCHARGE_RATE } from "@/lib/checkout-math";
@@ -159,17 +159,22 @@ export function useCheckout({
     void flushPendingStock();
     onSaleComplete(items, stock?.levels);
 
+    // Lotes de los que salió de verdad cada línea. Si el descuento quedó en la cola no hay
+    // reparto, y el ticket imprime el lote elegido como antes.
+    const dispensed = saleDispensed(stock);
+
     printReceipt({
       receiptId,
       operador,
       pharmacyName: caja?.pharmacy?.nombre,
-      items: items.map((item) => ({
+      items: items.map((item, i) => ({
         productName: item.type === "product" ? item.product.productName : item.serviceRate.medical_service?.name ?? "",
         quantity: item.quantity,
         unitPrice: getPrice(item),
         totalLine: getPrice(item) * item.quantity,
         lotNumber: item.type === "product" ? item.selectedLot?.lotNumber : undefined,
         expirationDate: item.type === "product" ? item.selectedLot?.expirationDate : undefined,
+        lots: dispensed?.[i] ?? undefined,
       })),
       subtotal,
       iva,

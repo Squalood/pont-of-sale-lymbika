@@ -27,6 +27,17 @@ export interface VentaItem {
   expirationDate?: string | null; // snapshot
 }
 
+/**
+ * Porción de una línea surtida de un lote, tal como la descontó el servidor. `lotDocumentId:
+ * null` = unidades vendidas sin lote que las cubra.
+ */
+export interface DispensedLot {
+  lotDocumentId: string | null;
+  lotNumber: string | null;
+  expirationDate: string | null;
+  quantity: number;
+}
+
 export interface VentaItemType {
   id: number;
   type: "product" | "service";
@@ -45,6 +56,12 @@ export interface VentaItemType {
   lotDocumentId?: string | null;
   lotNumber?: string | null;
   expirationDate?: string | null;
+  /**
+   * Lotes de los que salió de verdad la línea; lo escribe /pos-stock/sale al descontar. `null`
+   * en ventas anteriores al campo o con el descuento aún en la cola: ahí solo se sabe el lote
+   * que eligió el cajero (`lotNumber`). Usar `lineLots` en vez de leerlo directo.
+   */
+  dispensedLots?: DispensedLot[] | null;
   product: {
     id: number;
     documentId: string;

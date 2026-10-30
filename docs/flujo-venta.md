@@ -193,6 +193,20 @@ en una transacción:
 
 Responde los **niveles** resultantes (stock, total y lotes) y los avisos.
 
+**Reparto por lote.** Al terminar, el servidor guarda en cada línea de la venta
+(`venta-item.dispensedLots`) de qué lotes salió de verdad: `[{lotDocumentId, lotNumber,
+expirationDate, quantity}]`, con `lotDocumentId: null` para lo vendido sin lote. El
+`lotNumber` de la línea sigue siendo el lote que **eligió el cajero**; el reparto es lo que
+**salió**, y difieren cuando el lote elegido no alcanzaba. También se devuelve en
+`result.dispensed` (por posición de línea) para que el ticket imprima los lotes reales.
+
+- Se escribe **después** de confirmar la transacción y en las dos versiones de la venta
+  (borrador y publicada). Si esa escritura falla, el stock ya quedó descontado: la venta solo
+  se queda sin reparto (aviso `DISPENSED_NOT_SAVED`) y la bitácora conserva los movimientos.
+- `null` = no se sabe: ventas anteriores al campo (2026-10-30), o mientras el descuento siga
+  en la cola (se llena cuando el reintento lo aplica).
+  El POS cae al lote elegido y lo marca "(elegido al cobrar)" ([venta-lotes.ts](../src/lib/venta-lotes.ts)).
+
 Si la llamada falla (red, servidor caído), la venta ya quedó registrada: el movimiento va a la
 **cola de pendientes** ([pending-stock.ts](../src/lib/pending-stock.ts), `localStorage`
 `pos_pending_stock`) y se reintenta al abrir el POS y tras cada venta. Es seguro porque la

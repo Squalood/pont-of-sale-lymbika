@@ -8,6 +8,22 @@ export interface ReceiptItem {
   totalLine: number;
   lotNumber?: string | null;
   expirationDate?: string | null;
+  /**
+   * Lotes de los que salió de verdad la línea (reparto del servidor). Si viene, manda sobre
+   * `lotNumber`/`expirationDate`, que son solo el lote que eligió el cajero.
+   */
+  lots?: { lotNumber: string | null; expirationDate: string | null; quantity: number }[];
+}
+
+/** "Lote: X · Cad: 2027-03-15", con "×n" cuando la línea salió de más de un lote. */
+function lotText(
+  lot: { lotNumber?: string | null; expirationDate?: string | null; quantity?: number },
+  withQty: boolean
+): string {
+  const qty = withQty && lot.quantity !== undefined ? ` ×${lot.quantity}` : "";
+  const parts = [lot.lotNumber ? `Lote: ${lot.lotNumber}${qty}` : withQty ? `Sin lote${qty}` : ""];
+  if (lot.lotNumber && lot.expirationDate && lot.expirationDate < "2099-01-01") parts.push(`Cad: ${lot.expirationDate}`);
+  return parts.filter(Boolean).join(" · ");
 }
 
 interface ReceiptData {
@@ -87,12 +103,16 @@ export function buildReceiptHtml(data: ReceiptData): string {
   const itemsHtml = items
     .map(
       (item) => {
-        const lotParts = [];
-        if (item.lotNumber) lotParts.push(`Lote: ${item.lotNumber}`);
-        if (item.expirationDate && item.expirationDate < "2099-01-01") lotParts.push(`Cad: ${item.expirationDate}`);
-        const lotLine = lotParts.length
-          ? `<tr><td colspan="4" style="text-align:left; font-size:9px; color:#555; padding:0 0 2px 0;">${lotParts.join(" · ")}</td></tr>`
-          : "";
+        const lotTexts = item.lots?.length
+          ? item.lots.map((l) => lotText(l, item.lots!.length > 1))
+          : [lotText(item, false)];
+        const lotLine = lotTexts
+          .filter(Boolean)
+          .map(
+            (t) =>
+              `<tr><td colspan="4" style="text-align:left; font-size:9px; color:#555; padding:0 0 2px 0;">${t}</td></tr>`
+          )
+          .join("");
         return `
       <tr>
         <td style="text-align:left; padding:2px 0;">${item.productName}</td>

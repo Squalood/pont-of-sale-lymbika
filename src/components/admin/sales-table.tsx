@@ -30,8 +30,9 @@ import {
 } from "@/components/ui/table";
 import { BadgePercent, Building2 } from "lucide-react";
 import { SaleDetailDialog } from "@/components/admin/sale-detail-dialog";
-import { VentaItemType, VentaType } from "@/types/venta";
+import { DispensedLot, VentaItemType, VentaType } from "@/types/venta";
 import { normalize } from "@/lib/search";
+import { lineLots } from "@/lib/venta-lotes";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
 import { useMembershipName } from "@/api/getSiteConfig";
@@ -56,7 +57,19 @@ type Period = "hoy" | "semana" | "mes" | "todo";
 
 /** Texto de una línea contra el que se busca: producto y número de lote, ya normalizados. */
 function lineHaystack(item: VentaItemType): string {
-  return normalize(`${item.productName ?? ""}\n${item.lotNumber ?? ""}`);
+  // Los lotes reales y también el elegido: si difieren, la venta se encuentra por cualquiera.
+  const lots = lineLots(item).lots.map((l) => l.lotNumber ?? "");
+  return normalize([item.productName ?? "", item.lotNumber ?? "", ...lots].join("\n"));
+}
+
+/**
+ * Porciones de la línea a mostrar en "Coincide": las de los lotes que casan con la búsqueda, o
+ * todas si lo que casó fue el nombre del producto.
+ */
+function matchingLots(item: VentaItemType, term: string): DispensedLot[] {
+  const { lots } = lineLots(item);
+  const hits = lots.filter((l) => l.lotNumber && normalize(l.lotNumber).includes(term));
+  return hits.length ? hits : lots;
 }
 
 /**
@@ -263,14 +276,16 @@ export function SalesTable({ ventas }: SalesTableProps) {
                     <TableCell className="text-center">{itemCount}</TableCell>
                     {termQuery && (
                       <TableCell className="max-w-64 text-xs">
-                        {matchingLines(venta).map((item, i) => (
-                          <div key={i} className="truncate">
-                            <span>{item.productName}</span>
-                            <span className="text-muted-foreground">
-                              {item.lotNumber ? ` · Lote ${item.lotNumber}` : ""} · ×{item.quantity}
-                            </span>
-                          </div>
-                        ))}
+                        {matchingLines(venta).flatMap((item, i) =>
+                          matchingLots(item, termQuery).map((lot, j) => (
+                            <div key={`${i}-${j}`} className="truncate">
+                              <span>{item.productName}</span>
+                              <span className="text-muted-foreground">
+                                {lot.lotNumber ? ` · Lote ${lot.lotNumber}` : ""} · ×{lot.quantity}
+                              </span>
+                            </div>
+                          ))
+                        )}
                       </TableCell>
                     )}
                     <TableCell>
