@@ -29,7 +29,7 @@ La venta ya congelaba por línea el lote que **eligió el cajero** (`lotDocument
 | 2 | Buscar en el historial por producto o número de lote, y columna Folio | **Hecho** (commit `e4d115a`) |
 | 3 | Guardar en la venta los lotes que de verdad salieron (`dispensedLots`) | **Hecho y probado en dev-local**, falta subir |
 | 4 | Página **Rastreo de lotes** (trazabilidad inversa, para retiros de lote) | **Hecho**; backend probado en dev-local, UI sin probar en navegador; falta subir |
-| 5 | Que la devolución regrese al lote original | Pendiente, opcional |
+| 5 | Que la devolución regrese al lote original | **Hecho (2-nov-2026)**; backend probado en dev-local, UI sin probar en navegador; falta subir |
 
 ---
 
@@ -168,6 +168,64 @@ Decisiones de la vista:
 
 ---
 
+## 4c. Paso 5 — la devolución regresa al lote (2-nov-2026)
+
+Antes `/pos-stock/return` subía el stock de la ubicación y no tocaba lotes: cada devolución de
+una línea loteada dejaba descuadre entre stock y Σ lotes, y cortaba el rastro.
+
+**Solo código, sin cambios de esquema ni permisos.** El renglón de devolución usa el mismo
+componente `venta-item`, así que ya tenía `lotDocumentId` (aquí: lote que pide el cajero) y
+`dispensedLots` (aquí: a dónde regresó).
+
+### Backend (`saleReturn` + `returnableLots` en stock-core.ts)
+
+1. **De qué lote salió**: la bitácora de la venta (`sale:<venta>`), no `dispensedLots`: es el
+   mismo dato pero existe desde el 28-sep-2026 (y `dispensedLots` solo desde el 30-oct).
+2. **Lo que falta por regresar** a cada lote = vendido − lo que regresaron otras devoluciones
+   de la misma venta. Para eso cada movimiento de regreso guarda **`fromLotDocumentId`** (el
+   lote vendido), que puede ser distinto del registro que recibe.
+3. **A qué lote**: primero el que pidió el cajero (`lotDocumentId` del renglón), luego los
+   demás en el orden en que se vendieron. Lo que no cubren va sin lote.
+4. **Dónde**: la ubicación de la devolución (caja abierta, o la farmacia de la venta).
+   - Mismo lugar que el lote → ese registro.
+   - Otro lugar → el registro con el mismo número y caducidad ahí, o uno nuevo con
+     `source_lot` = lote vendido (como un traspaso parcial).
+5. **Casos especiales** (avisos que el POS muestra en un toast):
+
+| Caso | Qué pasa | Aviso |
+|---|---|---|
+| Lote ya mermado (`vencido`) | Entra sin lote; el lote no recibe | `LOT_DISCARDED` |
+| Lote ya caducado | Regresa al lote igual (no se puede vender) y aparece en Caducidades → Vencidos | `LOT_EXPIRED` |
+| Lote agotado | Regresa y `writeLots` lo revive a `activo` | — |
+| No se pudo guardar el reparto en la devolución | Stock y lote ya quedaron; falta solo el registro | `DISPENSED_NOT_SAVED` |
+| Venta sin bitácora (antes del 28-sep) | Sin lote, como antes | — |
+
+6. Igual que la venta: el reparto se escribe en borrador y publicada **después** de la
+   transacción (`writeDispensed`, ahora genérico para venta y devolución), y un reintento
+   (`duplicate`) no recalcula nada.
+
+`lotTrace` ahora también resuelve las devoluciones: en Movimientos salen como
+`Devolución #00044 · de la venta #02377`, y cada venta del rastreo trae **`returned`** (columna
+"Devueltas" y en el CSV).
+
+### POS
+
+| Archivo | Qué hace |
+|---|---|
+| [lib/return-rows.ts](../src/lib/return-rows.ts) | `buildReturnRows`: máximo por devolver y lotes posibles de cada línea. Lógica pura, sacada del diálogo para poder probarla. |
+| [return-dialog.tsx](../src/components/admin/return-dialog.tsx) | Si la línea salió de varios lotes, selector "Regresa al lote X (n por regresar)" con el primero propuesto; si de uno, solo lo informa. Manda `lotDocumentId` y muestra los avisos de lote. |
+| [devolucion-detail-dialog.tsx](../src/components/admin/devolucion-detail-dialog.tsx) | "Regresó al lote X · Cad. …" / "Entró sin lote" por renglón. |
+| [lot-trace-view.tsx](../src/components/admin/lot-trace-view.tsx) | Columna Devueltas, KPI, referencia de la devolución. |
+
+El selector solo aparece en ventas con `dispensedLots` (desde el 30-oct). En las del 28-sep al
+30-oct no hay opciones a la vista, pero el servidor igual regresa al lote por la bitácora.
+
+**Arreglo de paso:** el diálogo contaba lo ya devuelto **por producto** y lo aplicaba entero a
+cada línea; con dos líneas del mismo producto el máximo por devolver salía mal (la segunda
+quedaba bloqueada). Ahora se reparte entre las líneas en orden.
+
+---
+
 ## 5. Cómo se probó (30-oct-2026)
 
 Contra la BD **dev-local** de Neon (`ep-twilight-…`; se verificó el host antes de correr), sin
@@ -208,6 +266,32 @@ buscar) y la ruta de error `DISPENSED_NOT_SAVED`.
 La UI pasó `tsc` y `npm run build` (genera `/admin/lotes`), pero **no se abrió en el
 navegador**, y el endpoint no se llamó por HTTP (solo la función del servicio).
 
+### Paso 5 (`saleReturn`, dev-local, 2-nov-2026)
+
+Producto "Solucion ht hartmann frasco c/1000 ml" en Farmacia Lymbika, lotes A `V25S019` y B
+`V25D020`. Venta de prueba #2375 (1 de A + 1 de B):
+
+| # | Caso | Resultado |
+|---|---|---|
+| 1 | Devolver 1 pidiendo B | Regresó a B; A sin cambio; borrador y publicada iguales |
+| 2 | Otra de 1 pidiendo B (ya no tiene por regresar) | Fue a A |
+| 3 | Una pieza de más | Sin lote |
+| 4 | Devolución en bodega de una venta de farmacia | Se creó el registro de `V25S019` en bodega, ×1, `source_lot` = A |
+| 5 | Lote A marcado `vencido` | `LOT_DISCARDED`, sin lote, A no recibe |
+| 6 | Lote B con caducidad pasada | Regresa a B con `LOT_EXPIRED` |
+| 7 | Venta sin bitácora | Sin lote, sin avisos |
+| 8 | Reintento de la devolución 1 | `duplicate`, el lote no cambia |
+| 9 | `lotTrace` de A | La venta #2375 muestra 1 devuelta; cada devolución con folio y venta |
+
+Los cambios de estado y caducidad de los casos 5 y 6 se revirtieron. Quedan en dev-local las
+ventas de prueba (canceladas), sus devoluciones (operador `prueba-claude`) y el registro de lote
+creado en bodega.
+
+`buildReturnRows` se probó con `npx tsx`: con una devolución previa de 4 piezas sobre dos líneas
+del mismo producto (3 + 2), queda 0 y 1 por devolver (antes las dos mostraban "ya devuelto 4").
+
+La UI del diálogo **no se abrió en el navegador**.
+
 **Efecto en dev-local:** la venta #2373 quedó **cancelada** pero su descuento se aplicó (los dos
 lotes de Labello agotados, la farmacia en −1). Para limpiar: Neon → `dev-local` → "Reset from
 parent".
@@ -243,7 +327,9 @@ parent".
    faltar lotes; basta con escribir más.
 5. **Los CSV de ventas no tienen columnas de lote.** Agregarlas al archivo por producto sería
    natural: una fila por porción de lote.
-6. **La devolución no regresa al lote** (paso 5): el rastro se corta ahí y deja descuadre
-   entre stock y lotes.
+6. **Devoluciones de ventas anteriores al 28-sep-2026** siguen entrando sin lote (no hay
+   bitácora). Las devoluciones hechas **antes del 2-nov-2026** tampoco tienen
+   `fromLotDocumentId`: entraron sin lote y no descuentan de ningún lote al calcular lo que
+   falta por regresar (el tope de piezas lo pone el POS, así que no se regresa de más).
 7. **El ticket en vivo** solo trae reparto si el descuento se aplicó en el momento; si quedó en
    la cola, imprime el lote elegido (el historial sí se corrige cuando el reintento pasa).

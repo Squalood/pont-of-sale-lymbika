@@ -51,6 +51,7 @@ function kindLabel(m: LotTraceMovement): string {
 function reference(m: LotTraceMovement): string {
   if (m.kind === "sale") return `Venta ${folio(m.folio)}`;
   if (m.kind === "purchase") return [`Compra ${folio(m.folio)}`, m.refLabel].filter(Boolean).join(" · ");
+  if (m.kind === "return") return [`Devolución ${folio(m.folio)}`, m.refLabel].filter(Boolean).join(" · ");
   return m.notes ?? "";
 }
 
@@ -106,6 +107,7 @@ export function LotTraceView({ lotDocumentId }: { lotDocumentId: string }) {
   const vigentes = sales.filter((s) => s.estado !== "cancelada");
   const sold = vigentes.reduce((s, x) => s + x.quantity, 0);
   const canceladas = sales.length - vigentes.length;
+  const devueltas = sales.reduce((s, x) => s + (x.returned ?? 0), 0);
   const inexactas = sales.filter((s) => !s.exact).length;
   const stock = locations.reduce((s, l) => s + l.currentAmount, 0);
   const mermado = locations.reduce((s, l) => s + (l.discardedQuantity ?? 0), 0);
@@ -115,7 +117,7 @@ export function LotTraceView({ lotDocumentId }: { lotDocumentId: string }) {
     const name = `lote-${(lot.lotNumber ?? lot.documentId).replace(/[^\w-]+/g, "_")}`;
     downloadCSV(
       `ventas-${name}.csv`,
-      ["Folio", "Fecha", "Farmacia", "Operador", "Producto", "Lote", "Caducidad", "Piezas", "Estado", "Exacto"],
+      ["Folio", "Fecha", "Farmacia", "Operador", "Producto", "Lote", "Caducidad", "Piezas", "Devueltas", "Estado", "Exacto"],
       sales.map((s) => [
         folio(s.folio),
         fmtFecha(s.fecha),
@@ -125,6 +127,7 @@ export function LotTraceView({ lotDocumentId }: { lotDocumentId: string }) {
         lot.lotNumber ?? "",
         cad ?? "",
         s.quantity,
+        s.returned ?? 0,
         s.estado ?? "",
         s.exact ? "Sí" : "No (lote elegido al cobrar)",
       ])
@@ -154,7 +157,7 @@ export function LotTraceView({ lotDocumentId }: { lotDocumentId: string }) {
           value={String(sold)}
           icon={PackageCheck}
           tone="green"
-          hint={`en ${vigentes.length} venta${vigentes.length === 1 ? "" : "s"}${canceladas ? ` · ${canceladas} cancelada${canceladas === 1 ? "" : "s"} aparte` : ""}`}
+          hint={`en ${vigentes.length} venta${vigentes.length === 1 ? "" : "s"}${canceladas ? ` · ${canceladas} cancelada${canceladas === 1 ? "" : "s"} aparte` : ""}${devueltas ? ` · ${devueltas} regresaron por devolución` : ""}`}
         />
         <KpiCard label="Mermadas" value={String(mermado)} icon={Trash2} tone="rose" />
       </div>
@@ -214,13 +217,14 @@ export function LotTraceView({ lotDocumentId }: { lotDocumentId: string }) {
                   <TableHead>Farmacia</TableHead>
                   <TableHead>Operador</TableHead>
                   <TableHead className="text-right">Piezas</TableHead>
+                  <TableHead className="text-right">Devueltas</TableHead>
                   <TableHead>Estado</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sales.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
                       No hay ventas registradas de este lote.
                     </TableCell>
                   </TableRow>
@@ -242,6 +246,7 @@ export function LotTraceView({ lotDocumentId }: { lotDocumentId: string }) {
                       <TableCell className="text-sm text-muted-foreground">{s.pharmacyName ?? "—"}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{s.operador ?? "—"}</TableCell>
                       <TableCell className="text-right font-medium">{s.quantity}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{s.returned ? s.returned : "—"}</TableCell>
                       <TableCell className="space-x-1">
                         {s.estado === "cancelada" && <Badge variant="destructive">cancelada</Badge>}
                         {!s.exact && (

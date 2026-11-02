@@ -231,6 +231,8 @@ export interface LotTraceSale {
   pharmacyName: string | null;
   /** Piezas de este lote en la venta. */
   quantity: number;
+  /** Piezas de esa venta que regresaron a este lote por devolución. */
+  returned: number;
   /** false = venta anterior a la bitácora: solo se sabe el lote que eligió el cajero. */
   exact: boolean;
 }
@@ -245,9 +247,9 @@ export interface LotTraceMovement {
   moves: { lotDocumentId: string; location: string; locationName: string; delta: number }[];
   /** Σ de los movimientos sobre este lote. Un traspaso entre registros del mismo lote da 0. */
   delta: number;
-  /** Folio de la venta o la compra. */
+  /** Folio de la venta, la compra o la devolución. */
   folio: number | null;
-  /** Proveedor, en las compras. */
+  /** Proveedor en las compras; "de la venta #…" en las devoluciones. */
   refLabel: string | null;
 }
 

@@ -7,6 +7,11 @@ export interface DevolucionItem {
   quantity: number;
   unitPrice: number;
   totalLine: number;
+  /**
+   * Lote vendido al que el cajero quiere regresar la pieza, cuando la venta salió de varios. Sin
+   * él, el servidor sigue el orden en que se vendió.
+   */
+  lotDocumentId?: string | null;
 }
 
 export interface DevolucionType {

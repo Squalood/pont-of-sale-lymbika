@@ -255,7 +255,7 @@ Todos pasan por `/api/pos-stock/*` y quedan en `stock-operation`.
 
 | Movimiento | Dónde | Endpoint | Efecto |
 |---|---|---|---|
-| **Devolución** | Historial de Ventas → detalle → Devolver ([return-dialog.tsx](../src/components/admin/return-dialog.tsx)) | `/return` | Suma a la farmacia de la caja o, sin caja, a la de la venta; el total sube. **No regresa a lote.** |
+| **Devolución** | Historial de Ventas → detalle → Devolver ([return-dialog.tsx](../src/components/admin/return-dialog.tsx)) | `/return` | Suma a la farmacia de la caja o, sin caja, a la de la venta; el total sube. Desde el 2-nov-2026 **regresa al lote del que salió** (bitácora de la venta); ver [rastreo-lotes-ventas.md](rastreo-lotes-ventas.md) §4c. |
 | **Compra** | Compras → Nueva compra ([new-purchase-dialog.tsx](../src/components/admin/new-purchase-dialog.tsx)) | `/purchase` | Suma al destino elegido en **"Entra a"** (bodega o farmacia) y crea un lote por renglón con número. Precio e IVA del catálogo siguen por su PUT. |
 | **Traspaso** | Traspasos ([transfer-form.tsx](../src/components/admin/transfer-form.tsx)) | `/transfer` | Mueve unidades y lotes entre ubicaciones; el total no cambia. Rechaza si el origen no alcanza. |
 | **Cuadrar** | Stock por farmacia ([stock-count-dialog.tsx](../src/components/admin/stock-count-dialog.tsx)) | `/count` | Conteo físico por lote: cada lote queda con lo contado y el stock con la suma. La diferencia va al total. |
@@ -279,8 +279,9 @@ uno, el POS muestra qué acción habilitar.
 1. **Vender sin stock se permite.** Es deliberado (no bloquear la caja). Las unidades vendidas
    sin lote que las cubra hacen que stock y lotes no coincidan: se ve en Stock por farmacia →
    *Descuadres* y se resuelve con **Cuadrar**.
-2. **La devolución no regresa a lote.** Sube el stock pero no el lote → también genera
-   descuadre en esa ubicación.
+2. **La devolución de una venta anterior al 28-sep-2026 no regresa a lote**: no hay bitácora
+   que diga de cuál salió. Sube el stock pero no el lote → descuadre en esa ubicación. Desde
+   el 2-nov-2026 las demás sí regresan a su lote.
 3. **El catálogo de la caja es una foto.** Tras sus propias ventas se actualiza con los niveles
    del servidor, pero no ve las ventas de otras cajas hasta recargar. No corrompe el stock (lo
    calcula el servidor); solo el número mostrado puede ir atrasado.

@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { DevolucionType } from "@/types/devolucion";
 import { printReturnReceipt } from "@/lib/print-return-receipt";
+import { lotPortionLabel } from "@/lib/venta-lotes";
 
 interface DevolucionDetailDialogProps {
   devolucion: DevolucionType | null;
@@ -115,7 +116,17 @@ export function DevolucionDetailDialog({ devolucion, open, onClose }: Devolucion
             <TableBody>
               {devolucion.items.map((item, i) => (
                 <TableRow key={i}>
-                  <TableCell className="max-w-48 truncate">{item.productName}</TableCell>
+                  <TableCell className="max-w-48">
+                    <p className="truncate">{item.productName}</p>
+                    {/* Solo las devoluciones desde que el servidor regresa a lote traen el reparto. */}
+                    {item.dispensedLots?.map((l, j) => (
+                      <p key={j} className="truncate text-xs text-muted-foreground">
+                        {l.lotNumber
+                          ? `Regresó al ${lotPortionLabel(l, (item.dispensedLots?.length ?? 0) > 1).replace(/^Lote/, "lote")}`
+                          : `Entró sin lote${(item.dispensedLots?.length ?? 0) > 1 ? ` ×${l.quantity}` : ""}`}
+                      </p>
+                    ))}
+                  </TableCell>
                   <TableCell className="text-center">{item.quantity}</TableCell>
                   <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
                   <TableCell className="text-right">${item.totalLine.toFixed(2)}</TableCell>

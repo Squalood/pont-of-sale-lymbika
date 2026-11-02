@@ -28,14 +28,16 @@ export interface VentaItem {
 }
 
 /**
- * Porción de una línea surtida de un lote, tal como la descontó el servidor. `lotDocumentId:
- * null` = unidades vendidas sin lote que las cubra.
+ * Porción de una línea surtida de un lote, tal como la movió el servidor. `lotDocumentId: null`
+ * = sin lote. En una venta es de dónde salió; en una devolución, a dónde regresó.
  */
 export interface DispensedLot {
   lotDocumentId: string | null;
   lotNumber: string | null;
   expirationDate: string | null;
   quantity: number;
+  /** Solo en devoluciones: lote del que salió la pieza al venderse. */
+  fromLotDocumentId?: string | null;
 }
 
 export interface VentaItemType {

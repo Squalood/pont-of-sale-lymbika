@@ -74,7 +74,7 @@ bodega es lo que sobra: **total = bodega + farmacias**, siempre.
 | Movimiento | Dónde se hace | Lugar | Total | Lotes |
 |---|---|---|---|---|
 | Venta | Caja | Baja la farmacia de la caja | Baja | Baja el lote vendido (por caducidad si no alcanza) |
-| Devolución | Historial de Ventas → Devolver | Sube la farmacia de la caja (o la de la venta) | Sube | No regresa a lote |
+| Devolución | Historial de Ventas → Devolver | Sube la farmacia de la caja (o la de la venta) | Sube | Regresa al lote del que salió (desde el 2-nov-2026) |
 | Compra | Compras → "Entra a" | Sube bodega o la farmacia elegida | Sube | Crea un lote por renglón con número |
 | Traspasar | Traspasos, o botón en Stock por farmacia | Baja origen, sube destino | **No cambia** | Viajan con la mercancía |
 | Cuadrar | Stock por farmacia | Queda igual a lo contado | Cambia en la diferencia | Cada lote queda con lo contado |
@@ -151,7 +151,7 @@ explican con claridad.
 | Toda escritura en el backend | Transacción y bloqueo de filas: sin pisadas ni fallos a medias. |
 | Sin modo "legacy" | Con el modelo de total no hacía falta el interruptor. |
 | Acomodar farmacias a mano | Con traspasos desde bodega, en lugar de una migración automática. |
-| La devolución no regresa a lote | Decisión para mantenerlo simple; genera un descuadre visible. |
+| ~~La devolución no regresa a lote~~ | Cambiado el 2-nov-2026: con la bitácora ya se sabe de qué lote salió cada pieza, y regresa a él. |
 | Corregir un lote siempre mueve el stock | La opción "solo el lote" creaba descuadres; para eso está Cuadrar. |
 
 ---
@@ -202,7 +202,9 @@ Qué hace con cada producto:
 
 1. **Vender sin stock se permite.** Las unidades vendidas sin lote dejan un descuadre entre stock
    y lotes; se ve en *Descuadres* y se resuelve con Cuadrar.
-2. **La devolución no regresa a lote.** También deja descuadre en esa ubicación.
+2. ~~**La devolución no regresa a lote.**~~ Resuelto el 2-nov-2026: regresa al lote del que
+   salió ([rastreo-lotes-ventas.md](rastreo-lotes-ventas.md) §4c). Solo las devoluciones de
+   ventas anteriores al 28-sep-2026 siguen entrando sin lote.
 3. **El catálogo de la caja es una foto.** No ve las ventas de otras cajas hasta recargar. No
    daña el stock (lo calcula el servidor); solo el número mostrado puede ir atrasado.
 4. **La cola de pendientes es por navegador.** Si esa caja no vuelve a abrir el POS, sus pendientes

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Minus, Plus } from "lucide-react";
-import { VentaType, VentaItemType } from "@/types/venta";
+import { VentaType } from "@/types/venta";
 import { getDevolucionesByVenta } from "@/api/getDevolucionesByVenta";
 import { postDevolucion } from "@/api/postDevolucion";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ import { patchVentaEstado } from "@/api/patchVentaEstado";
 import { printReturnReceipt } from "@/lib/print-return-receipt";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
+import { buildReturnRows, type ReturnRow } from "@/lib/return-rows";
 
 interface ReturnDialogProps {
   venta: VentaType;
@@ -39,11 +40,8 @@ interface ReturnDialogProps {
 
 type Step = "items" | "details" | "confirm";
 
-interface ReturnRow extends VentaItemType {
-  alreadyReturned: number;
-  maxReturnable: number;
-  returnQty: number;
-}
+/** Avisos de lote del regreso que el cajero tiene que ver (mermado, caducado, no guardado). */
+const LOT_WARNINGS = ["LOT_DISCARDED", "LOT_EXPIRED", "DISPENSED_NOT_SAVED"];
 
 export function ReturnDialog({ venta, open, onClose, onReturnComplete }: ReturnDialogProps) {
   const { caja, refetchEfectivo } = useCaja();
@@ -68,20 +66,7 @@ export function ReturnDialog({ venta, open, onClose, onReturnComplete }: ReturnD
       try {
         const prevDevoluciones = await getDevolucionesByVenta(venta.id);
 
-        const returnedMap: Record<number, number> = {};
-        for (const dev of prevDevoluciones) {
-          for (const item of dev.items) {
-            const pid = item.product?.id ?? 0;
-            returnedMap[pid] = (returnedMap[pid] ?? 0) + item.quantity;
-          }
-        }
-
-        const initialRows: ReturnRow[] = venta.venta.map((item) => {
-          const pid = item.product?.id ?? 0;
-          const alreadyReturned = returnedMap[pid] ?? 0;
-          const maxReturnable = Math.max(0, item.quantity - alreadyReturned);
-          return { ...item, alreadyReturned, maxReturnable, returnQty: 0 };
-        });
+        const initialRows = buildReturnRows(venta.venta, prevDevoluciones);
 
         setRows(initialRows);
       } catch {
@@ -100,6 +85,10 @@ export function ReturnDialog({ venta, open, onClose, onReturnComplete }: ReturnD
         return { ...row, returnQty: next };
       })
     );
+  }
+
+  function chooseLot(index: number, lotDocumentId: string) {
+    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, lotChoice: lotDocumentId } : row)));
   }
 
   const selectedRows = rows.filter((r) => r.returnQty > 0);
@@ -134,6 +123,8 @@ export function ReturnDialog({ venta, open, onClose, onReturnComplete }: ReturnD
             quantity: r.returnQty,
             unitPrice: r.unitPrice,
             totalLine: r.unitPrice * r.returnQty,
+            // El servidor regresa primero a este lote y completa con los demás de la venta.
+            lotDocumentId: r.lotChoice,
           };
         }),
         venta: venta.documentId,
@@ -149,7 +140,16 @@ export function ReturnDialog({ venta, open, onClose, onReturnComplete }: ReturnD
       // 3. Regresar el stock en el servidor (farmacia de la devolución; bodega en modo legacy).
       //    El backend agrega por producto y no aplica dos veces la misma devolución.
       const stock = await runOrQueue("return", devolucionDocId, `Devolución #${String(devolucionId).padStart(5, "0")}`);
-      if (!stock) toast.warning("Devolución registrada. El regreso de inventario quedó pendiente y se reintentará.");
+      if (!stock) {
+        toast.warning("Devolución registrada. El regreso de inventario quedó pendiente y se reintentará.");
+      } else {
+        const avisos = stock.warnings.filter((w) => LOT_WARNINGS.includes(w.code));
+        if (avisos.length) {
+          toast.warning("Devolución registrada, con avisos de lote", {
+            description: avisos.map((w) => w.message).join(" · "),
+          });
+        }
+      }
 
       const returnedMap = new Map<number, number>();
       for (const row of selectedRows) {
@@ -223,6 +223,25 @@ export function ReturnDialog({ venta, open, onClose, onReturnComplete }: ReturnD
                             <Badge variant="outline" className="ml-2 text-xs">Agotado</Badge>
                           )}
                         </p>
+                        {row.returnQty > 0 && row.lotOptions.length > 1 && (
+                          <Select value={row.lotChoice ?? undefined} onValueChange={(v) => chooseLot(i, v)}>
+                            <SelectTrigger size="sm" className="mt-1 h-7 w-full text-xs" aria-label="Lote al que regresa">
+                              <SelectValue placeholder="Lote al que regresa" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {row.lotOptions.map((o) => (
+                                <SelectItem key={o.lotDocumentId} value={o.lotDocumentId} className="text-xs">
+                                  Regresa al {o.label.replace(/^Lote/, "lote")} ({o.remaining} por regresar)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        {row.returnQty > 0 && row.lotOptions.length === 1 && (
+                          <p className="truncate text-xs text-muted-foreground">
+                            Regresa al {row.lotOptions[0].label.replace(/^Lote/, "lote")}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         <Button
@@ -308,8 +327,15 @@ export function ReturnDialog({ venta, open, onClose, onReturnComplete }: ReturnD
             <div className="space-y-4">
               <div className="divide-y rounded-lg border text-sm">
                 {selectedRows.map((row, i) => (
-                  <div key={i} className="flex justify-between px-3 py-2">
-                    <span className="truncate max-w-48">{row.productName}</span>
+                  <div key={i} className="flex justify-between gap-2 px-3 py-2">
+                    <span className="min-w-0 max-w-56">
+                      <span className="block truncate">{row.productName}</span>
+                      {row.lotOptions.length > 0 && (
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {row.lotOptions.find((o) => o.lotDocumentId === row.lotChoice)?.label ?? row.lotOptions[0].label}
+                        </span>
+                      )}
+                    </span>
                     <span className="text-muted-foreground">
                       x{row.returnQty} · ${(row.unitPrice * row.returnQty).toFixed(2)}
                     </span>
