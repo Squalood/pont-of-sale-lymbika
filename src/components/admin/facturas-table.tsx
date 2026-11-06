@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -77,6 +78,8 @@ export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEdi
   const [estadoPagoFilter, setEstadoPagoFilter] = useState<EstadoPagoFilter>("todos");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<FacturaType | null>(null);
+  // Facturas marcadas para sumar (independiente de la que se abre en el detalle).
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
   useMemo(() => { setFacturas(initialFacturas); }, [initialFacturas]);
 
@@ -104,6 +107,40 @@ export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEdi
       totales: emitidas.reduce((s, f) => s + (f.total ?? 0), 0),
     };
   }, [filtered]);
+
+  // Solo cuentan las marcadas que siguen visibles: si un filtro oculta una, sale de la
+  // suma, para que lo que se ve en la tabla cuadre con el total mostrado.
+  const seleccion = useMemo(() => {
+    const items = filtered.filter((f) => checkedIds.has(f.documentId));
+    return {
+      count: items.length,
+      total: items.reduce((s, f) => s + (f.total ?? 0), 0),
+      porCobrar: items
+        .filter((f) => f.estado === "emitida" && f.estadoPago !== "pagada")
+        .reduce((s, f) => s + Math.max(0, (f.total ?? 0) - (f.montoPagado ?? 0)), 0),
+    };
+  }, [filtered, checkedIds]);
+
+  const allVisibleChecked =
+    filtered.length > 0 && filtered.every((f) => checkedIds.has(f.documentId));
+
+  function toggleAll() {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleChecked) filtered.forEach((f) => next.delete(f.documentId));
+      else filtered.forEach((f) => next.add(f.documentId));
+      return next;
+    });
+  }
+
+  function toggleOne(documentId: string) {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(documentId)) next.delete(documentId);
+      else next.add(documentId);
+      return next;
+    });
+  }
 
   function handleUpdated(documentId: string, patch: Partial<FacturaType>) {
     setFacturas((prev) =>
@@ -157,10 +194,36 @@ export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEdi
         {borradores > 0 && ` · ${borradores} borrador${borradores !== 1 ? "es" : ""}`}
       </p>
 
+      {seleccion.count > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm">
+          <span>
+            <strong>{seleccion.count}</strong> seleccionada{seleccion.count !== 1 ? "s" : ""}
+            {" · "}Total: <strong className="tabular-nums">${fmt(seleccion.total)}</strong>
+            {seleccion.porCobrar > 0 && (
+              <>
+                {" · "}Por cobrar:{" "}
+                <strong className="tabular-nums">${fmt(seleccion.porCobrar)}</strong>
+              </>
+            )}
+          </span>
+          <Button size="sm" variant="ghost" onClick={() => setCheckedIds(new Set())}>
+            Limpiar
+          </Button>
+        </div>
+      )}
+
       <div className="rounded-lg border bg-white overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={allVisibleChecked}
+                  onCheckedChange={toggleAll}
+                  aria-label="Seleccionar todas"
+                  disabled={filtered.length === 0}
+                />
+              </TableHead>
               <TableHead>Folio</TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead>Cliente</TableHead>
@@ -175,7 +238,7 @@ export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEdi
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-10">
+                <TableCell colSpan={10} className="text-center text-muted-foreground py-10">
                   Sin facturas en este período
                 </TableCell>
               </TableRow>
@@ -186,6 +249,14 @@ export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEdi
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => setSelected(f)}
                 >
+                  {/* stopPropagation: marcar la casilla no debe abrir el detalle de la fila. */}
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={checkedIds.has(f.documentId)}
+                      onCheckedChange={() => toggleOne(f.documentId)}
+                      aria-label={`Seleccionar factura ${folioVisible(f.folio) || f.cliente}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{folioVisible(f.folio) || "—"}</TableCell>
                   <TableCell className="text-sm">{fmtDate(f.fecha)}</TableCell>
                   <TableCell className="font-medium">{f.cliente}</TableCell>

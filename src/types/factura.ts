@@ -41,6 +41,10 @@ export interface FacturaItemType {
   precioUnitario: number;
   impuesto: "iva16" | "iva8" | "exento";
   product: { id: number; documentId: string; productName: string } | null;
+  /** La línea completa está pagada; el monto y estado de la factura se deducen de esto. */
+  pagado?: boolean | null;
+  /** Fecha (YYYY-MM-DD) en que se pagó la línea. */
+  fechaPago?: string | null;
 }
 
 export interface FacturaType {

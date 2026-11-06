@@ -19,36 +19,30 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Spinner } from "@/components/ui/spinner";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Pencil, Printer, Undo2 } from "lucide-react";
-import { FacturaType } from "@/types/factura";
+import { FacturaItemType, FacturaType } from "@/types/factura";
 import { printInvoice } from "@/lib/print-invoice";
-import { patchFacturaEstadoPago } from "@/api/patchFacturaEstadoPago";
+import { patchFacturaPagoLineas } from "@/api/patchFacturaPagoLineas";
 import { EstadoFacturaBadge } from "@/components/admin/estado-factura-badge";
 import { puedeRestablecerABorrador } from "@/lib/factura-edicion";
 import { patchFacturaEstado } from "@/api/patchFacturaEstado";
 import { toast } from "sonner";
 import { folioVisible } from "@/lib/factura-folio";
+import {
+  importeLinea,
+  lineasPagadasIniciales,
+  resumenPago,
+  tieneDetallePorLinea,
+} from "@/lib/factura-pago";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type EstadoPago = "pendiente" | "pagada" | "pagada_parcial";
-
-interface PaymentFormState {
-  estadoPago: EstadoPago;
-  montoPagado: number;
-  fechaPago: Date;
-}
 
 interface FacturaDetailDialogProps {
   factura: FacturaType | null;
@@ -63,6 +57,23 @@ interface FacturaDetailDialogProps {
 
 function fmt(n: number) {
   return (n ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtFecha(d: Date) {
+  return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+/** Date → "YYYY-MM-DD" con la fecha local (toISOString la correría a UTC). */
+function toYMD(d: Date) {
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+/** "YYYY-MM-DD" → Date local a mediodía: `new Date("2026-11-06")` es UTC y en México se ve un día antes. */
+function fromYMD(ymd: string) {
+  const [y, m, d] = ymd.slice(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d, 12);
 }
 
 const IMPUESTO_LABEL: Record<string, string> = {
@@ -98,7 +109,7 @@ function DatePickerField({ value, onChange }: { value: Date; onChange: (d: Date)
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" className="w-full justify-start font-normal text-sm h-9">
           <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-          {value.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" })}
+          {fmtFecha(value)}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
@@ -115,23 +126,36 @@ function DatePickerField({ value, onChange }: { value: Date; onChange: (d: Date)
 // ── FacturaDetailDialog ───────────────────────────────────────────────────────
 
 export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit }: FacturaDetailDialogProps) {
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [paymentForm, setPaymentForm] = useState<PaymentFormState | null>(null);
+  // null = no se está registrando pago; si no, las líneas marcadas en el formulario.
+  const [marcadas, setMarcadas] = useState<Set<number> | null>(null);
+  const [fechaNueva, setFechaNueva] = useState<Date>(new Date());
   const [savingPago, setSavingPago] = useState(false);
-  const [localEstadoPago, setLocalEstadoPago] = useState<EstadoPago | null>(null);
-  const [localMontoPagado, setLocalMontoPagado] = useState<number | null>(null);
-  const [localFechaPago, setLocalFechaPago] = useState<string | null | undefined>(undefined);
   const [confirmRestablecer, setConfirmRestablecer] = useState(false);
   const [restableciendo, setRestableciendo] = useState(false);
 
   if (!factura) return null;
 
+  // `factura` llega ya parchada por la tabla (onUpdated), así que no hace falta copia local.
   const fecha = new Date(factura.fecha);
   const esBorrador = factura.estado === "borrador";
-  const estadoPago: EstadoPago = localEstadoPago ?? factura.estadoPago ?? "pendiente";
-  const montoPagado: number = localMontoPagado ?? factura.montoPagado ?? 0;
-  const fechaPago: string | null = localFechaPago !== undefined ? localFechaPago : (factura.fechaPago ?? null);
+  const estadoPago: EstadoPago = factura.estadoPago ?? "pendiente";
+  const montoPagado: number = factura.montoPagado ?? 0;
+  const fechaPago: string | null = factura.fechaPago ?? null;
   const restablecible = puedeRestablecerABorrador(factura, estadoPago);
+  const items = factura.items ?? [];
+  const pagadasActuales = lineasPagadasIniciales(factura, estadoPago);
+  // Pago parcial tecleado antes del detalle por producto: no se sabe qué cubrió.
+  const pagoSinDetalle =
+    estadoPago === "pagada_parcial" && montoPagado > 0 && !tieneDetallePorLinea(factura);
+  const editando = marcadas !== null;
+  const preview = editando ? resumenPago(factura, marcadas) : null;
+  const todasMarcadas = editando && items.length > 0 && items.every((i) => marcadas.has(i.id));
+
+  function cerrar() {
+    setMarcadas(null);
+    setConfirmRestablecer(false);
+    onClose();
+  }
 
   async function handleRestablecer() {
     setRestableciendo(true);
@@ -150,40 +174,62 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
     }
   }
 
-  function openPaymentForm() {
-    setPaymentForm({
-      estadoPago: estadoPago === "pendiente" ? "pagada" : estadoPago,
-      montoPagado: estadoPago === "pendiente" ? factura!.total : montoPagado,
-      fechaPago: fechaPago ? new Date(fechaPago) : new Date(),
-    });
-    setShowPaymentForm(true);
+  function abrirPago() {
+    setMarcadas(new Set(pagadasActuales));
+    setFechaNueva(new Date());
   }
 
-  function setFormField<K extends keyof PaymentFormState>(key: K, value: PaymentFormState[K]) {
-    setPaymentForm((prev) => prev ? { ...prev, [key]: value } : prev);
+  function toggleLinea(id: number) {
+    setMarcadas((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleTodas() {
+    setMarcadas(todasMarcadas ? new Set() : new Set(items.map((i) => i.id)));
   }
 
   async function handleConfirmPago() {
-    if (!paymentForm) return;
+    if (!marcadas) return;
+    const fechaHoy = toYMD(fechaNueva);
+    // Respaldo para líneas que ya estaban pagadas sin fecha propia (facturas anteriores a esto).
+    const fechaRespaldo = fechaPago ? toYMD(new Date(fechaPago)) : fechaHoy;
+    const nuevosItems: FacturaItemType[] = items.map((i) => {
+      if (!marcadas.has(i.id)) return { ...i, pagado: false, fechaPago: null };
+      // Las que ya estaban pagadas conservan su fecha; solo las recién marcadas toman la nueva.
+      const fechaLinea = pagadasActuales.has(i.id) ? (i.fechaPago ?? fechaRespaldo) : fechaHoy;
+      return { ...i, pagado: true, fechaPago: fechaLinea };
+    });
+    const { estadoPago: nuevoEstado, montoPagado: nuevoMonto } = resumenPago(factura!, marcadas);
+    const fechas = nuevosItems.flatMap((i) => (i.pagado && i.fechaPago ? [i.fechaPago] : []));
+    const ultima = fechas.sort().at(-1);
+    const nuevaFechaPago = ultima ? fromYMD(ultima).toISOString() : null;
+
     setSavingPago(true);
     try {
-      const fechaISO = paymentForm.fechaPago.toISOString();
-      await patchFacturaEstadoPago(factura!.documentId, {
-        estadoPago: paymentForm.estadoPago,
-        montoPagado: paymentForm.montoPagado,
-        fechaPago: fechaISO,
+      await patchFacturaPagoLineas(factura!.documentId, {
+        estadoPago: nuevoEstado,
+        montoPagado: nuevoMonto,
+        fechaPago: nuevaFechaPago,
+        items: nuevosItems,
       });
-      setLocalEstadoPago(paymentForm.estadoPago);
-      setLocalMontoPagado(paymentForm.montoPagado);
-      setLocalFechaPago(fechaISO);
       onUpdated?.({
-        estadoPago: paymentForm.estadoPago,
-        montoPagado: paymentForm.montoPagado,
-        fechaPago: fechaISO,
+        estadoPago: nuevoEstado,
+        montoPagado: nuevoMonto,
+        fechaPago: nuevaFechaPago,
+        items: nuevosItems,
       });
-      setShowPaymentForm(false);
+      setMarcadas(null);
+      toast.success(`Pago guardado: ${ESTADO_PAGO_LABEL[nuevoEstado]} ($${fmt(nuevoMonto)})`);
     } catch (err) {
       console.error(err);
+      toast.error("No se guardó el pago; la factura quedó como estaba", {
+        description: err instanceof Error ? err.message : undefined,
+      });
     } finally {
       setSavingPago(false);
     }
@@ -212,8 +258,8 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) { setShowPaymentForm(false); setConfirmRestablecer(false); onClose(); } }}>
-      <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh]" aria-describedby={undefined}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) cerrar(); }}>
+      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90vh]" aria-describedby={undefined}>
         <DialogHeader className="shrink-0">
           <DialogTitle>
             Factura{" "}
@@ -226,16 +272,12 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <span className="text-muted-foreground">Fecha</span>
-              <p className="font-medium">
-                {fecha.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" })}
-              </p>
+              <p className="font-medium">{fmtFecha(fecha)}</p>
             </div>
             {factura.fechaVencimiento && (
               <div>
                 <span className="text-muted-foreground">Vencimiento</span>
-                <p className="font-medium">
-                  {new Date(factura.fechaVencimiento).toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                </p>
+                <p className="font-medium">{fmtFecha(fromYMD(factura.fechaVencimiento))}</p>
               </div>
             )}
             <div>
@@ -293,20 +335,45 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
             </div>
           </div>
 
-          {/* Items */}
+          {/* Items: fuera de borrador, cada línea muestra (o permite marcar) si ya se pagó. */}
           <Table>
             <TableHeader>
               <TableRow>
+                {editando && (
+                  <TableHead className="w-8">
+                    <Checkbox
+                      checked={todasMarcadas}
+                      onCheckedChange={toggleTodas}
+                      aria-label="Marcar todas como pagadas"
+                      disabled={savingPago}
+                    />
+                  </TableHead>
+                )}
                 <TableHead>Descripción</TableHead>
                 <TableHead className="text-center w-14">Cant.</TableHead>
                 <TableHead className="text-right w-24">P.U.</TableHead>
                 <TableHead className="text-center w-20">Impuesto</TableHead>
                 <TableHead className="text-right w-24">Importe</TableHead>
+                {!esBorrador && !editando && <TableHead className="w-24">Pago</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {factura.items?.map((item, i) => (
-                <TableRow key={i}>
+              {items.map((item) => (
+                <TableRow
+                  key={item.id}
+                  className={editando ? "cursor-pointer" : undefined}
+                  onClick={editando && !savingPago ? () => toggleLinea(item.id) : undefined}
+                >
+                  {editando && (
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={marcadas.has(item.id)}
+                        onCheckedChange={() => toggleLinea(item.id)}
+                        aria-label={`Marcar ${item.descripcion} como pagado`}
+                        disabled={savingPago}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="max-w-44 truncate">{item.descripcion}</TableCell>
                   <TableCell className="text-center">{item.cantidad}</TableCell>
                   <TableCell className="text-right">${fmt(item.precioUnitario)}</TableCell>
@@ -314,6 +381,22 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
                     {IMPUESTO_LABEL[item.impuesto] ?? item.impuesto}
                   </TableCell>
                   <TableCell className="text-right">${fmt(item.cantidad * item.precioUnitario)}</TableCell>
+                  {!esBorrador && !editando && (
+                    <TableCell>
+                      {pagadasActuales.has(item.id) ? (
+                        <div className="flex flex-col items-start gap-0.5">
+                          <Badge className="bg-emerald-600 text-white border-emerald-600">Pagado</Badge>
+                          {item.fechaPago && (
+                            <span className="text-xs text-muted-foreground">
+                              {fmtFecha(fromYMD(item.fechaPago))}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -358,78 +441,69 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
                 </Badge>
               </div>
 
-              {/* Info de pago si ya fue registrado */}
               {estadoPago !== "pendiente" && (
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="text-muted-foreground">Monto pagado</span>
-                    <p className="font-medium">${fmt(montoPagado)}</p>
+                    <p className="font-medium">
+                      ${fmt(montoPagado)}{" "}
+                      <span className="text-muted-foreground font-normal">de ${fmt(factura.total)}</span>
+                    </p>
                   </div>
                   {fechaPago && (
                     <div>
-                      <span className="text-muted-foreground">Fecha de pago</span>
-                      <p className="font-medium">
-                        {new Date(fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" })}
-                      </p>
+                      <span className="text-muted-foreground">Último pago</span>
+                      <p className="font-medium">{fmtFecha(new Date(fechaPago))}</p>
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Inline form de pago */}
-              {showPaymentForm && paymentForm ? (
+              {pagoSinDetalle && !editando && (
+                <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Pago registrado antes del detalle por producto: ${fmt(montoPagado)}. Marca los productos
+                  pagados para actualizarlo.
+                </p>
+              )}
+
+              {editando && preview ? (
                 <div className="space-y-3 pt-1 border-t">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label>Estado</Label>
-                      <Select
-                        value={paymentForm.estadoPago}
-                        onValueChange={(v) => {
-                          const ep = v as EstadoPago;
-                          setFormField("estadoPago", ep);
-                          if (ep === "pagada") setFormField("montoPagado", factura!.total);
-                        }}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pagada">Pagada</SelectItem>
-                          <SelectItem value="pagada_parcial">Pago parcial</SelectItem>
-                          <SelectItem value="pendiente">Pendiente</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Monto pagado</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={0.01}
-                        value={paymentForm.montoPagado}
-                        onChange={(e) => setFormField("montoPagado", Math.max(0, Number(e.target.value) || 0))}
-                        className="h-9"
-                      />
-                    </div>
-                  </div>
+                  <p className="text-muted-foreground">
+                    Marca en la tabla los productos que ya están pagados. El monto y el estado se calculan solos.
+                  </p>
                   <div className="space-y-1.5">
-                    <Label>Fecha de pago</Label>
-                    <DatePickerField
-                      value={paymentForm.fechaPago}
-                      onChange={(d) => setFormField("fechaPago", d)}
-                    />
+                    <Label>Fecha de pago (para los recién marcados)</Label>
+                    <DatePickerField value={fechaNueva} onChange={setFechaNueva} />
+                  </div>
+                  <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2">
+                    <span>
+                      Pagado <strong className="tabular-nums">${fmt(preview.montoPagado)}</strong> de $
+                      {fmt(factura.total)}
+                      {preview.estadoPago !== "pagada" && (
+                        <span className="text-muted-foreground">
+                          {" "}· Resta ${fmt(Math.max(0, (factura.total ?? 0) - preview.montoPagado))}
+                        </span>
+                      )}
+                    </span>
+                    <Badge
+                      variant={estadoPagoBadgeVariant(preview.estadoPago)}
+                      className={estadoPagoBadgeClass(preview.estadoPago)}
+                    >
+                      {ESTADO_PAGO_LABEL[preview.estadoPago]}
+                    </Badge>
                   </div>
                   <div className="flex gap-2 justify-end">
-                    <Button variant="outline" size="sm" onClick={() => setShowPaymentForm(false)} disabled={savingPago}>
+                    <Button variant="outline" size="sm" onClick={() => setMarcadas(null)} disabled={savingPago}>
                       Cancelar
                     </Button>
                     <Button size="sm" onClick={handleConfirmPago} disabled={savingPago}>
+                      {savingPago && <Spinner />}
                       {savingPago ? "Guardando..." : "Confirmar"}
                     </Button>
                   </div>
                 </div>
               ) : (
-                <Button variant="outline" size="sm" onClick={openPaymentForm}>
+                <Button variant="outline" size="sm" onClick={abrirPago}>
                   {estadoPago === "pendiente" ? "Registrar pago" : "Editar pago"}
                 </Button>
               )}
