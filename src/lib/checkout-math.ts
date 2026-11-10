@@ -68,6 +68,71 @@ export function ventaCardCharged(venta: Parameters<typeof ventaCardSurcharge>[0]
   return cardBase + surcharge;
 }
 
+export type PagoParteTipo = "efectivo" | "dolares" | "tarjeta" | "transfe" | "mixto";
+
+export interface PagoParte {
+  tipo: PagoParteTipo;
+  label: string;
+  /** En la moneda de `moneda`: los dólares van sin convertir. */
+  monto: number;
+  moneda: "MXN" | "USD";
+}
+
+const PAGO_LABEL: Record<PagoParteTipo, string> = {
+  efectivo: "Efectivo",
+  dolares: "Dólares",
+  tarjeta: "Tarjeta",
+  transfe: "Transferencia",
+  mixto: "Mixto",
+};
+
+/**
+ * Con qué se pagó de verdad una venta ya registrada. `metodoPago: "mixto"` solo dice que
+ * fueron varios, y "efectivo" no distingue pesos de dólares; aquí se reconstruye con los
+ * montos que guarda la venta (en mixto `recibido` es solo el efectivo, ver CheckoutDialog).
+ *
+ * Montos: efectivo neto (recibido − cambio), tarjeta lo cobrado en terminal (con recargo,
+ * igual que el corte de caja) y transferencia. Si una venta vieja no trae los montos,
+ * regresa el método guardado tal cual en vez de inventar el reparto.
+ */
+export function ventaPagoPartes(
+  venta: Parameters<typeof ventaCardSurcharge>[0] & {
+    montoTransferencia?: number | null;
+    recibido?: number | null;
+    cambio?: number | null;
+    recibidoUSD?: number | null;
+    tipoCambioUsado?: number | null;
+  }
+): PagoParte[] {
+  const parte = (tipo: PagoParteTipo, monto: number, moneda: "MXN" | "USD" = "MXN"): PagoParte => ({
+    tipo,
+    label: PAGO_LABEL[tipo],
+    monto,
+    moneda,
+  });
+  const metodo = venta.metodoPago as MetodoPago;
+
+  if (metodo === "tarjeta") return [parte("tarjeta", venta.total)];
+  if (metodo === "transfe") return [parte("transfe", venta.total)];
+
+  const partes: PagoParte[] = [];
+  const usd = venta.recibidoUSD ?? 0;
+  // Si pagó todo en dólares y el cambio se dio en pesos, esto sale ≤ 0 y solo se muestran los dólares.
+  const pesos = (venta.recibido ?? 0) - usd * (venta.tipoCambioUsado ?? 1) - (venta.cambio ?? 0);
+  if (pesos > MONEY_EPSILON) partes.push(parte("efectivo", pesos));
+  if (usd > MONEY_EPSILON) partes.push(parte("dolares", usd, "USD"));
+
+  if (metodo === "mixto") {
+    const tarjeta = ventaCardCharged(venta);
+    if (tarjeta > MONEY_EPSILON) partes.push(parte("tarjeta", tarjeta));
+    const transfe = venta.montoTransferencia ?? 0;
+    if (transfe > MONEY_EPSILON) partes.push(parte("transfe", transfe));
+  }
+
+  if (partes.length === 0) return [parte(metodo === "mixto" ? "mixto" : "efectivo", venta.total)];
+  return partes;
+}
+
 export function entryToMXN(entry: CashEntry, tipoCambio: number): number {
   return entry.currency === "USD" ? entry.amount * tipoCambio : entry.amount;
 }

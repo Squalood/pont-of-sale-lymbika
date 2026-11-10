@@ -25,6 +25,7 @@ import { lineLots, lotPortionLabel } from "@/lib/venta-lotes";
 import { printReceipt } from "@/lib/print-receipt";
 import { useMembershipName } from "@/api/getSiteConfig";
 import { ventaCardCharged, ventaCardSurcharge } from "@/lib/checkout-math";
+import { PagoBadges } from "@/components/admin/pago-badges";
 import { feeSumaAlTotal } from "@/lib/tax";
 import { MANAGEMENT_FEE_RATE } from "@/lib/pricing";
 import { ReturnDialog } from "@/components/admin/return-dialog";
@@ -140,9 +141,9 @@ export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: Sal
               </div>
               <div>
                 <span className="text-muted-foreground">Método de pago</span>
-                <p className="font-medium capitalize">
-                  {venta.metodoPago === "transfe" ? "Transferencia" : venta.metodoPago}
-                </p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  <PagoBadges venta={venta} />
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Estado</span>

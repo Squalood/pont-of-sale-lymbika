@@ -37,6 +37,7 @@ import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
 import { useMembershipName } from "@/api/getSiteConfig";
 import { fmtMoney } from "@/lib/format";
+import { PagoBadges } from "@/components/admin/pago-badges";
 
 interface SalesTableProps {
   ventas: VentaType[];
@@ -291,9 +292,7 @@ export function SalesTable({ ventas }: SalesTableProps) {
                     )}
                     <TableCell>
                       <div className="flex flex-col items-start gap-1">
-                        <Badge variant="outline" className="capitalize">
-                          {venta.metodoPago === "transfe" ? "Transferencia" : venta.metodoPago}
-                        </Badge>
+                        <PagoBadges venta={venta} />
                         {venta.esMembresia && (
                           <Badge className="gap-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200 font-normal text-xs px-1.5 py-0">
                             <BadgePercent className="h-3 w-3" />
