@@ -1,3 +1,5 @@
+import { fmtMoney } from "@/lib/format";
+
 export interface ReturnReceiptItem {
   productName: string;
   quantity: number;
@@ -32,8 +34,8 @@ export function printReturnReceipt(data: ReturnReceiptData) {
       <tr>
         <td style="text-align:left; padding:2px 0;">${item.productName}</td>
         <td style="text-align:center;">${item.quantity}</td>
-        <td style="text-align:right;">$${item.unitPrice.toFixed(2)}</td>
-        <td style="text-align:right;">$${item.totalLine.toFixed(2)}</td>
+        <td style="text-align:right;">${fmtMoney(item.unitPrice)}</td>
+        <td style="text-align:right;">${fmtMoney(item.totalLine)}</td>
       </tr>`
     )
     .join("");
@@ -93,7 +95,7 @@ export function printReturnReceipt(data: ReturnReceiptData) {
       <div class="totals">
         <div class="row total">
           <span>REEMBOLSO</span>
-          <span>$${montoReembolso.toFixed(2)}</span>
+          <span>${fmtMoney(montoReembolso)}</span>
         </div>
       </div>
 

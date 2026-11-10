@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Pencil, X } from "lucide-react";
+import { fmtMoney } from "@/lib/format";
 
 interface PriceEditorProps {
   displayPrice: number;
@@ -63,7 +64,7 @@ export function PriceEditor({ displayPrice, hasOverride, specialPrice, itemKey, 
   return (
     <div className="flex items-center gap-1">
       <span className={priceClassName}>
-        ${displayPrice.toFixed(2)}
+        {fmtMoney(displayPrice)}
       </span>
       {hasOverride && (
         <button

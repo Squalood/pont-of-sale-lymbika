@@ -35,6 +35,7 @@ import { VentaType } from "@/types/venta";
 import { printInvoice } from "@/lib/print-invoice";
 import { postFactura } from "@/api/postFactura";
 import { useCaja } from "@/lib/caja-context";
+import { fmtNum } from "@/lib/format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -75,10 +76,6 @@ const FORMA_PAGO_MAP: Record<string, string> = {
   transfe: "Transferencia",
   mixto: "Mixto",
 };
-
-function fmt(n: number) {
-  return (n ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 // ── DatePickerField ───────────────────────────────────────────────────────────
 
@@ -353,7 +350,7 @@ export function InvoiceFromSaleDialog({ venta, open, onClose }: InvoiceFromSaleD
                   <TableRow key={idx}>
                     <TableCell className="text-sm">{line.descripcion}</TableCell>
                     <TableCell className="text-center text-sm">{line.cantidad}</TableCell>
-                    <TableCell className="text-right text-sm">${fmt(line.precioUnitario)}</TableCell>
+                    <TableCell className="text-right text-sm">${fmtNum(line.precioUnitario)}</TableCell>
                     <TableCell>
                       <Select
                         value={line.impuesto}
@@ -370,7 +367,7 @@ export function InvoiceFromSaleDialog({ venta, open, onClose }: InvoiceFromSaleD
                       </Select>
                     </TableCell>
                     <TableCell className="text-right text-sm tabular-nums">
-                      ${fmt(line.cantidad * line.precioUnitario)}
+                      ${fmtNum(line.cantidad * line.precioUnitario)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -382,20 +379,20 @@ export function InvoiceFromSaleDialog({ venta, open, onClose }: InvoiceFromSaleD
           <div className="flex justify-end">
             <div className="w-52 space-y-1 text-sm border-t pt-3">
               <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span><span>${fmt(subtotal)}</span>
+                <span>Subtotal</span><span>${fmtNum(subtotal)}</span>
               </div>
               {ivaAmount16 > 0 && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>IVA (16%)</span><span>${fmt(ivaAmount16)}</span>
+                  <span>IVA (16%)</span><span>${fmtNum(ivaAmount16)}</span>
                 </div>
               )}
               {ivaAmount8 > 0 && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>IVA (8%)</span><span>${fmt(ivaAmount8)}</span>
+                  <span>IVA (8%)</span><span>${fmtNum(ivaAmount8)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-base">
-                <span>Total</span><span>${fmt(total)}</span>
+                <span>Total</span><span>${fmtNum(total)}</span>
               </div>
             </div>
           </div>

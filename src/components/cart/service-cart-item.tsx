@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Stethoscope, Trash2 } from "lucide-react";
 import { PriceEditor } from "./price-editor";
 import { QuantityControls } from "./quantity-controls";
+import { fmtMoney } from "@/lib/format";
 import {
   SERVICE_IMPUESTO,
   impuestoLabel,
@@ -67,7 +68,7 @@ export function ServiceCartItem({ item, priceMode, onUpdateQuantity, onRemoveIte
           onUpdateQuantity={onUpdateQuantity}
         />
         <span className={`text-sm font-semibold ${hasOverride ? "text-amber-600" : specialPrice ? "text-emerald-400" : ""}`}>
-          ${(displayPrice * quantity).toFixed(2)}
+          {fmtMoney(displayPrice * quantity)}
         </span>
       </div>
       <div className="mt-1 pl-12">

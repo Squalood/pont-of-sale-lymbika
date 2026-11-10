@@ -15,6 +15,7 @@ import { CajaType } from "@/types/caja";
 import { CierreResumenData } from "@/types/cierre";
 import { fetchReporteCierre } from "@/api/getReporteCierre";
 import { printCierre } from "@/lib/print-cierre";
+import { fmtMoney, fmtNum } from "@/lib/format";
 
 function StatRow({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
   return (
@@ -27,13 +28,13 @@ function StatRow({ label, value, valueClass }: { label: string; value: string; v
 
 function DiffRow({ label, esperado, declarado, diff }: { label: string; esperado: number; declarado: number; diff: number }) {
   const diffColor = diff > 0 ? "text-emerald-600" : diff < 0 ? "text-destructive" : "text-muted-foreground";
-  const diffLabel = diff > 0 ? `+$${diff.toFixed(2)}` : `-$${Math.abs(diff).toFixed(2)}`;
+  const diffLabel = diff > 0 ? `+${fmtMoney(diff)}` : `-${fmtMoney(Math.abs(diff))}`;
 
   return (
     <div className="grid grid-cols-4 gap-2 text-sm py-1.5 border-b last:border-0">
       <span className="font-medium">{label}</span>
-      <span className="text-right text-muted-foreground">${esperado.toFixed(2)}</span>
-      <span className="text-right">${declarado.toFixed(2)}</span>
+      <span className="text-right text-muted-foreground">{fmtMoney(esperado)}</span>
+      <span className="text-right">{fmtMoney(declarado)}</span>
       <span className={`text-right font-medium ${diffColor}`}>{diffLabel}</span>
     </div>
   );
@@ -41,10 +42,6 @@ function DiffRow({ label, esperado, declarado, diff }: { label: string; esperado
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" });
-}
-
-function fmt(n: number) {
-  return n.toLocaleString("es-MX", { minimumFractionDigits: 2 });
 }
 
 interface CajaDetailDialogProps {
@@ -125,8 +122,8 @@ export function CajaDetailDialog({ caja, open, onClose }: CajaDetailDialogProps)
             <StatRow label="Farmacia" value={caja.pharmacy?.nombre ?? "—"} />
             <StatRow label="Apertura" value={fmtTime(caja.fecha)} />
             <StatRow label="Operador" value={caja.operador} />
-            <StatRow label="Fondo inicial" value={`$${fmt(caja.fondoInicial)}`} />
-            <StatRow label="Tipo de cambio" value={`$${caja.tipoCambio.toFixed(2)} MXN/USD`} />
+            <StatRow label="Fondo inicial" value={`$${fmtNum(caja.fondoInicial)}`} />
+            <StatRow label="Tipo de cambio" value={`${fmtMoney(caja.tipoCambio)} MXN/USD`} />
             {!isAbierta && caja.closedAt && (
               <StatRow label="Cierre" value={fmtTime(caja.closedAt)} />
             )}

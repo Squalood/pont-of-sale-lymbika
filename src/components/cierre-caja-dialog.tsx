@@ -16,6 +16,7 @@ import { patchCaja } from "@/api/patchCaja";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
 import { CierreResumenData } from "@/types/cierre";
+import { fmtMoney } from "@/lib/format";
 
 interface CierreCajaDialogProps {
   open: boolean;
@@ -27,13 +28,13 @@ type Step = "declaracion" | "confirmacion";
 function DiffRow({ label, esperado, declarado }: { label: string; esperado: number; declarado: number }) {
   const diff = declarado - esperado;
   const diffColor = diff > 0 ? "text-emerald-600" : diff < 0 ? "text-destructive" : "text-muted-foreground";
-  const diffLabel = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+  const diffLabel = diff > 0 ? `+${fmtMoney(diff)}` : fmtMoney(diff);
 
   return (
     <div className="grid grid-cols-4 gap-2 text-sm py-1.5 border-b last:border-0">
       <span className="font-medium">{label}</span>
-      <span className="text-right text-muted-foreground">${esperado.toFixed(2)}</span>
-      <span className="text-right">${declarado.toFixed(2)}</span>
+      <span className="text-right text-muted-foreground">{fmtMoney(esperado)}</span>
+      <span className="text-right">{fmtMoney(declarado)}</span>
       <span className={`text-right font-medium ${diffColor}`}>{diffLabel}</span>
     </div>
   );
@@ -183,38 +184,38 @@ export function CierreCajaDialog({ open, onClose }: CierreCajaDialogProps) {
               </p>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Fondo inicial</span>
-                <span>${efectivo.fondoInicial.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                <span>{fmtMoney(efectivo.fondoInicial)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ventas en efectivo (neto)</span>
-                <span className="text-emerald-600">+${efectivo.ventasNetoMXN.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                <span className="text-emerald-600">+{fmtMoney(efectivo.ventasNetoMXN)}</span>
               </div>
               {efectivo.devolucionesMXN > 0 && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Devoluciones</span>
-                  <span className="text-destructive">-${efectivo.devolucionesMXN.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                  <span className="text-destructive">-{fmtMoney(efectivo.devolucionesMXN)}</span>
                 </div>
               )}
               {hasCard && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ventas con tarjeta</span>
-                  <span>${efectivo.ventasTarjeta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                  <span>{fmtMoney(efectivo.ventasTarjeta)}</span>
                 </div>
               )}
               {hasTransfe && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Ventas por transferencia</span>
-                  <span>${efectivo.ventasTransfe.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                  <span>{fmtMoney(efectivo.ventasTransfe)}</span>
                 </div>
               )}
               <div className="flex justify-between border-t pt-2 font-medium">
                 <span>Esperado en caja (MXN)</span>
-                <span>${efectivo.efectivoMXN.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+                <span>{fmtMoney(efectivo.efectivoMXN)}</span>
               </div>
               {efectivo.efectivoUSD > 0 && (
                 <div className="flex justify-between font-medium">
                   <span>Esperado en caja (USD)</span>
-                  <span>${efectivo.efectivoUSD.toFixed(2)} USD</span>
+                  <span>{fmtMoney(efectivo.efectivoUSD)} USD</span>
                 </div>
               )}
             </div>

@@ -21,6 +21,7 @@ import { Printer } from "lucide-react";
 import { DevolucionType } from "@/types/devolucion";
 import { printReturnReceipt } from "@/lib/print-return-receipt";
 import { lotPortionLabel } from "@/lib/venta-lotes";
+import { fmtMoney } from "@/lib/format";
 
 interface DevolucionDetailDialogProps {
   devolucion: DevolucionType | null;
@@ -128,8 +129,8 @@ export function DevolucionDetailDialog({ devolucion, open, onClose }: Devolucion
                     ))}
                   </TableCell>
                   <TableCell className="text-center">{item.quantity}</TableCell>
-                  <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${item.totalLine.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">{fmtMoney(item.unitPrice)}</TableCell>
+                  <TableCell className="text-right">{fmtMoney(item.totalLine)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -139,7 +140,7 @@ export function DevolucionDetailDialog({ devolucion, open, onClose }: Devolucion
           <div className="border-t pt-3 text-sm">
             <div className="flex justify-between text-base font-bold">
               <span>Total reembolsado</span>
-              <span>${devolucion.montoReembolso.toFixed(2)}</span>
+              <span>{fmtMoney(devolucion.montoReembolso)}</span>
             </div>
           </div>
         </div>

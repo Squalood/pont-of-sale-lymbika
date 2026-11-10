@@ -30,6 +30,7 @@ import { printReturnReceipt } from "@/lib/print-return-receipt";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
 import { buildReturnRows, type ReturnRow } from "@/lib/return-rows";
+import { fmtMoney } from "@/lib/format";
 
 interface ReturnDialogProps {
   venta: VentaType;
@@ -337,7 +338,7 @@ export function ReturnDialog({ venta, open, onClose, onReturnComplete }: ReturnD
                       )}
                     </span>
                     <span className="text-muted-foreground">
-                      x{row.returnQty} · ${(row.unitPrice * row.returnQty).toFixed(2)}
+                      x{row.returnQty} · {fmtMoney(row.unitPrice * row.returnQty)}
                     </span>
                   </div>
                 ))}
@@ -350,7 +351,7 @@ export function ReturnDialog({ venta, open, onClose, onReturnComplete }: ReturnD
                 </div>
                 <div className="flex justify-between font-bold text-base">
                   <span>Reembolso</span>
-                  <span>${montoReembolso.toFixed(2)}</span>
+                  <span>{fmtMoney(montoReembolso)}</span>
                 </div>
               </div>
 

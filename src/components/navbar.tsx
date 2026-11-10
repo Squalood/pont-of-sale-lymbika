@@ -11,6 +11,7 @@ import { clearAuth, getUser, AuthUser } from "@/lib/auth";
 import { useForbidden } from "@/lib/forbidden-context";
 import { useCaja } from "@/lib/caja-context";
 import { CierreCajaDialog } from "@/components/cierre-caja-dialog";
+import { fmtMoney } from "@/lib/format";
 
 export function Navbar() {
   const router = useRouter();
@@ -53,12 +54,12 @@ export function Navbar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Badge className="cursor-default bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30">
-                  USD ${caja.tipoCambio.toFixed(2)}
+                  USD {fmtMoney(caja.tipoCambio)}
                 </Badge>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="space-y-1 text-xs">
                 <p><span className="font-semibold">Apertura:</span> {new Date(caja.fecha).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</p>
-                <p><span className="font-semibold">Fondo inicial:</span> ${caja.fondoInicial.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
+                <p><span className="font-semibold">Fondo inicial:</span> {fmtMoney(caja.fondoInicial)}</p>
                 <p><span className="font-semibold">Operador:</span> {caja.operador}</p>
                 <p><span className="font-semibold">Sucursal:</span> {caja.pharmacy?.nombre}</p>
               </TooltipContent>
@@ -70,17 +71,17 @@ export function Navbar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Badge className="cursor-default bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30">
-                  Caja ${efectivo.efectivoMXN.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                  Caja {fmtMoney(efectivo.efectivoMXN)}
                 </Badge>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="space-y-1 text-xs">
-                <p><span className="font-semibold">Fondo inicial:</span> ${efectivo.fondoInicial.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
-                <p><span className="font-semibold">Ventas efectivo:</span> ${efectivo.ventasNetoMXN.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
+                <p><span className="font-semibold">Fondo inicial:</span> {fmtMoney(efectivo.fondoInicial)}</p>
+                <p><span className="font-semibold">Ventas efectivo:</span> {fmtMoney(efectivo.ventasNetoMXN)}</p>
                 {efectivo.devolucionesMXN > 0 && (
-                  <p><span className="font-semibold">Devoluciones:</span> -${efectivo.devolucionesMXN.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</p>
+                  <p><span className="font-semibold">Devoluciones:</span> -{fmtMoney(efectivo.devolucionesMXN)}</p>
                 )}
                 {efectivo.efectivoUSD > 0 && (
-                  <p><span className="font-semibold">Dólares:</span> ${efectivo.efectivoUSD.toFixed(2)} USD</p>
+                  <p><span className="font-semibold">Dólares:</span> {fmtMoney(efectivo.efectivoUSD)} USD</p>
                 )}
               </TooltipContent>
             </Tooltip>

@@ -1,6 +1,7 @@
 import { BadgePercent } from "lucide-react";
 import type { PaymentMethod } from "./types";
 import { useMembershipName } from "@/api/getSiteConfig";
+import { fmtMoney } from "@/lib/format";
 
 interface MemberInfoProps {
   isMember: boolean;
@@ -27,17 +28,17 @@ export function MemberInfo({ isMember, method, subtotal, cardBase, cardSurcharge
         <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700">
           <div className="flex items-center justify-between text-sm">
             <span>Subtotal {membershipName}</span>
-            <span>${subtotal.toFixed(2)}</span>
+            <span>{fmtMoney(subtotal)}</span>
           </div>
           {method === "mixto" && (
             <div className="flex items-center justify-between text-sm">
               <span>Porción en tarjeta</span>
-              <span>${cardBase.toFixed(2)}</span>
+              <span>{fmtMoney(cardBase)}</span>
             </div>
           )}
           <div className="flex items-center justify-between text-sm">
             <span>Cargo por tarjeta (3%)</span>
-            <span>+${cardSurcharge.toFixed(2)}</span>
+            <span>+{fmtMoney(cardSurcharge)}</span>
           </div>
         </div>
       )}

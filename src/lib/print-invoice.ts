@@ -1,3 +1,5 @@
+import { fmtNum } from "@/lib/format";
+
 const COMPANY_FALLBACK = {
   razonSocial: "Grupo Lymbika S.A. de C.V.",
   rfc: "GLY123456ABC",
@@ -13,10 +15,6 @@ export interface PharmacyInfo {
   direccion?: string | null;
   contacto_tel?: string | null;
   contacto_email?: string | null;
-}
-
-function fmt(n: number) {
-  return n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtDate(d: Date) {
@@ -76,9 +74,9 @@ export function printInvoice(data: InvoiceData): void {
       <tr>
         <td>${l.descripcion || "<em style='color:#9ca3af'>Sin descripción</em>"}</td>
         <td class="num">${l.cantidad}</td>
-        <td class="num">$${fmt(l.precioUnitario)}</td>
+        <td class="num">$${fmtNum(l.precioUnitario)}</td>
         <td class="center">${l.impuesto === "iva16" ? "IVA 16%" : l.impuesto === "iva8" ? "IVA 8%" : "Exento"}</td>
-        <td class="num">$${fmt(l.cantidad * l.precioUnitario)}</td>
+        <td class="num">$${fmtNum(l.cantidad * l.precioUnitario)}</td>
       </tr>`
         )
         .join("")
@@ -187,10 +185,10 @@ export function printInvoice(data: InvoiceData): void {
 
   <div class="totals-wrapper">
     <div class="totals">
-      <div class="row"><span>Subtotal</span><span>$${fmt(subtotal)}</span></div>
-      ${ivaAmount16 > 0 ? `<div class="row"><span>IVA (16%)</span><span>$${fmt(ivaAmount16)}</span></div>` : ""}
-      ${ivaAmount8 > 0 ? `<div class="row"><span>IVA (8%)</span><span>$${fmt(ivaAmount8)}</span></div>` : ""}
-      <div class="row total"><span>Total</span><span>$${fmt(total)}</span></div>
+      <div class="row"><span>Subtotal</span><span>$${fmtNum(subtotal)}</span></div>
+      ${ivaAmount16 > 0 ? `<div class="row"><span>IVA (16%)</span><span>$${fmtNum(ivaAmount16)}</span></div>` : ""}
+      ${ivaAmount8 > 0 ? `<div class="row"><span>IVA (8%)</span><span>$${fmtNum(ivaAmount8)}</span></div>` : ""}
+      <div class="row total"><span>Total</span><span>$${fmtNum(total)}</span></div>
     </div>
   </div>
 

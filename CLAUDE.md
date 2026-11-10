@@ -47,3 +47,9 @@ Variables: `NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_WEBSHOP_URL` (link a la ficha
 - Commits en español, Conventional Commits con scope opcional: `feat(admin): ...`, `fix(caja): ...`, `perf(catalogo): ...`, `refactor:`, `chore(api):`. El mensaje explica el porqué/efecto ("la venta congela el costo y la tasa al cobrar").
 - Comentarios del código en español y explicando el porqué; no hay `as any` en el repo, mantenerlo.
 - Cambios de content types: primero en el backend (admin local) → push → después el POS.
+- **Dinero: usar siempre `src/lib/format.ts`, nunca crear otro formato.** Antes había 6 formas distintas (`toFixed(2)` sin comas, `toLocaleString` sin máximo de decimales, `fmt` locales copiados, uno con `es-AR`) y se unificaron.
+  - `fmtMoney(n)` → `$23,068.41`, negativos `-$5.00`. Es la opción por defecto en pantalla y tickets (JSX: `{fmtMoney(x)}`; template: `${fmtMoney(x)}`, sin poner otro `$` antes). USD: `{fmtMoney(x)} USD`.
+  - `fmtNum(n)` → `23,068.41` sin `$`, solo cuando el `$` ya va aparte en el texto.
+  - `fmtInt(n)` para cantidades/conteos; `fmtCompact(n)` (`$23.1K`) solo para ejes y etiquetas de gráficas.
+  - Excepción: los **CSV** (`lib/dashboard-csv.ts`, exports de tablas) y el `value` de inputs editables van con `toFixed(2)` crudo, sin comas, para que Excel y `validar-margen` los lean como número.
+  - Si falta un formato (otra moneda, porcentaje…), agregarlo a `format.ts`; no definir `fmt` locales en el componente.

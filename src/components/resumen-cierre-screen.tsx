@@ -10,6 +10,7 @@ import { CierreResumenData } from "@/types/cierre";
 import { fetchReporteCierre } from "@/api/getReporteCierre";
 import { printCierre } from "@/lib/print-cierre";
 import { printCierreTicket } from "@/lib/print-cierre-ticket";
+import { fmtMoney } from "@/lib/format";
 
 function StatRow({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
   return (
@@ -22,13 +23,13 @@ function StatRow({ label, value, valueClass }: { label: string; value: string; v
 
 function DiffRow({ label, esperado, declarado, diff }: { label: string; esperado: number; declarado: number; diff: number }) {
   const diffColor = diff > 0 ? "text-emerald-600" : diff < 0 ? "text-destructive" : "text-muted-foreground";
-  const diffLabel = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+  const diffLabel = diff > 0 ? `+${fmtMoney(diff)}` : fmtMoney(diff);
 
   return (
     <div className="grid grid-cols-4 gap-2 text-sm py-1.5 border-b last:border-0">
       <span className="font-medium">{label}</span>
-      <span className="text-right text-muted-foreground">${esperado.toFixed(2)}</span>
-      <span className="text-right">${declarado.toFixed(2)}</span>
+      <span className="text-right text-muted-foreground">{fmtMoney(esperado)}</span>
+      <span className="text-right">{fmtMoney(declarado)}</span>
       <span className={`text-right font-medium ${diffColor}`}>{diffLabel}</span>
     </div>
   );
@@ -80,16 +81,16 @@ export function ResumenCierreScreen({ data }: ResumenCierreScreenProps) {
             <StatRow label="Apertura" value={fmtTime(data.apertura)} />
             <StatRow label="Cierre" value={fmtTime(data.cierre)} />
             <StatRow label="Cerrado por" value={data.cerradoPor} />
-            <StatRow label="Fondo inicial" value={`$${data.fondoInicial.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`} />
+            <StatRow label="Fondo inicial" value={fmtMoney(data.fondoInicial)} />
             <StatRow
               label="Ventas efectivo (neto)"
-              value={`+$${data.ventasNetoMXN.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`}
+              value={`+${fmtMoney(data.ventasNetoMXN)}`}
               valueClass="text-emerald-600"
             />
             {data.devolucionesMXN > 0 && (
               <StatRow
                 label="Devoluciones"
-                value={`-$${data.devolucionesMXN.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`}
+                value={`-${fmtMoney(data.devolucionesMXN)}`}
                 valueClass="text-destructive"
               />
             )}

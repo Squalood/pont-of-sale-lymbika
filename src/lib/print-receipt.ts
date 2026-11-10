@@ -1,5 +1,6 @@
 import { impuestoLabel } from "@/lib/pricing";
 import { feeSumaAlTotal, type IvaBreakdown } from "@/lib/tax";
+import { fmtMoney } from "@/lib/format";
 
 export interface ReceiptItem {
   productName: string;
@@ -117,8 +118,8 @@ export function buildReceiptHtml(data: ReceiptData): string {
       <tr>
         <td style="text-align:left; padding:2px 0;">${item.productName}</td>
         <td style="text-align:center;">${item.quantity}</td>
-        <td style="text-align:right;">$${item.unitPrice.toFixed(2)}</td>
-        <td style="text-align:right;">$${item.totalLine.toFixed(2)}</td>
+        <td style="text-align:right;">${fmtMoney(item.unitPrice)}</td>
+        <td style="text-align:right;">${fmtMoney(item.totalLine)}</td>
       </tr>${lotLine}`;
       }
     )
@@ -265,7 +266,7 @@ export function buildReceiptHtml(data: ReceiptData): string {
       <div class="totals">
         <div class="row">
           <span>Subtotal</span>
-          <span>$${subtotal.toFixed(2)}</span>
+          <span>${fmtMoney(subtotal)}</span>
         </div>
         ${(() => {
           const rows: string[] = [];
@@ -273,22 +274,22 @@ export function buildReceiptHtml(data: ReceiptData): string {
             // Venta viva: una fila por tasa presente, ya cerradas contra el total.
             for (const row of data.ivaBreakdown.rows) {
               rows.push(
-                `<div class="row"><span>${impuestoLabel(row.impuesto)} incluido</span><span>$${(row.amountCents / 100).toFixed(2)}</span></div>`
+                `<div class="row"><span>${impuestoLabel(row.impuesto)} incluido</span><span>${fmtMoney(row.amountCents / 100)}</span></div>`
               );
             }
           } else if (data.iva > 0) {
             // Reimpresión: el impuesto por línea no se persiste, solo el agregado.
-            rows.push(`<div class="row"><span>IVA incluido</span><span>$${data.iva.toFixed(2)}</span></div>`);
+            rows.push(`<div class="row"><span>IVA incluido</span><span>${fmtMoney(data.iva)}</span></div>`);
           }
           return rows.join("");
         })()}
         ${isMember ? `<div class="row member-note"><span>&#9733; Precio ${membershipName}</span></div>` : ""}
         ${managementFee > 0 ? `<div class="row member-note"><span>&#9670; Precio de proveedor</span></div>` : ""}
-        ${feeEsCargo ? `<div class="row"><span>Management fee</span><span>+$${managementFee.toFixed(2)}</span></div>` : ""}
-        ${surchargeCents > 0 ? `<div class="row"><span>Cargo tarjeta (3%)</span><span>+$${(surchargeCents / 100).toFixed(2)}</span></div>` : ""}
+        ${feeEsCargo ? `<div class="row"><span>Management fee</span><span>+${fmtMoney(managementFee)}</span></div>` : ""}
+        ${surchargeCents > 0 ? `<div class="row"><span>Cargo tarjeta (3%)</span><span>+${fmtMoney(surchargeCents / 100)}</span></div>` : ""}
         <div class="row total">
           <span>TOTAL</span>
-          <span>$${effectiveTotal.toFixed(2)}</span>
+          <span>${fmtMoney(effectiveTotal)}</span>
         </div>
       </div>
 
@@ -302,34 +303,34 @@ export function buildReceiptHtml(data: ReceiptData): string {
         ${hasCard ? `
         <div class="row">
           <span>Tarjeta</span>
-          <span>$${cardCharge.toFixed(2)}</span>
+          <span>${fmtMoney(cardCharge)}</span>
         </div>` : ""}
         ${hasTransfe ? `
         <div class="row">
           <span>Transferencia</span>
-          <span>$${transfeCharge.toFixed(2)}</span>
+          <span>${fmtMoney(transfeCharge)}</span>
         </div>` : ""}
         ${hasCash ? `
         <div class="row">
           <span>Efectivo recibido</span>
-          <span>$${received.toFixed(2)} MXN</span>
+          <span>${fmtMoney(received)} MXN</span>
         </div>
         ${recibidoUSD > 0 ? `
         <div class="row" style="font-size:10px;color:#555;padding-left:8px;">
           <span>&#x2514; en pesos</span>
-          <span>$${(received - recibidoUSD * tipoCambioUsado).toFixed(2)} MXN</span>
+          <span>${fmtMoney(received - recibidoUSD * tipoCambioUsado)} MXN</span>
         </div>
         <div class="row" style="font-size:10px;color:#555;padding-left:8px;">
           <span>&#x2514; en dólares</span>
-          <span>$${recibidoUSD.toFixed(2)} USD</span>
+          <span>${fmtMoney(recibidoUSD)} USD</span>
         </div>
         <div class="row" style="font-size:10px;color:#555;padding-left:8px;">
           <span>&#x2514; tipo de cambio</span>
-          <span>$${tipoCambioUsado.toFixed(2)}</span>
+          <span>${fmtMoney(tipoCambioUsado)}</span>
         </div>` : ""}
         <div class="row">
           <span>Cambio</span>
-          <span>$${change.toFixed(2)}</span>
+          <span>${fmtMoney(change)}</span>
         </div>` : ""}
         <div class="row" style="margin-top:4px;">
           <span>Cajero</span>

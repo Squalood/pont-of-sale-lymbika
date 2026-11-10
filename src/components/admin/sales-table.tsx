@@ -36,6 +36,7 @@ import { lineLots } from "@/lib/venta-lotes";
 import { getUser } from "@/lib/auth";
 import { useCaja } from "@/lib/caja-context";
 import { useMembershipName } from "@/api/getSiteConfig";
+import { fmtMoney } from "@/lib/format";
 
 interface SalesTableProps {
   ventas: VentaType[];
@@ -314,7 +315,7 @@ export function SalesTable({ ventas }: SalesTableProps) {
                       {venta.pharmacies?.[0]?.nombre ?? "—"}
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      ${venta.total.toFixed(2)}
+                      {fmtMoney(venta.total)}
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge

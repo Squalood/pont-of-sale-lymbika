@@ -19,6 +19,7 @@ import { FacturaType } from "@/types/factura";
 import { FacturaDetailDialog } from "@/components/admin/factura-detail-dialog";
 import { EstadoFacturaBadge } from "@/components/admin/estado-factura-badge";
 import { folioVisible } from "@/lib/factura-folio";
+import { fmtNum } from "@/lib/format";
 
 type Period = "hoy" | "semana" | "mes" | "todo";
 type EstadoPagoFilter = "todos" | "pendiente" | "pagada" | "pagada_parcial";
@@ -28,10 +29,6 @@ interface FacturasTableProps {
   facturas: FacturaType[];
   onNuevaFactura: () => void;
   onEditar: (factura: FacturaType) => void;
-}
-
-function fmt(n: number) {
-  return n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtDate(iso: string) {
@@ -190,7 +187,7 @@ export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEdi
       </div>
 
       <p className="text-sm text-muted-foreground text-right">
-        {emitidas} factura{emitidas !== 1 ? "s" : ""} · Total: ${fmt(totales)}
+        {emitidas} factura{emitidas !== 1 ? "s" : ""} · Total: ${fmtNum(totales)}
         {borradores > 0 && ` · ${borradores} borrador${borradores !== 1 ? "es" : ""}`}
       </p>
 
@@ -198,11 +195,11 @@ export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEdi
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2 text-sm">
           <span>
             <strong>{seleccion.count}</strong> seleccionada{seleccion.count !== 1 ? "s" : ""}
-            {" · "}Total: <strong className="tabular-nums">${fmt(seleccion.total)}</strong>
+            {" · "}Total: <strong className="tabular-nums">${fmtNum(seleccion.total)}</strong>
             {seleccion.porCobrar > 0 && (
               <>
                 {" · "}Por cobrar:{" "}
-                <strong className="tabular-nums">${fmt(seleccion.porCobrar)}</strong>
+                <strong className="tabular-nums">${fmtNum(seleccion.porCobrar)}</strong>
               </>
             )}
           </span>
@@ -264,7 +261,7 @@ export function FacturasTable({ facturas: initialFacturas, onNuevaFactura, onEdi
                   <TableCell className="text-xs">{f.usoCfdi || "—"}</TableCell>
                   <TableCell className="text-sm">{f.formaDePago || "—"}</TableCell>
                   <TableCell className="text-right font-medium tabular-nums">
-                    ${fmt(f.total ?? 0)}
+                    ${fmtNum(f.total ?? 0)}
                   </TableCell>
                   <TableCell>
                     <EstadoFacturaBadge estado={f.estado} />

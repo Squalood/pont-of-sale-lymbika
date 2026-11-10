@@ -9,6 +9,7 @@ import { impuestoLabel, servicePriceConImpuesto, SERVICE_IMPUESTO } from "@/lib/
 import { normalize } from "@/lib/search";
 import { urlImagen } from "@/lib/media";
 import { strapiServiceRateUrl } from "@/lib/strapi-links";
+import { fmtMoney } from "@/lib/format";
 import {
   Table,
   TableBody,
@@ -49,10 +50,6 @@ const SORT_OPTIONS: {
 ];
 
 const COLUMNS = 8;
-
-function formatMoney(n: number): string {
-  return `$${n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
 
 type Props = {
   services: ServiceRateType[];
@@ -322,7 +319,7 @@ export function ServicesTable({ services, loading, error }: Props) {
                   {/* Precio final */}
                   <TableCell className="text-right">
                     <span className="text-sm text-muted-foreground tabular-nums">
-                      {isNaN(base) ? "—" : formatMoney(servicePriceConImpuesto(base))}
+                      {isNaN(base) ? "—" : fmtMoney(servicePriceConImpuesto(base))}
                     </span>
                   </TableCell>
 

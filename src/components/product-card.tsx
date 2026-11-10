@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { urlImagen } from "@/lib/media";
 import { isPerPharmacy, localMinStock, localStock } from "@/lib/stock";
 import { productPriceConImpuesto } from "@/lib/pricing";
+import { fmtMoney } from "@/lib/format";
 
 interface ProductCardProps {
   product: ProductType;
@@ -79,7 +80,7 @@ export function ProductCard({ product, onClick }: ProductCardProps) {
       <div className="mt-auto grid grid-cols-2 gap-x-2 gap-y-1 pt-2">
         {/* Con la tasa aplicada, para que coincida con lo que entra al carrito. */}
         <span className="text-lg font-bold text-primary">
-          ${productPriceConImpuesto(product, "regular").toFixed(2)}
+          {fmtMoney(productPriceConImpuesto(product, "regular"))}
         </span>
         <span className="text-xs text-muted-foreground text-right">
           {product.category?.categoryName}

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { DevolucionType } from "@/types/devolucion";
 import { DevolucionDetailDialog } from "@/components/admin/devolucion-detail-dialog";
+import { fmtMoney } from "@/lib/format";
 
 interface DevolucionesTableProps {
   devoluciones: DevolucionType[];
@@ -128,7 +129,7 @@ export function DevolucionesTable({ devoluciones }: DevolucionesTableProps) {
                       {dev.motivo || "—"}
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      ${dev.montoReembolso.toFixed(2)}
+                      {fmtMoney(dev.montoReembolso)}
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge variant={dev.estado === "Completada" ? "default" : "destructive"}>
@@ -147,7 +148,7 @@ export function DevolucionesTable({ devoluciones }: DevolucionesTableProps) {
         <div className="flex justify-end text-sm">
           <span className="text-muted-foreground">
             Total reembolsado:{" "}
-            <span className="font-semibold text-foreground">${totalReembolsado.toFixed(2)}</span>
+            <span className="font-semibold text-foreground">{fmtMoney(totalReembolsado)}</span>
           </span>
         </div>
       )}

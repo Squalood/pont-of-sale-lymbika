@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { fmtMoney } from "@/lib/format";
 import {
   CARD_SURCHARGE_RATE,
   MONEY_EPSILON,
@@ -162,8 +163,8 @@ export function CashInput({
 
       {nonCashOverflow && (
         <p className="text-xs text-destructive">
-          El monto de {currency === "tarjeta" ? "tarjeta" : "transferencia"} no puede superar $
-          {nonCashCap.toFixed(2)}
+          El monto de {currency === "tarjeta" ? "tarjeta" : "transferencia"} no puede superar{" "}
+          {fmtMoney(nonCashCap)}
         </p>
       )}
 
@@ -187,7 +188,7 @@ export function CashInput({
               setCurrentAmount("");
             }}
           >
-            Cobrar restante ${restanteAmount.toFixed(2)}
+            Cobrar restante {fmtMoney(restanteAmount)}
           </Button>
         );
       })()}
@@ -241,21 +242,21 @@ export function CashInput({
                 className="flex items-center justify-between rounded-md bg-muted px-3 py-1.5"
               >
                 {entry.currency === "MXN" ? (
-                  <span className="text-sm">${entry.amount.toFixed(2)} MXN</span>
+                  <span className="text-sm">{fmtMoney(entry.amount)} MXN</span>
                 ) : entry.currency === "USD" ? (
                   <span className="text-sm">
-                    <span className="text-green-700">${entry.amount.toFixed(2)} USD</span>
+                    <span className="text-green-700">{fmtMoney(entry.amount)} USD</span>
                     <span className="ml-1.5 text-xs text-muted-foreground">
-                      → ${(entry.amount * tipoCambio).toFixed(2)} MXN
+                      → {fmtMoney(entry.amount * tipoCambio)} MXN
                     </span>
                   </span>
                 ) : entry.currency === "tarjeta" ? (
                   <span className="text-sm font-medium text-blue-700">
-                    ${entry.amount.toFixed(2)} Tarjeta
+                    {fmtMoney(entry.amount)} Tarjeta
                   </span>
                 ) : (
                   <span className="text-sm font-medium text-purple-700">
-                    ${entry.amount.toFixed(2)} Transferencia bancaria
+                    {fmtMoney(entry.amount)} Transferencia bancaria
                   </span>
                 )}
                 <button
@@ -269,7 +270,7 @@ export function CashInput({
           </div>
           <div className="flex justify-between border-t pt-1.5 text-sm font-medium">
             <span>Total recibido</span>
-            <span>${receivedTotal.toFixed(2)} MXN</span>
+            <span>{fmtMoney(receivedTotal)} MXN</span>
           </div>
         </div>
       )}
@@ -278,13 +279,13 @@ export function CashInput({
       {receivedTotal > 0 && !isCovered && (
         <div className="flex justify-between rounded-lg bg-amber-50 px-4 py-2 text-amber-700">
           <span className="text-sm font-medium">Falta</span>
-          <span className="text-sm font-bold">${remaining.toFixed(2)}</span>
+          <span className="text-sm font-bold">{fmtMoney(remaining)}</span>
         </div>
       )}
       {receivedTotal > 0 && isCovered && (
         <div className="flex justify-between rounded-lg bg-green-50 px-4 py-2 text-green-700">
           <span className="text-sm font-medium">Cambio</span>
-          <span className="text-sm font-bold">${change.toFixed(2)}</span>
+          <span className="text-sm font-bold">{fmtMoney(change)}</span>
         </div>
       )}
     </div>

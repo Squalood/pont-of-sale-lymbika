@@ -1,9 +1,6 @@
 import { CierreResumenData } from "@/types/cierre";
 import { PagosResumen } from "@/api/getReporteCierre";
-
-function fmt(n: number) {
-  return n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+import { fmtNum } from "@/lib/format";
 
 function fmtDateTime(value: Date | string) {
   const d = new Date(value);
@@ -19,10 +16,10 @@ function row(label: string, value: string) {
 /** Ticket 80mm del corte: solo datos del turno y ventas por método. El detallado vive en print-cierre. */
 export function printCierreTicket(resumen: CierreResumenData, pagos: PagosResumen) {
   const metodos = [
-    pagos.efectivoMXN > 0 && row("Efectivo (MXN)", `$${fmt(pagos.efectivoMXN)}`),
-    pagos.efectivoUSD > 0 && row("Efectivo (USD)", `$${fmt(pagos.efectivoUSD)} USD`),
-    pagos.tarjeta > 0 && row("Tarjeta", `$${fmt(pagos.tarjeta)}`),
-    pagos.transferencia > 0 && row("Transferencia", `$${fmt(pagos.transferencia)}`),
+    pagos.efectivoMXN > 0 && row("Efectivo (MXN)", `$${fmtNum(pagos.efectivoMXN)}`),
+    pagos.efectivoUSD > 0 && row("Efectivo (USD)", `$${fmtNum(pagos.efectivoUSD)} USD`),
+    pagos.tarjeta > 0 && row("Tarjeta", `$${fmtNum(pagos.tarjeta)}`),
+    pagos.transferencia > 0 && row("Transferencia", `$${fmtNum(pagos.transferencia)}`),
   ]
     .filter(Boolean)
     .join("");
@@ -64,8 +61,8 @@ export function printCierreTicket(resumen: CierreResumenData, pagos: PagosResume
   ${resumen.pharmacyName ? row("Farmacia", resumen.pharmacyName) : ""}
   ${row("Apertura", fmtDateTime(resumen.apertura))}
   ${resumen.operador ? row("Operador", resumen.operador) : ""}
-  ${row("Fondo inicial", `$${fmt(resumen.fondoInicial)}`)}
-  ${resumen.tipoCambio ? row("Tipo de cambio", `$${fmt(resumen.tipoCambio)} MXN/USD`) : ""}
+  ${row("Fondo inicial", `$${fmtNum(resumen.fondoInicial)}`)}
+  ${resumen.tipoCambio ? row("Tipo de cambio", `$${fmtNum(resumen.tipoCambio)} MXN/USD`) : ""}
   ${row("Cierre", fmtDateTime(resumen.cierre))}
   ${row("Cerrado por", resumen.cerradoPor)}
 
@@ -76,7 +73,7 @@ export function printCierreTicket(resumen: CierreResumenData, pagos: PagosResume
   ${metodos || `<div class="row"><span>Sin ventas</span><span></span></div>`}
   <div class="row total">
     <span>TOTAL (${pagos.numVentas} venta${pagos.numVentas !== 1 ? "s" : ""})</span>
-    <span>$${fmt(pagos.totalImporte)}</span>
+    <span>$${fmtNum(pagos.totalImporte)}</span>
   </div>
 
   <div class="divider"></div>

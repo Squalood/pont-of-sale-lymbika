@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/table";
 import { CajaDetailDialog } from "@/components/admin/caja-detail-dialog";
 import { CajaType } from "@/types/caja";
+import { fmtMoney } from "@/lib/format";
 
 const PAGE_SIZE = 10;
 
@@ -350,7 +351,7 @@ export function CajasTable({ cajas }: CajasTableProps) {
                       {caja.closedBy ?? "—"}
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      ${caja.fondoInicial.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                      {fmtMoney(caja.fondoInicial)}
                     </TableCell>
                     <TableCell className="text-center">
                       {diff === null ? (

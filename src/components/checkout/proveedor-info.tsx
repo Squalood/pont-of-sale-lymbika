@@ -1,5 +1,6 @@
 import { Building2 } from "lucide-react";
 import { MANAGEMENT_FEE_RATE } from "@/lib/pricing";
+import { fmtMoney } from "@/lib/format";
 
 interface ProveedorInfoProps {
   /** Mercancía a precio de proveedor, sin el fee. */
@@ -26,11 +27,11 @@ export function ProveedorInfo({ feeBase, managementFee }: ProveedorInfoProps) {
       </p>
       <div className="flex items-center justify-between text-sm">
         <span>Precio proveedor</span>
-        <span>${feeBase.toFixed(2)}</span>
+        <span>{fmtMoney(feeBase)}</span>
       </div>
       <div className="flex items-center justify-between text-sm">
         <span>Management fee ({MANAGEMENT_FEE_RATE * 100}%)</span>
-        <span>${managementFee.toFixed(2)}</span>
+        <span>{fmtMoney(managementFee)}</span>
       </div>
     </div>
   );

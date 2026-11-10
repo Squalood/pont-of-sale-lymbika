@@ -1,9 +1,6 @@
 import { CierreResumenData } from "@/types/cierre";
 import { ReporteCierreData } from "@/api/getReporteCierre";
-
-function fmt(n: number) {
-  return n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+import { fmtMoney, fmtNum } from "@/lib/format";
 
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleString("es-MX", { dateStyle: "long", timeStyle: "short" });
@@ -16,7 +13,7 @@ function diffColor(diff: number) {
 }
 
 function diffLabel(diff: number) {
-  return diff > 0 ? `+$${fmt(diff)}` : `-$${fmt(Math.abs(diff))}`;
+  return diff > 0 ? `+$${fmtNum(diff)}` : `-$${fmtNum(Math.abs(diff))}`;
 }
 
 export function printCierre(resumen: CierreResumenData, reporte: ReporteCierreData) {
@@ -29,7 +26,7 @@ export function printCierre(resumen: CierreResumenData, reporte: ReporteCierreDa
           <tr>
             <td>${p.nombre}</td>
             <td class="num">${p.cantidad}</td>
-            <td class="num">$${fmt(p.total)}</td>
+            <td class="num">$${fmtNum(p.total)}</td>
           </tr>`
         )
         .join("")
@@ -72,7 +69,7 @@ export function printCierre(resumen: CierreResumenData, reporte: ReporteCierreDa
     <span>Apertura</span><span>${fmtTime(resumen.apertura)}</span>
     <span>Cierre</span><span>${fmtTime(resumen.cierre)}</span>
     <span>Operador</span><span>${resumen.cerradoPor}</span>
-    <span>Fondo inicial</span><span>$${fmt(resumen.fondoInicial)}</span>
+    <span>Fondo inicial</span><span>$${fmtNum(resumen.fondoInicial)}</span>
   </div>
 
   <h2>Ventas por método de pago</h2>
@@ -84,13 +81,13 @@ export function printCierre(resumen: CierreResumenData, reporte: ReporteCierreDa
       </tr>
     </thead>
     <tbody>
-      ${pagos.efectivoMXN > 0 ? `<tr><td>Efectivo (MXN)</td><td class="num">$${fmt(pagos.efectivoMXN)}</td></tr>` : ""}
-      ${pagos.efectivoUSD > 0 ? `<tr><td>Efectivo (USD)</td><td class="num">$${pagos.efectivoUSD.toFixed(2)} USD</td></tr>` : ""}
-      ${pagos.tarjeta > 0 ? `<tr><td>Tarjeta</td><td class="num">$${fmt(pagos.tarjeta)}</td></tr>` : ""}
-      ${pagos.transferencia > 0 ? `<tr><td>Transferencia</td><td class="num">$${fmt(pagos.transferencia)}</td></tr>` : ""}
+      ${pagos.efectivoMXN > 0 ? `<tr><td>Efectivo (MXN)</td><td class="num">$${fmtNum(pagos.efectivoMXN)}</td></tr>` : ""}
+      ${pagos.efectivoUSD > 0 ? `<tr><td>Efectivo (USD)</td><td class="num">${fmtMoney(pagos.efectivoUSD)} USD</td></tr>` : ""}
+      ${pagos.tarjeta > 0 ? `<tr><td>Tarjeta</td><td class="num">$${fmtNum(pagos.tarjeta)}</td></tr>` : ""}
+      ${pagos.transferencia > 0 ? `<tr><td>Transferencia</td><td class="num">$${fmtNum(pagos.transferencia)}</td></tr>` : ""}
       <tr class="total-row">
         <td>Total (${pagos.numVentas} venta${pagos.numVentas !== 1 ? "s" : ""})</td>
-        <td class="num">$${fmt(pagos.totalImporte)}</td>
+        <td class="num">$${fmtNum(pagos.totalImporte)}</td>
       </tr>
     </tbody>
   </table>
@@ -98,7 +95,7 @@ export function printCierre(resumen: CierreResumenData, reporte: ReporteCierreDa
   ${resumen.devolucionesMXN > 0 ? `
   <h2>Devoluciones</h2>
   <div class="meta">
-    <span>Total devuelto (MXN)</span><span>-$${fmt(resumen.devolucionesMXN)}</span>
+    <span>Total devuelto (MXN)</span><span>-$${fmtNum(resumen.devolucionesMXN)}</span>
   </div>` : ""}
 
   <h2>Corte de efectivo</h2>
@@ -114,28 +111,28 @@ export function printCierre(resumen: CierreResumenData, reporte: ReporteCierreDa
     <tbody>
       <tr>
         <td>Pesos (MXN)</td>
-        <td class="num">$${fmt(resumen.expectedMXN)}</td>
-        <td class="num">$${fmt(resumen.finalCashMXN)}</td>
+        <td class="num">$${fmtNum(resumen.expectedMXN)}</td>
+        <td class="num">$${fmtNum(resumen.finalCashMXN)}</td>
         <td class="num" style="color:${diffColor(resumen.diffMXN)};font-weight:600">${diffLabel(resumen.diffMXN)}</td>
       </tr>
       <tr>
         <td>Dólares (USD)</td>
-        <td class="num">$${resumen.expectedUSD.toFixed(2)}</td>
-        <td class="num">$${resumen.finalCashUSD.toFixed(2)}</td>
+        <td class="num">${fmtMoney(resumen.expectedUSD)}</td>
+        <td class="num">${fmtMoney(resumen.finalCashUSD)}</td>
         <td class="num" style="color:${diffColor(resumen.diffUSD)};font-weight:600">${diffLabel(resumen.diffUSD)}</td>
       </tr>
       ${resumen.expectedCard > 0 ? `
       <tr>
         <td>Tarjeta (MXN)</td>
-        <td class="num">$${fmt(resumen.expectedCard)}</td>
-        <td class="num">$${fmt(resumen.finalCard)}</td>
+        <td class="num">$${fmtNum(resumen.expectedCard)}</td>
+        <td class="num">$${fmtNum(resumen.finalCard)}</td>
         <td class="num" style="color:${diffColor(resumen.diffCard)};font-weight:600">${diffLabel(resumen.diffCard)}</td>
       </tr>` : ""}
       ${resumen.expectedTransfe > 0 ? `
       <tr>
         <td>Transferencia (MXN)</td>
-        <td class="num">$${fmt(resumen.expectedTransfe)}</td>
-        <td class="num">$${fmt(resumen.finalTransfe)}</td>
+        <td class="num">$${fmtNum(resumen.expectedTransfe)}</td>
+        <td class="num">$${fmtNum(resumen.finalTransfe)}</td>
         <td class="num" style="color:${diffColor(resumen.diffTransfe)};font-weight:600">${diffLabel(resumen.diffTransfe)}</td>
       </tr>` : ""}
     </tbody>

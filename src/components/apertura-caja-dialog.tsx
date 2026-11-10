@@ -23,6 +23,7 @@ import { fetchCajaAbierta } from "@/api/getCajaAbierta";
 import { fetchPharmacies } from "@/api/getPharmacies";
 import { getUser } from "@/lib/auth";
 import { PharmacyType } from "@/types/pharmacy";
+import { fmtMoney } from "@/lib/format";
 
 interface AperturaCajaDialogProps {
   open: boolean;
@@ -199,7 +200,7 @@ export function AperturaCajaDialog({ open, onSuccess, defaultPharmacyId }: Apert
                 </div>
                 {tipoCambioNum > 0 && (
                   <p className="text-xs text-muted-foreground">
-                    1 USD = ${tipoCambioNum.toFixed(2)} MXN
+                    1 USD = {fmtMoney(tipoCambioNum)} MXN
                   </p>
                 )}
               </div>

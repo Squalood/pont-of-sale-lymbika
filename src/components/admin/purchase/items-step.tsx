@@ -9,6 +9,7 @@ import { ProductType } from "@/types/product";
 import { useSearchProducts } from "@/api/searchProducts";
 import { LocalPurchaseItem } from "./types";
 import { itemQuantity, itemTotalLine, comprasTotal, itemCostoParaCatalogo } from "./helpers";
+import { fmtNum } from "@/lib/format";
 
 interface ItemsStepProps {
   items: LocalPurchaseItem[];
@@ -27,7 +28,6 @@ interface ItemsStepProps {
   onBack: () => void;
 }
 
-const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // Rejilla del renglon de lote. Las etiquetas salen una vez arriba en vez de repetirse
 // en cada renglon, asi las columnas aliñan y los precios se comparan de un vistazo.
@@ -120,7 +120,7 @@ export function ItemsStep({
                   </p>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     x{itemQuantity(item)}
-                    {itemTotalLine(item) > 0 && ` · $${fmt(itemTotalLine(item))}`}
+                    {itemTotalLine(item) > 0 && ` · $${fmtNum(itemTotalLine(item))}`}
                   </span>
                   <button
                     type="button"
@@ -248,7 +248,7 @@ export function ItemsStep({
 
         {total > 0 && (
           <div className="flex justify-end border-t pt-2">
-            <span className="text-sm font-semibold">Total: ${fmt(total)}</span>
+            <span className="text-sm font-semibold">Total: ${fmtNum(total)}</span>
           </div>
         )}
       </div>

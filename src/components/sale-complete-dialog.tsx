@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { MetodoPago } from "@/types/venta";
+import { fmtMoney } from "@/lib/format";
 
 interface SaleCompleteDialogProps {
   open: boolean;
@@ -33,7 +34,7 @@ export function SaleCompleteDialog({ open, onClose, paymentMethod, change, cardC
             <div className="w-full rounded-lg bg-gray-50 border px-6 py-5">
               <p className="text-sm text-gray-500 mb-1">Cambio</p>
               <p className="text-5xl font-bold tracking-tight text-gray-900">
-                ${change.toFixed(2)}
+                {fmtMoney(change)}
               </p>
             </div>
           )}
@@ -43,7 +44,7 @@ export function SaleCompleteDialog({ open, onClose, paymentMethod, change, cardC
               <CreditCard className="h-6 w-6 shrink-0" />
               <p className="text-base font-medium">
                 {paymentMethod === "mixto"
-                  ? `Cobraste $${cardCharge.toFixed(2)} en terminal`
+                  ? `Cobraste ${fmtMoney(cardCharge)} en terminal`
                   : "Cobrado en terminal"}
               </p>
             </div>

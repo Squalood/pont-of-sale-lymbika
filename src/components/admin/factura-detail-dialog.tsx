@@ -33,6 +33,7 @@ import { puedeRestablecerABorrador } from "@/lib/factura-edicion";
 import { patchFacturaEstado } from "@/api/patchFacturaEstado";
 import { toast } from "sonner";
 import { folioVisible } from "@/lib/factura-folio";
+import { fmtNum } from "@/lib/format";
 import {
   importeLinea,
   lineasPagadasIniciales,
@@ -54,10 +55,6 @@ interface FacturaDetailDialogProps {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmt(n: number) {
-  return (n ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
 
 function fmtFecha(d: Date) {
   return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -224,7 +221,7 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
         items: nuevosItems,
       });
       setMarcadas(null);
-      toast.success(`Pago guardado: ${ESTADO_PAGO_LABEL[nuevoEstado]} ($${fmt(nuevoMonto)})`);
+      toast.success(`Pago guardado: ${ESTADO_PAGO_LABEL[nuevoEstado]} ($${fmtNum(nuevoMonto)})`);
     } catch (err) {
       console.error(err);
       toast.error("No se guardó el pago; la factura quedó como estaba", {
@@ -376,11 +373,11 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
                   )}
                   <TableCell className="max-w-44 truncate">{item.descripcion}</TableCell>
                   <TableCell className="text-center">{item.cantidad}</TableCell>
-                  <TableCell className="text-right">${fmt(item.precioUnitario)}</TableCell>
+                  <TableCell className="text-right">${fmtNum(item.precioUnitario)}</TableCell>
                   <TableCell className="text-center text-xs text-muted-foreground">
                     {IMPUESTO_LABEL[item.impuesto] ?? item.impuesto}
                   </TableCell>
-                  <TableCell className="text-right">${fmt(item.cantidad * item.precioUnitario)}</TableCell>
+                  <TableCell className="text-right">${fmtNum(item.cantidad * item.precioUnitario)}</TableCell>
                   {!esBorrador && !editando && (
                     <TableCell>
                       {pagadasActuales.has(item.id) ? (
@@ -406,23 +403,23 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
           <div className="space-y-1 border-t pt-3 text-sm">
             <div className="flex justify-between text-muted-foreground">
               <span>Subtotal</span>
-              <span>${fmt(factura.subtotal)}</span>
+              <span>${fmtNum(factura.subtotal)}</span>
             </div>
             {(factura.iva16 ?? 0) > 0 && (
               <div className="flex justify-between text-muted-foreground">
                 <span>IVA (16%)</span>
-                <span>${fmt(factura.iva16)}</span>
+                <span>${fmtNum(factura.iva16)}</span>
               </div>
             )}
             {(factura.iva8 ?? 0) > 0 && (
               <div className="flex justify-between text-muted-foreground">
                 <span>IVA (8%)</span>
-                <span>${fmt(factura.iva8)}</span>
+                <span>${fmtNum(factura.iva8)}</span>
               </div>
             )}
             <div className="flex justify-between text-base font-bold">
               <span>Total</span>
-              <span>${fmt(factura.total)}</span>
+              <span>${fmtNum(factura.total)}</span>
             </div>
           </div>
 
@@ -446,8 +443,8 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
                   <div>
                     <span className="text-muted-foreground">Monto pagado</span>
                     <p className="font-medium">
-                      ${fmt(montoPagado)}{" "}
-                      <span className="text-muted-foreground font-normal">de ${fmt(factura.total)}</span>
+                      ${fmtNum(montoPagado)}{" "}
+                      <span className="text-muted-foreground font-normal">de ${fmtNum(factura.total)}</span>
                     </p>
                   </div>
                   {fechaPago && (
@@ -461,7 +458,7 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
 
               {pagoSinDetalle && !editando && (
                 <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  Pago registrado antes del detalle por producto: ${fmt(montoPagado)}. Marca los productos
+                  Pago registrado antes del detalle por producto: ${fmtNum(montoPagado)}. Marca los productos
                   pagados para actualizarlo.
                 </p>
               )}
@@ -477,11 +474,11 @@ export function FacturaDetailDialog({ factura, open, onClose, onUpdated, onEdit 
                   </div>
                   <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2">
                     <span>
-                      Pagado <strong className="tabular-nums">${fmt(preview.montoPagado)}</strong> de $
-                      {fmt(factura.total)}
+                      Pagado <strong className="tabular-nums">${fmtNum(preview.montoPagado)}</strong> de $
+                      {fmtNum(factura.total)}
                       {preview.estadoPago !== "pagada" && (
                         <span className="text-muted-foreground">
-                          {" "}· Resta ${fmt(Math.max(0, (factura.total ?? 0) - preview.montoPagado))}
+                          {" "}· Resta ${fmtNum(Math.max(0, (factura.total ?? 0) - preview.montoPagado))}
                         </span>
                       )}
                     </span>

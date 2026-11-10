@@ -14,6 +14,7 @@ import {
 import { Stethoscope, Clock, UserRound, Info } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { urlImagen } from "@/lib/media";
+import { fmtMoney } from "@/lib/format";
 
 interface ServiceCardProps {
   service: ServiceRateType;
@@ -87,7 +88,7 @@ export function ServiceCard({ service, onClick }: ServiceCardProps) {
         <div className="flex items-baseline justify-between">
           {/* Con la tasa aplicada, igual que la tarjeta de producto y el carrito. */}
           <span className="text-lg font-bold text-primary">
-            ${servicePriceConImpuesto(service.price).toFixed(2)}
+            {fmtMoney(servicePriceConImpuesto(service.price))}
           </span>
           {service.duration_min > 0 && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">

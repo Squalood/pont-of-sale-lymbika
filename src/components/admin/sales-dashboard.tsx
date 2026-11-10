@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { DollarSign, ShoppingBag, TrendingUp, Receipt } from "lucide-react";
 import { KpiCard } from "@/components/admin/kpi-card";
 import { VentaType } from "@/types/venta";
+import { fmtInt, fmtMoney } from "@/lib/format";
 
 interface SalesDashboardProps {
   ventas: VentaType[];
@@ -39,25 +40,25 @@ export function SalesDashboard({ ventas }: SalesDashboardProps) {
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <KpiCard
         label="Ventas de hoy"
-        value={metrics.cantidadHoy.toString()}
+        value={fmtInt(metrics.cantidadHoy)}
         icon={ShoppingBag}
         tone="blue"
       />
       <KpiCard
         label="Total del día"
-        value={`$${metrics.totalHoy.toFixed(2)}`}
+        value={fmtMoney(metrics.totalHoy)}
         icon={DollarSign}
         tone="green"
       />
       <KpiCard
         label="Total de la semana"
-        value={`$${metrics.totalSemana.toFixed(2)}`}
+        value={fmtMoney(metrics.totalSemana)}
         icon={TrendingUp}
         tone="purple"
       />
       <KpiCard
         label="Ticket promedio"
-        value={`$${metrics.ticketPromedio.toFixed(2)}`}
+        value={fmtMoney(metrics.ticketPromedio)}
         icon={Receipt}
         tone="amber"
       />

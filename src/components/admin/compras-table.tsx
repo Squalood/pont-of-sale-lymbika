@@ -33,6 +33,7 @@ import { CompraType, CompraItemType } from "@/types/compra";
 import { toast } from "sonner";
 import { urlOriginal } from "@/lib/media";
 import { inRange, resolveRange, type Period } from "@/lib/date-range";
+import { fmtNum } from "@/lib/format";
 
 const PAGE_SIZE = 20;
 const TODOS_PROVEEDORES = "todos";
@@ -339,7 +340,6 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
 
   const fecha = new Date(compra.fecha);
 
-  const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmtDate = (s: string) => new Date(s).toLocaleDateString("es-MX");
   const fmtIva = (iva?: "iva8" | "iva16" | "exento") =>
     iva === "iva8" ? "8%" : iva === "iva16" ? "16%" : "—";
@@ -391,7 +391,7 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
             {showCosts && (
               <div>
                 <p className="text-muted-foreground">Total</p>
-                <p className="font-semibold text-base">${fmt(compra.total)}</p>
+                <p className="font-semibold text-base">${fmtNum(compra.total)}</p>
               </div>
             )}
             {compra.notas && (
@@ -433,14 +433,14 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
                       <p className="font-medium truncate" title={g.productName}>{g.productName}</p>
                       {showCosts && (
                         <p className="text-xs text-muted-foreground">
-                          {g.costoUniforme ? `$${fmt(g.costoUnitario)} c/u` : "Precios por lote"}
+                          {g.costoUniforme ? `$${fmtNum(g.costoUnitario)} c/u` : "Precios por lote"}
                           {showIva && g.iva && g.iva !== "exento" ? ` · IVA ${fmtIva(g.iva)}` : ""}
                         </p>
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant="outline" className="text-xs">x{g.totalQty}</Badge>
-                      {showCosts && <span className="text-sm font-medium w-20 text-right">${fmt(g.totalLine)}</span>}
+                      {showCosts && <span className="text-sm font-medium w-20 text-right">${fmtNum(g.totalLine)}</span>}
                     </div>
                   </div>
 
@@ -462,8 +462,8 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
                         </span>
                         <span className="shrink-0 text-muted-foreground">
                           x{l.quantity}
-                          {showCosts && !g.costoUniforme ? ` · $${fmt(l.costoUnitario)} c/u` : ""}
-                          {showCosts ? ` · $${fmt(l.totalLine)}` : ""}
+                          {showCosts && !g.costoUniforme ? ` · $${fmtNum(l.costoUnitario)} c/u` : ""}
+                          {showCosts ? ` · $${fmtNum(l.totalLine)}` : ""}
                         </span>
                       </div>
                     ))}
@@ -473,7 +473,7 @@ function CompraDetailDialog({ compra, open, onClose }: CompraDetailDialogProps) 
             </div>
             {showCosts && (
               <div className="flex justify-end border-t px-4 py-2 bg-muted/30">
-                <span className="font-semibold">Total: ${fmt(compra.total)}</span>
+                <span className="font-semibold">Total: ${fmtNum(compra.total)}</span>
               </div>
             )}
           </div>

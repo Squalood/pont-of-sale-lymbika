@@ -26,6 +26,7 @@ import { folioProvisional, folioVisible } from "@/lib/factura-folio";
 import type { FacturaPayload, FacturaType } from "@/types/factura";
 import { useCaja } from "@/lib/caja-context";
 import { toast } from "sonner";
+import { fmtMoney } from "@/lib/format";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -231,7 +232,7 @@ function LineRow({ line, idx, onChange, onRemove }: LineRowProps) {
                       >
                         <span className="truncate">{p.productName}</span>
                         <span className="text-muted-foreground shrink-0">
-                          ${(p.price ?? 0).toFixed(2)}
+                          {fmtMoney(p.price ?? 0)}
                         </span>
                       </button>
                     ))}

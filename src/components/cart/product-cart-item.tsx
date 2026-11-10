@@ -18,6 +18,7 @@ import {
   type PriceMode,
 } from "@/lib/pricing";
 import { TaxChip } from "./tax-chip";
+import { fmtMoney } from "@/lib/format";
 
 interface ProductCartItemProps {
   item: Extract<CartItemType, { type: "product" }>;
@@ -117,7 +118,7 @@ export function ProductCartItem({ item, priceMode, onUpdateQuantity, onRemoveIte
           onUpdateQuantity={onUpdateQuantity}
         />
         <span className={`text-sm font-semibold ${hasOverride ? "text-amber-600" : specialPrice ? "text-emerald-400" : ""}`}>
-          ${(displayPrice * quantity).toFixed(2)}
+          {fmtMoney(displayPrice * quantity)}
         </span>
       </div>
 
@@ -133,7 +134,7 @@ export function ProductCartItem({ item, priceMode, onUpdateQuantity, onRemoveIte
           // El fee ya está dentro del precio de arriba; esto solo explica de dónde sale.
           <span
             className="rounded-md border border-dashed border-indigo-300 px-1.5 text-xs text-indigo-600"
-            title={`Incluye management fee de $${(feeAmount * quantity).toFixed(2)}`}
+            title={`Incluye management fee de ${fmtMoney(feeAmount * quantity)}`}
           >
             +{MANAGEMENT_FEE_RATE * 100}% fee
           </span>

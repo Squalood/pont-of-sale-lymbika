@@ -29,6 +29,7 @@ import { feeSumaAlTotal } from "@/lib/tax";
 import { MANAGEMENT_FEE_RATE } from "@/lib/pricing";
 import { ReturnDialog } from "@/components/admin/return-dialog";
 import { InvoiceFromSaleDialog } from "@/components/admin/invoice-from-sale-dialog";
+import { fmtMoney } from "@/lib/format";
 
 interface SaleDetailDialogProps {
   venta: VentaType | null;
@@ -176,39 +177,39 @@ export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: Sal
               {venta.metodoPago === "mixto" && cardBase > 0 && (
                 <div className="col-span-2">
                   <span className="text-muted-foreground">Cobro en terminal</span>
-                  <p className="font-medium">${(cardBase + cardSurcharge).toFixed(2)}</p>
+                  <p className="font-medium">{fmtMoney(cardBase + cardSurcharge)}</p>
                 </div>
               )}
               {(venta.metodoPago === "transfe" || (venta.metodoPago === "mixto" && transfeBase > 0)) && (
                 <div className="col-span-2">
                   <span className="text-muted-foreground">Transferencia</span>
-                  <p className="font-medium">${transfeBase.toFixed(2)}</p>
+                  <p className="font-medium">{fmtMoney(transfeBase)}</p>
                 </div>
               )}
               {(venta.metodoPago === "efectivo" || venta.metodoPago === "mixto") && (
                 <>
                   <div>
                     <span className="text-muted-foreground">Recibido en efectivo</span>
-                    <p className="font-medium">${venta.recibido.toFixed(2)} MXN</p>
+                    <p className="font-medium">{fmtMoney(venta.recibido)} MXN</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Cambio</span>
-                    <p className="font-medium">${venta.cambio.toFixed(2)}</p>
+                    <p className="font-medium">{fmtMoney(venta.cambio)}</p>
                   </div>
                   {(venta.recibidoUSD ?? 0) > 0 && (
                     <div className="col-span-2 rounded-md bg-muted px-3 py-2 text-sm">
                       <p className="mb-1 text-xs font-medium text-muted-foreground">Desglose del pago</p>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">En pesos</span>
-                        <span>${(venta.recibido - venta.recibidoUSD * (venta.tipoCambioUsado ?? 1)).toFixed(2)} MXN</span>
+                        <span>{fmtMoney(venta.recibido - venta.recibidoUSD * (venta.tipoCambioUsado ?? 1))} MXN</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">En dólares</span>
-                        <span className="text-green-700">${venta.recibidoUSD.toFixed(2)} USD</span>
+                        <span className="text-green-700">{fmtMoney(venta.recibidoUSD)} USD</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Tipo de cambio</span>
-                        <span>${venta.tipoCambioUsado?.toFixed(2)}</span>
+                        <span>{fmtMoney(venta.tipoCambioUsado ?? 0)}</span>
                       </div>
                     </div>
                   )}
@@ -256,8 +257,8 @@ export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: Sal
                         )}
                     </TableCell>
                     <TableCell className="text-center">{item.quantity}</TableCell>
-                    <TableCell className="text-right">${item.unitPrice.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">${item.totalLine.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{fmtMoney(item.unitPrice)}</TableCell>
+                    <TableCell className="text-right">{fmtMoney(item.totalLine)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -268,13 +269,13 @@ export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: Sal
           <div className="shrink-0 space-y-1 border-t pt-3 text-sm">
             <div className="flex justify-between text-muted-foreground">
               <span>Subtotal</span>
-              <span>${subtotal.toFixed(2)}</span>
+              <span>{fmtMoney(subtotal)}</span>
             </div>
             {iva > 0 && (
               <div className="flex justify-between text-muted-foreground">
                 {/* Agregado, sin tasa: el impuesto por línea no se persiste. */}
                 <span>IVA incluido</span>
-                <span>${iva.toFixed(2)}</span>
+                <span>{fmtMoney(iva)}</span>
               </div>
             )}
             {managementFee > 0 && (
@@ -284,30 +285,30 @@ export function SaleDetailDialog({ venta, open, onClose, onReturnComplete }: Sal
                 <span>
                   {feeEsCargo ? "" : "Incluye "}management fee ({MANAGEMENT_FEE_RATE * 100}%)
                 </span>
-                <span>{feeEsCargo ? "+" : ""}${managementFee.toFixed(2)}</span>
+                <span>{feeEsCargo ? "+" : ""}{fmtMoney(managementFee)}</span>
               </div>
             )}
             {cardSurcharge > 0 && (
               <>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal {membershipName}</span>
-                  <span>${baseTotal.toFixed(2)}</span>
+                  <span>{fmtMoney(baseTotal)}</span>
                 </div>
                 {venta.metodoPago === "mixto" && (
                   <div className="flex justify-between text-muted-foreground">
                     <span>Porción en tarjeta</span>
-                    <span>${cardBase.toFixed(2)}</span>
+                    <span>{fmtMoney(cardBase)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-muted-foreground">
                   <span>Cargo tarjeta (3%)</span>
-                  <span>+${cardSurcharge.toFixed(2)}</span>
+                  <span>+{fmtMoney(cardSurcharge)}</span>
                 </div>
               </>
             )}
             <div className="flex justify-between text-base font-bold">
               <span>Total</span>
-              <span>${venta.total.toFixed(2)}</span>
+              <span>{fmtMoney(venta.total)}</span>
             </div>
           </div>
 

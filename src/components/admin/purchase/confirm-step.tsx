@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { ProveedorType } from "@/types/proveedor";
 import { LocalPurchaseItem } from "./types";
 import { itemQuantity, itemTotalLine } from "./helpers";
+import { fmtNum } from "@/lib/format";
 
 interface ConfirmStepProps {
   selectedProveedor: ProveedorType | null;
@@ -21,7 +22,6 @@ interface ConfirmStepProps {
   onBack: () => void;
 }
 
-const fmt = (n: number) => n.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function ConfirmStep({
   selectedProveedor,
@@ -72,7 +72,7 @@ export function ConfirmStep({
                 )}
                 {itemTotalLine(item) > 0 && (
                   <span className="text-xs text-muted-foreground shrink-0 w-20 text-right">
-                    ${fmt(itemTotalLine(item))}
+                    ${fmtNum(itemTotalLine(item))}
                   </span>
                 )}
               </div>
@@ -80,7 +80,7 @@ export function ConfirmStep({
                 {item.lotes.map((lote, li) => (
                   <li key={li}>
                     {lote.numeroLote.trim() ? `Lote ${lote.numeroLote.trim()}` : "Sin lote"} · x{lote.cantidad}
-                    {lote.costoUnitario > 0 ? ` · $${fmt(lote.costoUnitario)} c/u` : ""}
+                    {lote.costoUnitario > 0 ? ` · $${fmtNum(lote.costoUnitario)} c/u` : ""}
                     {lote.fechaCaducidad ? ` · Cad: ${lote.fechaCaducidad}` : ""}
                   </li>
                 ))}
@@ -91,7 +91,7 @@ export function ConfirmStep({
 
         {total > 0 && (
           <div className="flex justify-end border-t pt-2">
-            <span className="text-sm font-semibold">Total: ${fmt(total)}</span>
+            <span className="text-sm font-semibold">Total: ${fmtNum(total)}</span>
           </div>
         )}
       </div>
