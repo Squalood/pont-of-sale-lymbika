@@ -14,13 +14,13 @@ No tiene backend propio: todo va contra el Strapi 5 de `Lymbika-Backend` (ventas
 
 ## OJO: .env.local apunta a PRODUCCIÓN
 `NEXT_PUBLIC_BACKEND_URL` va por defecto a `https://lymbika-backend.onrender.com`. **Cualquier venta, compra, devolución, traspaso o ajuste hecho desde el POS local se escribe en la base real** (stock incluido). Para probar sin riesgo: cambiar a la línea comentada de `http://localhost:1337`, levantar el backend y reiniciar `npm run dev`. No leer ni copiar valores del `.env.local`.
-Variables: `NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_WEBSHOP_URL` (link a la ficha en la tienda), `NEXT_PUBLIC_EXPORT_TOKEN` (export de productos), `NEXT_PUBLIC_ENABLE_MOVE_ALL` (`"true"` muestra "pasar toda la bodega a una farmacia").
+Variables: `NEXT_PUBLIC_BACKEND_URL`, `NEXT_PUBLIC_WEBSHOP_URL` (link a la ficha en la tienda), `NEXT_PUBLIC_ENABLE_MOVE_ALL` (`"true"` muestra "pasar toda la bodega a una farmacia"). Ya no se usa `NEXT_PUBLIC_EXPORT_TOKEN`: todo `NEXT_PUBLIC_*` es visible en el navegador, nunca poner ahí tokens ni secretos.
 
 ## Mapa
 - `src/app/page.tsx`: pantalla de venta (catálogo + hasta 4 carritos). `src/app/login`.
 - `src/app/admin/*`: `dashboard` (KPIs, gráficas, CSV), `ventas`, `compras`, `devoluciones`, `cajas`, `facturas`, `productos`, `stock`, `traspasos`, `caducidades`. Menú en `components/admin/admin-sidebar.tsx`.
 - `src/app/api/descargar/route.ts`: proxy de descarga de adjuntos de CloudFront (sin CORS); solo permite `*.cloudfront.net` (anti-SSRF).
-- `src/api/`: un archivo por llamada (`getX` = hook de lectura, `postX`/`patchX`/`putX` = escritura). `src/api/posStock.ts` = cliente de `/api/pos-stock/*`.
+- `src/api/`: un archivo por llamada (`getX` = hook de lectura, `postX`/`patchX`/`putX` = escritura). `src/api/posStock.ts` = cliente de `/api/pos-stock/*`. `src/api/productsCsv.ts` = export/import del catálogo (`/api/export/products`), con JWT; permisos `export.exportProducts`/`importProducts` solo al rol Operador. El diálogo de import (`components/admin/import-products-dialog.tsx`) siempre revisa primero con `dryRun`. Reglas del CSV en `Lymbika-Backend/docs/ficha-clinica-productos.md` §5.4.
 - `src/lib/`: lógica pura (precios, impuestos, cobro, lotes, stock, CSV, impresión de tickets/facturas). `src/hooks/`: `useCheckout`, `useMultiCart`, `useCartTotals`, `usePharmacies`. `src/types/`: tipos por entidad.
 - `docs/`: documentación interna de decisiones; **leer antes de tocar esas áreas**: `flujo-venta.md`, `stock-por-farmacia.md`, `caducidades-mermas.md`, `reportes-csv.md`, `optimizacion-catalogo.md`, `pendiente-costo-historico.md`, `rastreo-lotes-ventas.md`.
 

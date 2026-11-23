@@ -45,10 +45,13 @@ export class ForbiddenError extends Error {
 
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const token = getToken();
+  // Con FormData (subir un archivo) el navegador pone el Content-Type con el boundary del
+  // multipart; forzar JSON aquí haría que Strapi no encontrara el archivo.
+  const esArchivo = options.body instanceof FormData;
   const res = await fetch(url, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(esArchivo ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers ?? {}),
     },

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { ForbiddenError } from "@/lib/auth";
+import { downloadProductsCsv } from "@/api/productsCsv";
 
 export function ExportProductsButton() {
   const [loading, setLoading] = useState(false);
@@ -11,24 +13,19 @@ export function ExportProductsButton() {
   async function handleExport() {
     setLoading(true);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/export/products`,
-        {
-          headers: {
-            Authorization: process.env.NEXT_PUBLIC_EXPORT_TOKEN ?? "",
-          },
-        }
-      );
-      if (!res.ok) throw new Error(`Error ${res.status}`);
-      const blob = await res.blob();
+      const blob = await downloadProductsCsv();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `productos_${new Date().toISOString().slice(0, 16).replace("T", "_").replace(":", "-")}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      toast.error("No se pudo exportar el CSV");
+    } catch (err) {
+      toast.error(
+        err instanceof ForbiddenError
+          ? "Tu usuario no tiene permiso para exportar productos"
+          : "No se pudo exportar el CSV"
+      );
     } finally {
       setLoading(false);
     }

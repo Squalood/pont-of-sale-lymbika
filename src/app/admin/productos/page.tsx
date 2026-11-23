@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductsTable } from "@/components/admin/products-table";
 import { ServicesTable } from "@/components/admin/services-table";
 import { ExportProductsButton } from "@/components/admin/export-products-button";
+import { ImportProductsButton } from "@/components/admin/import-products-dialog";
 import { useGetServiceRates } from "@/api/getServiceRates";
 
 type Tab = "productos" | "consultas";
@@ -22,6 +23,9 @@ export default function ProductosPage() {
   const [tab, setTab] = useState<Tab>("productos");
   // Aquí y no en la tabla, para que la pestaña muestre el conteo antes de abrirla.
   const services = useGetServiceRates();
+  // La tabla pide sus datos al montarse; después de importar se vuelve a montar para que
+  // muestre lo nuevo (se pierden los filtros, pero los datos cambiaron en masa).
+  const [tablaVersion, setTablaVersion] = useState(0);
 
   const strapiUrl = `${backendUrl}/admin/content-manager/collection-types/${STRAPI_COLLECTION[tab]}`;
 
@@ -30,7 +34,12 @@ export default function ProductosPage() {
       <div className="flex items-center justify-between shrink-0">
         <h1 className="text-2xl font-bold">Productos</h1>
         <div className="flex items-center gap-2">
-          {tab === "productos" && <ExportProductsButton />}
+          {tab === "productos" && (
+            <>
+              <ImportProductsButton onImported={() => setTablaVersion((v) => v + 1)} />
+              <ExportProductsButton />
+            </>
+          )}
           <a href={strapiUrl} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm" className="gap-2">
               <ExternalLink className="h-4 w-4" />
@@ -60,7 +69,7 @@ export default function ProductosPage() {
           className="min-h-0 flex flex-col data-[state=inactive]:hidden"
         >
           {/* La tabla pide su propia página al backend: carga y errores viven ahí. */}
-          <ProductsTable />
+          <ProductsTable key={tablaVersion} />
         </TabsContent>
         <TabsContent
           value="consultas"
