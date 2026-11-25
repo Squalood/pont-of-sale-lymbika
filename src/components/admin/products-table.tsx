@@ -88,6 +88,7 @@ const INITIAL_QUERY: ProductsQuery = {
   search: "",
   category: "all",
   active: "all",
+  ficha: "all",
   // El orden que ya traía la tabla: lo último capturado primero.
   sortField: "createdAt",
   sortDir: "desc",
@@ -257,6 +258,21 @@ export function ProductsTable() {
             <SelectItem value="inactive">Inactivos</SelectItem>
           </SelectContent>
         </Select>
+        <Select
+          value={query.ficha}
+          onValueChange={(v) => applyFilter({ ficha: v as ProductsQuery["ficha"] })}
+        >
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="Ficha médica" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las fichas</SelectItem>
+            <SelectItem value="sinFicha">Sin ficha</SelectItem>
+            <SelectItem value="pendiente">Ficha pendiente</SelectItem>
+            <SelectItem value="revisada">Ficha revisada</SelectItem>
+            <SelectItem value="sinFraccion">Medicamentos sin fracción</SelectItem>
+          </SelectContent>
+        </Select>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="gap-2 font-normal">
@@ -321,6 +337,12 @@ export function ProductsTable() {
               <TableHead>Nombre</TableHead>
               <TableHead className="hidden md:table-cell">Sustancia</TableHead>
               <TableHead className="hidden lg:table-cell text-center">Categoría</TableHead>
+              <TableHead
+                className="hidden md:table-cell text-center"
+                title="Ficha médica del producto. Se revisa y se marca como revisada en Strapi (ícono junto al nombre)."
+              >
+                Ficha
+              </TableHead>
               <TableHead className="text-right" title="Precio de mostrador sin impuesto. Es el valor que se guarda y el único editable.">
                 Precio s/IVA
               </TableHead>
@@ -340,7 +362,7 @@ export function ProductsTable() {
             {firstLoad &&
               Array.from({ length: 8 }).map((_, i) => (
                 <TableRow key={`skeleton-${i}`}>
-                  <TableCell colSpan={11}>
+                  <TableCell colSpan={12}>
                     <Skeleton className="h-8 w-full" />
                   </TableCell>
                 </TableRow>
@@ -348,7 +370,7 @@ export function ProductsTable() {
 
             {!firstLoad && products.length === 0 && (
               <TableRow>
-                <TableCell colSpan={11} className="text-center text-muted-foreground py-10">
+                <TableCell colSpan={12} className="text-center text-muted-foreground py-10">
                   Sin resultados
                 </TableCell>
               </TableRow>
@@ -410,6 +432,11 @@ export function ProductsTable() {
                     ) : (
                       "—"
                     )}
+                  </TableCell>
+
+                  {/* Ficha médica: se revisa en Strapi (ícono junto al nombre). */}
+                  <TableCell className="hidden md:table-cell text-center">
+                    <FichaBadge product={product} />
                   </TableCell>
 
                   {/* Precio */}
@@ -640,6 +667,40 @@ export function ProductsTable() {
           </Pagination>
         </div>
       </div>
+    </div>
+  );
+}
+/**
+ * Estado de la ficha médica. "Sin fracción" se marca aparte: es un medicamento
+ * cuya ficha propuso la IA con duda sobre la receta, y hasta que alguien decida
+ * la fracción conserva el `conReceta` de antes (puede estar mal).
+ */
+function FichaBadge({ product }: { product: ProductType }) {
+  if (!product.estadoFicha) {
+    return <span className="text-xs text-muted-foreground">Sin ficha</span>;
+  }
+  if (product.estadoFicha === "revisada") {
+    return (
+      <Badge variant="outline" className="border-green-300 text-green-700 font-normal">
+        Revisada
+      </Badge>
+    );
+  }
+  const sinFraccion = product.tipoProducto === "medicamento" && !product.fraccion;
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <Badge
+        variant="outline"
+        className="border-amber-300 text-amber-600 font-normal"
+        title={product.fuenteInfo === "ia" ? "Propuesta por IA, falta revisarla" : "Falta revisarla"}
+      >
+        Pendiente{product.fuenteInfo === "ia" ? " · IA" : ""}
+      </Badge>
+      {sinFraccion && (
+        <span className="text-[11px] text-red-600" title="Decidir en Strapi si lleva receta (fracción COFEPRIS)">
+          sin fracción
+        </span>
+      )}
     </div>
   );
 }

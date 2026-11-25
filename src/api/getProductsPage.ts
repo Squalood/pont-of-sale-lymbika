@@ -15,6 +15,12 @@ export type ProductsQuery = {
   /** categoryName exacto, o "all". */
   category: string;
   active: "all" | "active" | "inactive";
+  /**
+   * Estado de la ficha clínica. `sinFraccion` = medicamentos con ficha pendiente
+   * y sin fracción COFEPRIS: los que la IA dejó con duda y alguien tiene que
+   * decidir si llevan receta.
+   */
+  ficha: "all" | "sinFicha" | "pendiente" | "revisada" | "sinFraccion";
   sortField: SortField;
   sortDir: SortDir;
 };
@@ -46,6 +52,10 @@ const FIELDS = [
   "stock_central",
   "impuesto",
   "active",
+  "estadoFicha",
+  "fuenteInfo",
+  "fraccion",
+  "tipoProducto",
 ];
 
 function buildUrl(query: ProductsQuery): string {
@@ -76,6 +86,19 @@ function buildUrl(query: ProductsQuery): string {
     // el filtro en cliente (`!p.active`).
     params.push(`filters[$and][${group}][$or][0][active][$eq]=false`);
     params.push(`filters[$and][${group}][$or][1][active][$null]=true`);
+    group++;
+  }
+
+  if (query.ficha === "sinFicha") {
+    params.push(`filters[$and][${group}][estadoFicha][$null]=true`);
+    group++;
+  } else if (query.ficha === "pendiente" || query.ficha === "revisada") {
+    params.push(`filters[$and][${group}][estadoFicha][$eq]=${query.ficha}`);
+    group++;
+  } else if (query.ficha === "sinFraccion") {
+    params.push(`filters[$and][${group}][estadoFicha][$eq]=pendiente`);
+    params.push(`filters[$and][${group}][tipoProducto][$eq]=medicamento`);
+    params.push(`filters[$and][${group}][fraccion][$null]=true`);
     group++;
   }
 

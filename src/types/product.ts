@@ -73,6 +73,15 @@ export type ProductType = {
   };
   sal: string;
   conReceta: boolean;
+  /**
+   * Ficha clínica (Lymbika-Backend/docs/ficha-clinica-productos.md). Solo los pide
+   * `useGetProductsPage` para la columna "Ficha" del admin. `estadoFicha` nulo =
+   * producto sin ficha capturada.
+   */
+  estadoFicha?: "pendiente" | "revisada" | null;
+  fuenteInfo?: string | null;
+  fraccion?: string | null;
+  tipoProducto?: string | null;
   /** Ausente en el catálogo del POS: solo lo pide `useGetProductsPage`. */
   sku?: string;
   barCode: string;
