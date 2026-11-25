@@ -44,7 +44,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, SquarePen, Save, CircleX, ArrowUpDown, ExternalLink } from "lucide-react";
+import { Loader2, SquarePen, Save, CircleX, ArrowUpDown, ExternalLink, ClipboardList } from "lucide-react";
+import { getFichaPrompt } from "@/api/productsCsv";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -413,6 +414,7 @@ export function ProductsTable() {
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
+                        <CopiarPromptFicha product={product} />
                       </div>
                       {product.sku && (
                         <span className="text-xs text-muted-foreground">{product.sku}</span>
@@ -702,5 +704,48 @@ function FichaBadge({ product }: { product: ProductType }) {
         </span>
       )}
     </div>
+  );
+}
+
+/**
+ * Copia el "prompt de ficha" del producto: el colaborador lo pega en ChatGPT o Claude (de
+ * preferencia con fotos del empaque y el instructivo) y la respuesta es un CSV de una fila
+ * que se pega en "Importar CSV". El texto lo arma el backend con los valores permitidos del
+ * schema y los principios activos/indicaciones que ya existen.
+ */
+function CopiarPromptFicha({ product }: { product: ProductType }) {
+  const [copiando, setCopiando] = useState(false);
+
+  async function copiar() {
+    setCopiando(true);
+    try {
+      const prompt = await getFichaPrompt(product.documentId);
+      await navigator.clipboard.writeText(prompt);
+      toast.success("Prompt de ficha copiado", {
+        description:
+          "Pégalo en ChatGPT o Claude junto con fotos del empaque y del instructivo. " +
+          "Luego pega el CSV que te dé en «Importar CSV».",
+      });
+    } catch (err) {
+      toast.error(
+        err instanceof ForbiddenError
+          ? "Tu usuario no tiene permiso para generar el prompt de ficha"
+          : "No se pudo copiar el prompt de ficha"
+      );
+    } finally {
+      setCopiando(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copiar}
+      disabled={copiando}
+      title="Copiar prompt para llenar la ficha médica con ChatGPT o Claude"
+      className="shrink-0 text-muted-foreground hover:text-primary disabled:opacity-50"
+    >
+      {copiando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ClipboardList className="h-3.5 w-3.5" />}
+    </button>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Loader2, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Sparkles, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ForbiddenError } from "@/lib/auth";
 import { fmtInt } from "@/lib/format";
 import { importProductsCsv, type ImportResult } from "@/api/productsCsv";
@@ -20,15 +22,20 @@ import { importProductsCsv, type ImportResult } from "@/api/productsCsv";
 type Paso = "elegir" | "revisando" | "revisado" | "importando" | "listo";
 
 /**
- * Importar productos desde un CSV (normalmente el mismo del botón "Exportar CSV", editado en
- * Excel). Siempre en dos pasos: primero el backend revisa el archivo sin guardar nada
- * (`dryRun`) y se muestra qué va a cambiar y qué filas tienen errores; solo después se
- * importa de verdad. Una fila con errores se salta entera, así que importar con errores es
- * seguro: se aplican solo las filas válidas.
+ * Importar productos desde un CSV: un archivo (normalmente el de "Exportar CSV", editado en
+ * Excel) o texto pegado (la respuesta de ChatGPT/Claude al "prompt de ficha" de un producto).
+ * Siempre en dos pasos: primero el backend revisa sin guardar nada (`dryRun`) y se muestra
+ * qué va a cambiar y qué filas tienen errores; solo después se importa de verdad. Una fila con
+ * errores se salta entera, así que importar con errores es seguro.
  */
 export function ImportProductsButton({ onImported }: { onImported: () => void }) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [pegado, setPegado] = useState("");
+  // Activado por defecto: al dar de alta productos nuevos casi siempre falta alguna
+  // sustancia o indicación. La revisión muestra cuáles se crearían, así un error de dedo
+  // se ve antes de confirmar.
+  const [crearFaltantes, setCrearFaltantes] = useState(true);
   const [paso, setPaso] = useState<Paso>("elegir");
   const [revision, setRevision] = useState<ImportResult | null>(null);
   const [resultado, setResultado] = useState<ImportResult | null>(null);
@@ -38,13 +45,21 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
   const ocupado = paso === "revisando" || paso === "importando";
   const reporte = resultado ?? revision;
   const filasValidas = revision ? revision.updated + revision.created : 0;
+  const origen: File | string | null = file ?? (pegado.trim() ? pegado : null);
+  const nuevos = reporte?.newCatalogEntries;
+  const hayNuevos = !!nuevos && nuevos.principiosActivos.length + nuevos.indicaciones.length > 0;
 
-  function reiniciar() {
-    setFile(null);
+  function olvidarRevision() {
     setPaso("elegir");
     setRevision(null);
     setResultado(null);
     setError(null);
+  }
+
+  function reiniciar() {
+    setFile(null);
+    setPegado("");
+    olvidarRevision();
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -59,15 +74,15 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
       ? `Tu usuario no tiene permiso para ${accion} productos`
       : err instanceof Error
         ? err.message
-        : `No se pudo ${accion} el archivo`;
+        : `No se pudo ${accion} el CSV`;
   }
 
   async function revisar() {
-    if (!file) return;
+    if (!origen) return;
     setPaso("revisando");
     setError(null);
     try {
-      setRevision(await importProductsCsv(file, { dryRun: true }));
+      setRevision(await importProductsCsv(origen, { dryRun: true, crearFaltantes }));
       setPaso("revisado");
     } catch (err) {
       setError(mensajeDeError(err, "revisar"));
@@ -76,11 +91,11 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
   }
 
   async function importar() {
-    if (!file) return;
+    if (!origen) return;
     setPaso("importando");
     setError(null);
     try {
-      const r = await importProductsCsv(file, { dryRun: false });
+      const r = await importProductsCsv(origen, { dryRun: false, crearFaltantes });
       setResultado(r);
       setPaso("listo");
       onImported();
@@ -94,10 +109,10 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
       }
     } catch (err) {
       // Si la conexión se corta a la mitad, las filas ya procesadas sí se guardaron (cada
-      // una es independiente). Volver a importar el mismo archivo es seguro.
+      // una es independiente). Volver a importar el mismo CSV es seguro.
       setError(
         `${mensajeDeError(err, "importar")}. Puede que una parte sí se haya guardado; ` +
-          "puedes volver a importar el mismo archivo sin riesgo."
+          "puedes volver a importar el mismo CSV sin riesgo."
       );
       setPaso("revisado");
     }
@@ -115,9 +130,8 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
           <DialogHeader>
             <DialogTitle>Importar productos desde CSV</DialogTitle>
             <DialogDescription>
-              Solo cambia las columnas que traiga el archivo: una celda vacía no cambia nada y
-              un guion (-) borra el valor. El stock no se importa. Primero se revisa el archivo
-              sin guardar nada.
+              Solo cambia las columnas que traiga el CSV: una celda vacía no cambia nada y un
+              guion (-) borra el valor. El stock no se importa. Primero se revisa sin guardar nada.
             </DialogDescription>
           </DialogHeader>
 
@@ -129,18 +143,52 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
               disabled={ocupado || paso === "listo"}
               onChange={(e) => {
                 setFile(e.target.files?.[0] ?? null);
-                setPaso("elegir");
-                setRevision(null);
-                setResultado(null);
-                setError(null);
+                setPegado("");
+                olvidarRevision();
               }}
             />
+
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">
+                …o pega aquí el CSV que te dio ChatGPT o Claude con el prompt de ficha:
+              </p>
+              <Textarea
+                value={pegado}
+                disabled={ocupado || paso === "listo"}
+                placeholder={"documentId,tipoProducto,composicion,…\nabc123,medicamento,Loratadina 10 mg,…"}
+                className="h-24 font-mono text-xs"
+                onChange={(e) => {
+                  setPegado(e.target.value);
+                  setFile(null);
+                  if (inputRef.current) inputRef.current.value = "";
+                  olvidarRevision();
+                }}
+              />
+            </div>
+
+            <label className="flex items-start gap-2 text-xs">
+              <Checkbox
+                checked={crearFaltantes}
+                disabled={ocupado || paso === "listo"}
+                onCheckedChange={(v) => {
+                  setCrearFaltantes(v === true);
+                  olvidarRevision();
+                }}
+                className="mt-0.5"
+              />
+              <span>
+                Crear los principios activos e indicaciones que todavía no existan
+                <span className="block text-muted-foreground">
+                  Se crean solo con el nombre y quedan pendientes; su información clínica se llena después en Strapi.
+                </span>
+              </span>
+            </label>
 
             {ocupado && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {paso === "revisando"
-                  ? "Revisando el archivo…"
+                  ? "Revisando el CSV…"
                   : "Importando… con muchos productos puede tardar varios minutos. No cierres esta ventana."}
               </div>
             )}
@@ -170,6 +218,19 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
                     </span>
                   </div>
                 </div>
+
+                {hayNuevos && nuevos && (
+                  <div className="space-y-1 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-900 dark:bg-sky-950 dark:text-sky-200">
+                    <p className="flex items-center gap-1.5 font-medium">
+                      <Sparkles className="h-3 w-3" />
+                      {paso === "listo" ? "Se crearon" : "Se crearán (revisa que estén bien escritos)"}
+                    </p>
+                    {nuevos.principiosActivos.length > 0 && (
+                      <p>Principios activos: {nuevos.principiosActivos.join(", ")}</p>
+                    )}
+                    {nuevos.indicaciones.length > 0 && <p>Indicaciones: {nuevos.indicaciones.join(", ")}</p>}
+                  </div>
+                )}
 
                 {reporte.warnings.length > 0 && (
                   <ul className="space-y-1 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
@@ -214,9 +275,9 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
                     Importando…
                   </Button>
                 ) : (
-                  <Button onClick={revisar} disabled={!file || ocupado}>
+                  <Button onClick={revisar} disabled={!origen || ocupado}>
                     {paso === "revisando" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Revisar archivo
+                    Revisar
                   </Button>
                 )}
               </>
