@@ -75,10 +75,17 @@ function limpiarPegado(texto: string): string {
  * Importa un archivo o un CSV pegado como texto. Con `dryRun` el backend valida todo y
  * devuelve el mismo reporte sin escribir nada. Con `crearFaltantes` crea los principios
  * activos e indicaciones que el CSV nombra y no existen (solo con el nombre, pendientes).
+ * Con `soloVacios` solo llena campos vacíos (lo ya capturado se respeta y sale en `warnings`).
+ * Sin `crearProductos`, una fila sin documentId es un error en vez de un producto nuevo.
  */
 export async function importProductsCsv(
   origen: File | string,
-  { dryRun, crearFaltantes = false }: { dryRun: boolean; crearFaltantes?: boolean }
+  {
+    dryRun,
+    crearFaltantes = false,
+    soloVacios = false,
+    crearProductos = false,
+  }: { dryRun: boolean; crearFaltantes?: boolean; soloVacios?: boolean; crearProductos?: boolean }
 ): Promise<ImportResult> {
   // Se reenvía como archivo (multipart) y no como JSON: el catálogo completo pasa del
   // límite de 1 MB que Strapi pone al cuerpo JSON.
@@ -90,6 +97,8 @@ export async function importProductsCsv(
   const params = new URLSearchParams();
   if (dryRun) params.set("dryRun", "true");
   if (crearFaltantes) params.set("crearFaltantes", "true");
+  if (soloVacios) params.set("soloVacios", "true");
+  if (crearProductos) params.set("crearProductos", "true");
   const qs = params.toString();
 
   const res = await authFetch(`${BASE}/import${qs ? `?${qs}` : ""}`, {

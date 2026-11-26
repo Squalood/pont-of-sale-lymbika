@@ -21,6 +21,35 @@ import { importProductsCsv, type ImportResult } from "@/api/productsCsv";
 
 type Paso = "elegir" | "revisando" | "revisado" | "importando" | "listo";
 
+function Opcion({
+  checked,
+  disabled,
+  onChange,
+  titulo,
+  detalle,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  onChange: (v: boolean) => void;
+  titulo: string;
+  detalle: string;
+}) {
+  return (
+    <label className="flex items-start gap-2 text-xs">
+      <Checkbox
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={(v) => onChange(v === true)}
+        className="mt-0.5"
+      />
+      <span>
+        {titulo}
+        <span className="block text-muted-foreground">{detalle}</span>
+      </span>
+    </label>
+  );
+}
+
 /**
  * Importar productos desde un CSV: un archivo (normalmente el de "Exportar CSV", editado en
  * Excel) o texto pegado (la respuesta de ChatGPT/Claude al "prompt de ficha" de un producto).
@@ -36,6 +65,12 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
   // sustancia o indicación. La revisión muestra cuáles se crearían, así un error de dedo
   // se ve antes de confirmar.
   const [crearFaltantes, setCrearFaltantes] = useState(true);
+  // Candados del alta 1×1 con IA, activos por defecto: si ChatGPT/Claude llena una celda que
+  // ya estaba capturada (o pierde el documentId), no se pisa la ficha ni se duplica el
+  // producto. Para editar precios u otros datos en bloque desde Excel hay que quitar
+  // "solo campos vacíos"; la revisión avisa cuántas celdas se respetaron.
+  const [soloVacios, setSoloVacios] = useState(true);
+  const [crearProductos, setCrearProductos] = useState(false);
   const [paso, setPaso] = useState<Paso>("elegir");
   const [revision, setRevision] = useState<ImportResult | null>(null);
   const [resultado, setResultado] = useState<ImportResult | null>(null);
@@ -48,6 +83,7 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
   const origen: File | string | null = file ?? (pegado.trim() ? pegado : null);
   const nuevos = reporte?.newCatalogEntries;
   const hayNuevos = !!nuevos && nuevos.principiosActivos.length + nuevos.indicaciones.length > 0;
+  const opciones = { crearFaltantes, soloVacios, crearProductos };
 
   function olvidarRevision() {
     setPaso("elegir");
@@ -59,6 +95,8 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
   function reiniciar() {
     setFile(null);
     setPegado("");
+    setSoloVacios(true);
+    setCrearProductos(false);
     olvidarRevision();
     if (inputRef.current) inputRef.current.value = "";
   }
@@ -82,7 +120,7 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
     setPaso("revisando");
     setError(null);
     try {
-      setRevision(await importProductsCsv(origen, { dryRun: true, crearFaltantes }));
+      setRevision(await importProductsCsv(origen, { dryRun: true, ...opciones }));
       setPaso("revisado");
     } catch (err) {
       setError(mensajeDeError(err, "revisar"));
@@ -95,7 +133,7 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
     setPaso("importando");
     setError(null);
     try {
-      const r = await importProductsCsv(origen, { dryRun: false, crearFaltantes });
+      const r = await importProductsCsv(origen, { dryRun: false, ...opciones });
       setResultado(r);
       setPaso("listo");
       onImported();
@@ -166,23 +204,38 @@ export function ImportProductsButton({ onImported }: { onImported: () => void })
               />
             </div>
 
-            <label className="flex items-start gap-2 text-xs">
-              <Checkbox
-                checked={crearFaltantes}
+            <div className="space-y-3">
+              <Opcion
+                checked={soloVacios}
                 disabled={ocupado || paso === "listo"}
-                onCheckedChange={(v) => {
-                  setCrearFaltantes(v === true);
+                onChange={(v) => {
+                  setSoloVacios(v);
                   olvidarRevision();
                 }}
-                className="mt-0.5"
+                titulo="Solo llenar campos vacíos"
+                detalle="Lo que el producto ya tiene capturado no se cambia aunque el CSV traiga otra cosa. Quítalo solo para corregir datos a propósito (precios, una ficha mal llenada)."
               />
-              <span>
-                Crear los principios activos e indicaciones que todavía no existan
-                <span className="block text-muted-foreground">
-                  Se crean solo con el nombre y quedan pendientes; su información clínica se llena después en Strapi.
-                </span>
-              </span>
-            </label>
+              <Opcion
+                checked={crearFaltantes}
+                disabled={ocupado || paso === "listo"}
+                onChange={(v) => {
+                  setCrearFaltantes(v);
+                  olvidarRevision();
+                }}
+                titulo="Crear los principios activos e indicaciones que todavía no existan"
+                detalle="Se crean solo con el nombre y quedan pendientes; su información clínica se llena después en Strapi."
+              />
+              <Opcion
+                checked={crearProductos}
+                disabled={ocupado || paso === "listo"}
+                onChange={(v) => {
+                  setCrearProductos(v);
+                  olvidarRevision();
+                }}
+                titulo="Crear productos nuevos (filas sin documentId)"
+                detalle="Apagado, una fila sin documentId se marca como error: así no se duplica un producto si la IA lo omitió."
+              />
+            </div>
 
             {ocupado && (
               <div className="flex items-center gap-2 text-muted-foreground">
